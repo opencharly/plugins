@@ -1,0 +1,10 @@
+{
+  "name": "charly-kubernetes",
+  "description": "Schema authoring reference for `kind: k8s` entities — Kustomize manifest generation, cluster profiles, and live cluster probes via `charly check k8s`.",
+  "version": "1.0.0",
+  "author": { "name": "opencharly" },
+  "homepage": "https://github.com/opencharly/charly",
+  "repository": "https://github.com/opencharly/charly-plugins",
+  "license": "MIT",
+  "keywords": ["charly", "kubernetes", "k8s", "schema", "kustomize"]
+}

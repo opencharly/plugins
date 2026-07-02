@@ -1,0 +1,7 @@
+{
+  "name": "charly-filebrowser",
+  "description": "Self-contained skills for the filebrowser image (web-based file management on top of an charly volume).",
+  "version": "1.0.0",
+  "author": { "name": "opencharly" },
+  "repository": "https://github.com/opencharly/charly-plugins"
+}

@@ -1,0 +1,12 @@
+# Editor / OS scratch
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# Migration rollback backups (`charly migrate` writes <file>.bak.<unix-ts>)
+*.bak
+*.bak.*
+
+# Syncthing conflict copies — per-machine, ephemeral, resolved by hand; never versioned.
+*.sync-conflict-*

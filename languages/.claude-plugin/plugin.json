@@ -1,0 +1,10 @@
+{
+  "name": "charly-languages",
+  "description": "Programming language runtimes and package managers — python, python-ml, golang, rust, nodejs, pixi, uv.",
+  "version": "1.0.0",
+  "author": { "name": "opencharly" },
+  "homepage": "https://github.com/opencharly/charly",
+  "repository": "https://github.com/opencharly/charly-plugins",
+  "license": "MIT",
+  "keywords": ["charly", "python", "golang", "rust", "nodejs", "pixi", "uv"]
+}

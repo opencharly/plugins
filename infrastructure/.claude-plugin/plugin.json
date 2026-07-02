@@ -1,0 +1,10 @@
+{
+  "name": "charly-infrastructure",
+  "description": "Infrastructure services and system layers — databases (postgresql, redis, valkey, vectorchord), k3s cluster, traefik, supervisord, tailscale, gocryptfs, virtualization, system tooling.",
+  "version": "1.0.0",
+  "author": { "name": "opencharly" },
+  "homepage": "https://github.com/opencharly/charly",
+  "repository": "https://github.com/opencharly/charly-plugins",
+  "license": "MIT",
+  "keywords": ["charly", "postgresql", "redis", "k3s", "traefik", "tailscale", "supervisord"]
+}

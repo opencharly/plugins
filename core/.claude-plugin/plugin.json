@@ -1,0 +1,7 @@
+{
+  "name": "charly-core",
+  "description": "Daily-ops verbs for managing charly-built containers — start, stop, restart, charly-status, logs, shell, deploy, charly-update. Every consumer enables this.",
+  "version": "1.0.2",
+  "author": { "name": "opencharly" },
+  "repository": "https://github.com/opencharly/charly-plugins"
+}

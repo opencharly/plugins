@@ -1,0 +1,7 @@
+{
+  "name": "charly-comfyui",
+  "description": "Self-contained skills for running the comfyui image-generation/diffusion image.",
+  "version": "1.0.0",
+  "author": { "name": "opencharly" },
+  "repository": "https://github.com/opencharly/charly-plugins"
+}

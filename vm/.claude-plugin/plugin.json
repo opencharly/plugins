@@ -1,0 +1,10 @@
+{
+  "name": "charly-vm",
+  "description": "Schema authoring reference for `kind: vm` entities — vms.yml composition, libvirt/QEMU backends, cloud_image vs bootc sources, and the bootc VM catalog.",
+  "version": "1.0.0",
+  "author": { "name": "opencharly" },
+  "homepage": "https://github.com/opencharly/charly",
+  "repository": "https://github.com/opencharly/charly-plugins",
+  "license": "MIT",
+  "keywords": ["charly", "vm", "libvirt", "bootc", "schema"]
+}

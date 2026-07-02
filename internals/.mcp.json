@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "github": {
+      "command": "github-mcp-server",
+      "args": [
+        "stdio",
+        "--tools",
+        "get_me,list_workflows,list_workflow_runs,get_workflow_run,get_job_logs,list_workflow_jobs,get_file_contents,list_commits,get_commit,list_branches,issue_read,issue_write,add_issue_comment,list_issues,search_issues,pull_request_read,list_pull_requests,search_pull_requests"
+      ]
+    }
+  }
+}

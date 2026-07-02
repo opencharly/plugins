@@ -1,0 +1,7 @@
+{
+  "name": "charly-hermes",
+  "description": "Self-contained skills for the hermes agent image (hermes + hermes-playwright variants). Consumes the jupyter MCP server for notebook manipulation — enable charly-jupyter alongside.",
+  "version": "1.0.0",
+  "author": { "name": "opencharly" },
+  "repository": "https://github.com/opencharly/charly-plugins"
+}

@@ -1,0 +1,10 @@
+{
+  "name": "charly-tools",
+  "description": "CLI utilities and the charly binary deploy artifacts — ripgrep, himalaya, whisper, nano-pdf, summarize, ordercli, gogcli, sherpa-onnx, and the `charly` CLI deploy layers.",
+  "version": "1.0.0",
+  "author": { "name": "opencharly" },
+  "homepage": "https://github.com/opencharly/charly",
+  "repository": "https://github.com/opencharly/charly-plugins",
+  "license": "MIT",
+  "keywords": ["charly", "cli", "tools", "utilities"]
+}

@@ -1,0 +1,7 @@
+{
+  "name": "charly-openclaw",
+  "description": "Self-contained skills for the openclaw image family (CachyOS base): the headless openclaw gateway and the maximal non-browser openclaw-full.",
+  "version": "1.0.0",
+  "author": { "name": "opencharly" },
+  "repository": "https://github.com/opencharly/charly-plugins"
+}

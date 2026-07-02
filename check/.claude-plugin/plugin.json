@@ -1,0 +1,10 @@
+{
+  "name": "charly-check",
+  "description": "Live-container evaluation and probe verbs — `charly check` orchestrator plus per-protocol live probes (cdp, wl, wl-overlay, dbus, vnc, spice, libvirt, record, adb, appium).",
+  "version": "1.0.0",
+  "author": { "name": "opencharly" },
+  "homepage": "https://github.com/opencharly/charly",
+  "repository": "https://github.com/opencharly/charly-plugins",
+  "license": "MIT",
+  "keywords": ["charly", "check", "probe", "automation", "live"]
+}
