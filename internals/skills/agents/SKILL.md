@@ -358,10 +358,25 @@ The playbook:
    dynamic-workflow harness ceiling); the real limit is host CPU/RAM/podman, and
    there is no global build lock (pod beds take no ledger flock, `.build/<image>`
    is per-image). KVM/libvirt are multi-tenant and podman builds distinct image
-   tags concurrently, so pod and VM beds run alongside each other. Partition by
-   expected DURATION, not bed count: start the long poles (VM/desktop beds, as
-   persistent-session background tasks) FIRST and overlap the cheap pod beds
-   underneath, so wall-clock ≈ the slowest single bed.
+   tags concurrently, so pod and VM beds run alongside each other. **The one
+   concrete ceiling is podman's sqlite container-store write-lock** — every
+   container CREATE (`podman build` AND `podman run --rm`) serializes on it, so
+   oversaturating one busy store (many concurrent bed builds + external `podman`
+   commands + orphaned containers, all at once) fails ops with `Error: beginning
+   transaction: database is locked` (rc 125). A `podman run --rm` KILLED
+   mid-create — e.g. by a per-probe timeout, or a foreground `Bash` 120s-cap kill
+   on a concurrent throwaway `podman run` — orphans a never-removed `Created`
+   container; these accumulate and slow every subsequent store transaction (the
+   spiral). Podman handles reasonable concurrency fine on a CLEAN store (measured:
+   48 concurrent creates in ~2s; 16 on a large real store in ~27s, 0 failures), so
+   keep the store clean — sweep anonymous orphans (`podman ps -a --filter
+   status=created` → remove the non-`charly-`/non-operator ones) and do NOT pile
+   external `podman` commands (ad-hoc reproductions, prunes) onto a running roster.
+   `transient_store` (container DB in tmpfs) is podman's escape hatch for extreme
+   churn, but is usually unnecessary — a clean store + sane concurrency suffices.
+   Partition by expected DURATION, not bed count: start the long poles (VM/desktop
+   beds, as persistent-session background tasks) FIRST and overlap the cheap pod
+   beds underneath, so wall-clock ≈ the slowest single bed.
 5. **The lead owns the single commit**, gated on the consolidated full
    final-code live test (the beds in parallel). Teammates never commit/push.
 

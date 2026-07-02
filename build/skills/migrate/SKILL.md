@@ -62,7 +62,7 @@ A step is a small record:
 `runMigrations` (`charly/migrate.go`, driving the engine in `charly/migrate_engine.go`) is **floor-gated**, comparing the config's `version:` stamp against `kit.SchemaFloor()` and `kit.LatestSchemaVersion()`:
 
 - **at HEAD** → no-op; prints `nothing to migrate (already at schema <HEAD>)`.
-- **below the floor, or not a CalVer at all** → **unmigratable**: refused with an actionable error (`predates the supported floor … re-author against the current schema`) and **NO filesystem change**. Configs from before the baseline reset fall here.
+- **below the floor, or not a CalVer at all** → **unmigratable**: refused with an actionable error (`predates the supported floor … re-author against the current schema`) and **NO filesystem change**. Configs from before the baseline reset fall here. A stranded **per-host** config (`~/.config/charly/charly.yml`) at a below-floor version is doubly stuck: it can neither migrate NOR be WRITTEN — `saveDeployState` refuses to overwrite a config it cannot load (`refusing to overwrite … the existing per-host config fails to load … fix it (or remove it to regenerate) first`), so every pod/vm/local deploy — including a `charly check run <bed>` at its `config`/`deploy-add` step — fails until it is reset. Since it holds only regenerable deploy STATE (no authored intent), back it up and reset it to a bare `version: <HEAD>` stub (or remove it); the state rebuilds on the next deploy.
 - **in `[floor, HEAD)`** → apply every migration-table step newer than the stamp (in order, via the op-walker / `apply:` hooks), then re-stamp every versioned file to HEAD (`universalStamp`).
 
 Per-step backups follow the established `<file>.bak.<unix-ts>` convention.
