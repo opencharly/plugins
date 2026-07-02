@@ -358,22 +358,25 @@ The playbook:
    dynamic-workflow harness ceiling); the real limit is host CPU/RAM/podman, and
    there is no global build lock (pod beds take no ledger flock, `.build/<image>`
    is per-image). KVM/libvirt are multi-tenant and podman builds distinct image
-   tags concurrently, so pod and VM beds run alongside each other. **The one
-   concrete ceiling is podman's sqlite container-store write-lock** — every
-   container CREATE (`podman build` AND `podman run --rm`) serializes on it, so
-   oversaturating one busy store (many concurrent bed builds + external `podman`
-   commands + orphaned containers, all at once) fails ops with `Error: beginning
-   transaction: database is locked` (rc 125). A `podman run --rm` KILLED
-   mid-create — e.g. by a per-probe timeout, or a foreground `Bash` 120s-cap kill
-   on a concurrent throwaway `podman run` — orphans a never-removed `Created`
-   container; these accumulate and slow every subsequent store transaction (the
-   spiral). Podman handles reasonable concurrency fine on a CLEAN store (measured:
-   48 concurrent creates in ~2s; 16 on a large real store in ~27s, 0 failures), so
-   keep the store clean — sweep anonymous orphans (`podman ps -a --filter
-   status=created` → remove the non-`charly-`/non-operator ones) and do NOT pile
-   external `podman` commands (ad-hoc reproductions, prunes) onto a running roster.
-   `transient_store` (container DB in tmpfs) is podman's escape hatch for extreme
-   churn, but is usually unnecessary — a clean store + sane concurrency suffices.
+   tags concurrently, so pod and VM beds run alongside each other. **Podman is NOT
+   the bottleneck** — a clean store handles high concurrency fine (measured: 48
+   concurrent container creates ~2s; 32 concurrent `podman build` on the large real
+   store, 0 failures). The failure mode is NOT a concurrency limit and is NOT fixed
+   by `transient_store` or a concurrency cap (both disproven on this host): it is
+   **orphaned probe containers poisoning podman's single sqlite container-store**. A
+   `podman run --rm` KILLED before it exits leaves the container orphaned (`--rm`
+   fires only on exit); each orphan holds a store row, and as they accumulate,
+   concurrent container-create ops (`podman build` + `podman run --rm`) fail with
+   `Error: beginning transaction: database is locked` — a self-reinforcing spiral.
+   **The one and only fix is to never leave an orphan: charly names each disposable
+   check-box probe container `charly-probe-<pid>-<seq>` and force-reaps it after
+   every probe** (`prepareJump` + `reapDisposableProbe`,
+   `charly/deploy_executor_nested.go`), so a `ProbeTimeout`-killed probe can never
+   poison the store — proven by 7 check-pod-family beds at maxjobs 7 with 0 orphaned
+   probe containers. The only residual is EXTERNAL to charly: a SIGTERM-prone
+   throwaway `podman run` (a hand-run reproduction hitting a shell timeout) orphans
+   OUTSIDE charly's reap — don't run those during a roster; `podman ps -a --filter
+   status=created` + `podman rm -f` clears any that appear.
    Partition by expected DURATION, not bed count: start the long poles (VM/desktop
    beds, as persistent-session background tasks) FIRST and overlap the cheap pod
    beds underneath, so wall-clock ≈ the slowest single bed.
