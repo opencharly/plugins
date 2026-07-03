@@ -358,55 +358,44 @@ The playbook:
    dynamic-workflow harness ceiling); the real limit is host CPU/RAM/podman, and
    there is no global build lock (pod beds take no ledger flock, `.build/<image>`
    is per-image). KVM/libvirt are multi-tenant and podman builds distinct image
-   tags concurrently, so pod and VM beds run alongside each other. **Podman is NOT
-   the bottleneck** — a clean store handles high concurrency fine (measured: 48
-   concurrent container creates ~2s; 32 concurrent `podman build` on the large real
-   store, 0 failures). The failure mode is NOT a concurrency limit and is NOT fixed
-   by `transient_store` or a concurrency cap (both disproven on this host): it is
-   **orphaned probe containers poisoning podman's single sqlite container-store**. A
-   `podman run --rm` KILLED before it exits leaves the container orphaned (`--rm`
-   fires only on exit); each orphan holds a store row, and as they accumulate,
-   concurrent container-create ops (`podman build` + `podman run --rm`) fail with
-   `Error: beginning transaction: database is locked` — a self-reinforcing spiral.
-   **The one and only fix is to never leave an orphan: charly names each disposable
-   check-box probe container `charly-probe-<pid>-<seq>` and force-reaps it after
-   every probe** (`prepareJump` + `reapDisposableProbe`,
-   `charly/deploy_executor_nested.go`), so a `ProbeTimeout`-killed probe can never
-   poison the store — proven by 7 check-pod-family beds at maxjobs 7 with 0 orphaned
-   probe containers. The only residual is EXTERNAL to charly: a SIGTERM-prone
-   throwaway `podman run` (a hand-run reproduction hitting a shell timeout) orphans
-   OUTSIDE charly's reap — don't run those during a roster; `podman ps -a --filter
-   status=created` + `podman rm -f` clears any that appear.
+   tags concurrently, so pod and VM beds run alongside each other. **The real
+   concurrency ceiling is podman's single sqlite container-store write lock — NOT
+   CPU.** Every container op (each build stage, `podman run --rm` probe, pod create,
+   teardown `rm`) takes a write transaction on the one graphroot DB; under many
+   concurrent bed cycles the lock is contended past its busy-timeout and ops fail
+   with `Error: beginning transaction: database is locked` (exit 125), cascading into
+   probe/build/deploy failures across the whole roster. Measured on 16C/123 GB: at
+   **maxjobs 14 → 0 locks** (12/13 beds pass), at **maxjobs 22 → EVERY bed hit
+   `database is locked`**. So the un-tuned ceiling is ~14-20 concurrent beds. It is
+   NOT CPU (RAM/disk have huge headroom — 83 GB + 1.4 TB free at peak; load 22-24 is
+   fine) and NOT orphans alone.
+   **The fix that RAISES the ceiling is `transient_store = true`** (`~/.config/
+   containers/storage.conf` `[storage]`, or podman's global `--transient-store`
+   flag): container run-state moves to a per-boot tmpfs DB, so the high-churn
+   container ops stop contending on the graphroot lock; images stay persistent in
+   graphroot. PROVEN — the SAME maxjobs 22 that locked EVERY bed → **0 `database is
+   locked`, 32/37 pass** with transient_store on. Enable it on any host running the
+   roster concurrently (set `[storage] driver/graphroot/runroot` to the host's real
+   values + `transient_store = true`). Tradeoff: containers don't survive reboot
+   (quadlet services recreate from image+volumes; volume DATA persists) — fine for an
+   ephemeral eval host. Complementary hygiene (a landed fix, NOT the concurrency fix):
+   the check-box reap names each probe container `charly-probe-<pid>-<seq>` and
+   force-reaps it (`reapDisposableProbe`, `charly/deploy_executor_nested.go`) so a
+   killed probe never leaves an orphan.
    Partition by expected DURATION, not bed count: start the long poles (VM/desktop
    beds, as persistent-session background tasks) FIRST and overlap the cheap pod
    beds underneath, so wall-clock ≈ the slowest single bed.
-   **CPU load is the ONE real ceiling — govern concurrency by it, never by bed
-   count.** The store (reap fix) and DNS (host-current reconcile) stay correct under
-   ANY concurrency, and RAM/disk have huge headroom (measured at peak: 83 GB RAM +
-   1.4 TB disk free). CPU is what degrades: each bed's build fans out to `--jobs`
-   (image-DAG, default 4) × `--podman-jobs` (stages, cap 4) AND — the DOMINANT,
-   charly-invisible multiplier — every candy compile step runs `make -j$(nproc)` /
-   `cargo build` at the full host core count INSIDE its container. So N beds all in
-   their BUILD phase ≈ N × nproc threads. Measured on 16C/123 GB: maxjobs 8 + 3
-   concurrent VMs peaked at **load 42 (2.6× cores)** and check-live readiness probes
-   were SIGKILLed (`signal: killed`) on jupyter / openclaw / sway-browser-vnc — the
-   SAME beds PASS at maxjobs 3. That is oversaturation, not a defect. Conversely a
-   build that FAILS under load is almost always a real deterministic bug (a dead
-   pinned repo, a broken step — e.g. the pixelflux 404 that a fragile `curl -sL | tar`
-   masked as `tar: Child returned status 1`), NOT the concurrency: **isolate any BUILD
-   failure by rebuilding it ALONE before blaming load** (RDD — a wrong "cache-race"
-   hypothesis cost a full cutover here; the alone-rebuild would have caught it first).
-   **The optimizing limit is LOAD-GATED admission, not a fixed maxjobs.** Beds are
-   phase-diverse — one pulling a base image, deploying, or in check-live burns almost
-   no CPU and overlaps a compiling bed for free. Launch beds greedily BUT gate each
-   new BUILD start on `loadavg < nproc` (hold, don't start, while the 1-min load ≥
-   cores): CPU stays fully utilised (max throughput) without the thrash that starves
-   check-live probes into timeouts. VMs parallelize orthogonally (KVM + RAM-bound,
-   light on build-CPU) — run them alongside; they barely move the pod-build load.
-   Rule of thumb on an N-core host: a pure-build wave ~maxjobs ≈ N/4 holds load ≈ N; a
-   mixed roster (build + deploy + check phases overlapping) sustains far more. A bed
-   count that's safe mid-build is wasteful during the deploy/check tail — which is why
-   the gate watches LOAD, not a count.
+   **RDD discipline, learned the hard way here:** a `database is locked` /
+   `signal: killed` (a probe hung ON the store lock, then timed out) / build crash
+   under concurrency is the STORE LOCK — enable transient_store — almost never CPU.
+   Two wrong hypotheses each cost a cutover on this campaign — "CPU oversaturation"
+   (bogus load-gate) and "cache-mount race" (bogus `sharing=locked`) — purely because
+   the ACTUAL error line (`database is locked`) was assumed instead of READ (an R1
+   violation). ALWAYS read the real error; then isolate any bed failure by re-running
+   it ALONE: **passes alone but fails in a pool → the shared store lock** (transient_
+   store), **fails alone too → a real deterministic bug** (e.g. the pixelflux 404 a
+   fragile `curl -sL | tar` masked as `tar: Child returned status 1`). With the store
+   lock removed, RAM/disk/CPU have enough headroom that maxjobs ≈ 20-24 runs cleanly.
 5. **The lead owns the single commit**, gated on the consolidated full
    final-code live test (the beds in parallel). Teammates never commit/push.
 
