@@ -380,6 +380,33 @@ The playbook:
    Partition by expected DURATION, not bed count: start the long poles (VM/desktop
    beds, as persistent-session background tasks) FIRST and overlap the cheap pod
    beds underneath, so wall-clock ≈ the slowest single bed.
+   **CPU load is the ONE real ceiling — govern concurrency by it, never by bed
+   count.** The store (reap fix) and DNS (host-current reconcile) stay correct under
+   ANY concurrency, and RAM/disk have huge headroom (measured at peak: 83 GB RAM +
+   1.4 TB disk free). CPU is what degrades: each bed's build fans out to `--jobs`
+   (image-DAG, default 4) × `--podman-jobs` (stages, cap 4) AND — the DOMINANT,
+   charly-invisible multiplier — every candy compile step runs `make -j$(nproc)` /
+   `cargo build` at the full host core count INSIDE its container. So N beds all in
+   their BUILD phase ≈ N × nproc threads. Measured on 16C/123 GB: maxjobs 8 + 3
+   concurrent VMs peaked at **load 42 (2.6× cores)** and check-live readiness probes
+   were SIGKILLed (`signal: killed`) on jupyter / openclaw / sway-browser-vnc — the
+   SAME beds PASS at maxjobs 3. That is oversaturation, not a defect. Conversely a
+   build that FAILS under load is almost always a real deterministic bug (a dead
+   pinned repo, a broken step — e.g. the pixelflux 404 that a fragile `curl -sL | tar`
+   masked as `tar: Child returned status 1`), NOT the concurrency: **isolate any BUILD
+   failure by rebuilding it ALONE before blaming load** (RDD — a wrong "cache-race"
+   hypothesis cost a full cutover here; the alone-rebuild would have caught it first).
+   **The optimizing limit is LOAD-GATED admission, not a fixed maxjobs.** Beds are
+   phase-diverse — one pulling a base image, deploying, or in check-live burns almost
+   no CPU and overlaps a compiling bed for free. Launch beds greedily BUT gate each
+   new BUILD start on `loadavg < nproc` (hold, don't start, while the 1-min load ≥
+   cores): CPU stays fully utilised (max throughput) without the thrash that starves
+   check-live probes into timeouts. VMs parallelize orthogonally (KVM + RAM-bound,
+   light on build-CPU) — run them alongside; they barely move the pod-build load.
+   Rule of thumb on an N-core host: a pure-build wave ~maxjobs ≈ N/4 holds load ≈ N; a
+   mixed roster (build + deploy + check phases overlapping) sustains far more. A bed
+   count that's safe mid-build is wasteful during the deploy/check tail — which is why
+   the gate watches LOAD, not a count.
 5. **The lead owns the single commit**, gated on the consolidated full
    final-code live test (the beds in parallel). Teammates never commit/push.
 
