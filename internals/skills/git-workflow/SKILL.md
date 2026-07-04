@@ -54,7 +54,9 @@ Policies" carries the mandate, `/charly-internals:cutover-policy` the one-phase 
   that PROVES its functionality (`check:` checks for new/changed layers & images,
   Go tests for `charly` code) AND the live run exercised it. A change whose new
   functionality has no test that would FAIL without it is not landable.
-- **Tags only on `charly.yml` repos.** `plugins` and `pkg/arch` are tag-exempt.
+- **Tags only on `charly.yml` repos** — plus the sdk contract repo, which tags
+  under its own Go-module scheme `v0.<YYYYDDD>.<HHMM stripped>` (B2 step 0).
+  `plugins` and `pkg/arch` are tag-exempt.
 
 ## B1 — the branch-per-change loop (write access)
 
@@ -94,7 +96,7 @@ rebase-then-push collision can't normally arise; in the rare case `feat/` was
 already pushed and then rebased, update the remote with
 `git push --delete origin feat/<slug>` followed by a fresh push — NEVER `--force`.
 
-## B4 — sync to upstream + prune (per repo: main, plugins, box/*)
+## B4 — sync to upstream + prune (per repo: main, sdk, plugins, box/*, pkg/*)
 
 - **Sync-before-start / before-landing.** `git fetch origin --prune --tags`; ff
   local `main` to `origin/main`. Never force-reset a diverged local `main` — if it
@@ -115,15 +117,23 @@ already pushed and then rebased, update the remote with
 ## B2 — multi-repo / multi-worktree coordination
 
 One logical change spanning several repos uses the **same `feat/<slug>` in each**
-(main, `plugins`, `box/<distro>`), so the branches correlate. R10 runs against the
+(main, `sdk`, `plugins`, `box/<distro>`), so the branches correlate. R10 runs against the
 **assembled superproject** (submodule pointers at the `feat/` commits) — the whole
 change is verified before anything merges. Then land in **dependency order**:
 
+0. the **sdk contract repo** (`github.com/opencharly/sdk`, submodule `sdk/`) —
+   commit → push → tag `v0.<YYYYDDD>.<HHMM leading-zeros-stripped>` (its
+   Go-module tag scheme; the superproject `vYYYY.DDD.HHMM` form is not a valid
+   Go module version — e.g. superproject `v2026.185.0751` ⇄ sdk
+   `v0.2026185.751`) — whenever the cutover touched sdk content;
 1. each `box/<distro>` submodule — commit → `--ff-only` merge → tag (it has
    `charly.yml`) → push;
 2. `plugins` — commit → `--ff-only` merge → push (**no tag**, no `charly.yml`);
-3. the superproject — stage the now-merged submodule pointers → atomic commit →
-   `--ff-only` merge → tag `main` → push.
+3. the superproject — stage the now-merged submodule pointers (a touched sdk:
+   the `sdk` gitlink bump PLUS the `charly/go.mod` require version — in-tree
+   resolution rides `replace github.com/opencharly/sdk => ../sdk`, so the
+   require version matters only for out-of-tree consumers, but it is staged
+   here) → atomic commit → `--ff-only` merge → tag `main` → push.
 
 **Submodule-pointer-bump safety (step 3) — bump AFTER the switch, then stage AND
 verify.** A `git switch` / `git checkout` re-materializes each submodule at the
@@ -255,8 +265,9 @@ the path you edited AND `git -C /abs status --short` lists your edits.
 **1. Sync-before-start.** `git fetch origin --prune --tags`; ff local `main` to
 `origin/main` (B4).
 
-**2. Land in dependency order, same `feat/<slug>` in every repo** (box submodules →
-plugins → superproject). Per-repo mechanics = B2 + B1; pointer-bump safety = B2 step 3.
+**2. Land in dependency order, same `feat/<slug>` in every repo** (sdk when touched →
+box submodules → plugins → superproject). Per-repo mechanics = B2 + B1; pointer-bump
+safety = B2 step 3.
 Two proven additions:
   - **plugins docs commit at `documentation reviewed`: `git -C <LITERAL-abs-plugins>
     commit …`.** RDD-proven on the live gate: a literal `-C` scopes `pre-commit-gate.sh`
@@ -324,7 +335,7 @@ git tag -a "v$VER" -m "<subject>" HEAD   # the tag mirrors the changelog file na
 
 ONE fresh stamp per push (a repo accumulates many changelog files / tags), immutable
 (only ever added), INDEPENDENT of `charly.yml` `version:` (the schema version, bumped
-only by a cutover raising `#SchemaVersion` in `charly/schema/version.cue`). Every
+only by a cutover raising `#SchemaVersion` in `sdk/schema/version.cue`). Every
 landing writes exactly one `CHANGELOG/$VER.md`; a repo WITH a `charly.yml` (superproject,
 `box/<distro>`) additionally mints the matching `v$VER` git tag, while `plugins`/`pkg-*`
 stay tag-exempt (changelog file only). A YAML schema/format change does BOTH: raise

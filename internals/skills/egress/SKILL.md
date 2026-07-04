@@ -30,11 +30,11 @@ description: |
 charly's CUE work has two halves:
 
 - **Ingress** (`charly/cue_schema.go`): validates the INPUT config a user authors
-  (`charly.yml` / box / candy / vm / k8s / pod) against `schema/*.cue`, AND is
+  (`charly.yml` / box / candy / vm / k8s / pod) against `sdk/schema/*.cue`, AND is
   the single source for the Go param structs that config decodes into — the
-  `@go()`-annotated `schema/*.cue` GENERATE the `charly/spec` param structs via
-  `task cue:gen` (`cue exp gengotypes`), kept honest by the reproducibility +
-  parity tests. Owned by `/charly-build:validate`; the schema-change codegen
+  `@go()`-annotated `sdk/schema/*.cue` GENERATE the `sdk/spec` param structs via
+  `task cue:gen` (`cue exp gengotypes`, run in the sdk repo; the superproject task
+  chains it), kept honest by the reproducibility + parity tests. Owned by `/charly-build:validate`; the schema-change codegen
   recipe is `/charly-internals:go` "Updating Go code when an ingress CUE schema
   changes".
 - **Egress** (`charly/egress.go`, this skill): validates the OUTPUT config charly

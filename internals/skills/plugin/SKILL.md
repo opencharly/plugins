@@ -209,7 +209,7 @@ See "Authoring an external COMMAND plugin" below.
     its `Stage` (a `FROM <ref> AS <name>` block) is spliced PRE-main-FROM, its `CopyArtifacts`+`CopyBinary`
     (`COPY --from=<stage> …`) POST-main-FROM, and an INLINE builder's `InlineFragment` in-candy. This serves BOTH
     the four DETECTION-builders (pixi/npm/aur/cargo — selected by a candy's detect files, rendered via the shared
-    `charly/plugin/kit.BuilderResolve`, C10) AND an out-of-tree builder a candy selects with `external_builder: <word>`.
+    `sdk/kit.BuilderResolve`, C10) AND an out-of-tree builder a candy selects with `external_builder: <word>`.
     This is the build-time BUILDER leg — the multi-stage counterpart of the verb/step OpEmit leg, so `builder` is an
     external-capable class at build too (alongside verb/kind/deploy/step). The `command` class has no build-time
     leg — a command dispatches at CLI invocation, not at build — and is external-capable THERE via `Invoke(OpRun)`
@@ -227,7 +227,7 @@ SELF-CONTAINED (package-less, references no base def) and used two ways — the 
    `plugin_input` into that TYPED struct — never a hand-parsed `map[string]any`, never a hand-written struct.
 2. **RUNTIME → schema-over-RPC.** The plugin SERVES its `.cue` source over the Provider **`Describe`**
    channel (the proto `Capabilities.schema_cue` field + structured `ProvidedCapability{class,word,input_def}`).
-   The host splices it onto charly's base schema (`base ++ plugin`, via `internal/schemaconcat` — the SAME
+   The host splices it onto charly's base schema (`base ++ plugin`, via the public `sdk/schemaconcat` — the SAME
    concat contract as the runtime `sharedCueSchema`, R3) and validates every authored `plugin_input` against
    the plugin's def (e.g. `#MyprobeInput`). The host **never reads a candy's `schema/` dir from disk** — the
    schema travels WITH the plugin.
@@ -281,22 +281,26 @@ schema-handling one.
 
 ## The retired in-charly-module builtin path
 
-There is NO LONGER an "in-charly-module builtin" path — a Provider whose Go lived in
-`charly/plugin/builtins/<name>/` and registered from `package main`'s `init()` via
-`RegisterBuiltinPluginUnit`. It was retired as each builtin relocated into a candy: the
-`charly/plugin/builtins/` subtree is GONE, and the last unit, `examplerunverb`, is now the compiled-in
+There is NO LONGER an "in-charly-module builtin" path — a Provider whose Go lived under the charly
+module's former `plugin/builtins/<name>/` subtree and registered from `package main`'s `init()` via
+`RegisterBuiltinPluginUnit`. It was retired as each builtin relocated into a candy: that
+subtree is GONE, and the last unit, `examplerunverb`, is now the compiled-in
 kit candy `candy/plugin-examplerunverb/` (guarded by `charly/plugin_examplerunverb_relocated_test.go`).
 The `source: builtin` candy-linkage form is likewise gone (exampleprobe is a real candy module).
 
 Every builtin today is ONE of the two CANDY forms below — a candy COMPILED IN via `compiled_plugins:`
 ("Authoring a COMPILED-IN plugin candy") or a HOST-COUPLED check-verb KIT candy ("Authoring a
-HOST-COUPLED check-verb candy"). Author new builtins as one of those; there is no `charly/plugin/builtins/`
-to mirror.
+HOST-COUPLED check-verb candy"). Author new builtins as one of those; there is no in-charly-module
+builtins subtree to mirror.
 
 ## Authoring an EXTERNAL plugin (out-of-tree git repo)
 
-The candy IS its own Go module (`go.mod` + `replace …/charly => …` while in-repo). Mirror
-`candy/plugin-example-external/`:
+The candy IS its own Go module — its `go.mod` carries `require github.com/opencharly/sdk v0.0.0`
+plus, while in-repo, `replace github.com/opencharly/sdk => ../../sdk`; a PUBLISHED out-of-tree module
+drops the replace and requires a TAGGED `github.com/opencharly/sdk` instead (tag scheme
+`v0.<YYYYDDD>.<HHMM leading-zeros-stripped>`, e.g. superproject `v2026.185.0751` ⇄ sdk `v0.2026185.751` —
+the superproject's own `vYYYY.DDD.HHMM` tags are not valid Go module versions). A plugin module imports
+ONLY the sdk module, never charly core. Mirror `candy/plugin-example-external/`:
 
 - `schema/<name>.cue` — the self-contained def (same shape as a builtin's).
 - `params/cue_types_gen.go` — generated the same way (the gen loop also covers the in-repo example).
@@ -326,9 +330,10 @@ placements, ZERO authoring change.
   candy-inclusion choice).
 - `pluginsgen` (`charly/internal/pluginsgen`, run by `task build:charly` before `go build`, `GOWORK=off`,
   stdlib+yaml only) reads `compiled_plugins:` and emits `charly/plugins_generated.go` (one
-  `registerCompiledPlugin(<pkg>.NewProvider(), <pkg>.NewMeta())` per candy) + the repo-root `go.work` (a
-  `use ./candy/<name>` per candy, so `go build ./charly` resolves the candy imports). Both are COMMITTED
-  + reproducibility-gated (`TestPluginsGenReproducible`).
+  `registerCompiledPlugin(<pkg>.NewProvider(), <pkg>.NewMeta())` per candy) + the repo-root `go.work`
+  (`use ./charly` + `use ./sdk` + a `use ./candy/<name>` per candy, so `go build ./charly` resolves the
+  candy imports; pluginsgen guards a missing sdk submodule with a clear `git submodule update --init sdk`
+  error). Both are COMMITTED + reproducibility-gated (`TestPluginsGenReproducible`).
 - `registerCompiledPlugin` drives `InProcServedTransport`: it calls the candy's `Describe` IN-PROCESS, runs
   the SAME `buildUnit` capability-lift + schema gate an external goes through (so the compiled-in schema
   enters the SAME `loadBuiltinPluginUnits` gate), and registers each capability wrapped in an
@@ -344,7 +349,7 @@ placements, ZERO authoring change.
 ## Authoring a HOST-COUPLED check-verb candy (the kit — dual-placement via the reverse channel)
 
 A check verb whose logic needs the LIVE check engine — exec-in-container, host-vantage HTTP, host TCP
-dial (`file`/`http`/`port`/`command`/`service`/…) — implements **`charly/plugin/kit`**, the importable
+dial (`file`/`http`/`port`/`command`/`service`/…) — implements **`sdk/kit`**, the importable
 contract for the check engine. It runs in EITHER placement, invisibly above the registry: COMPILED-IN
 (charly passes the live `*Runner` as the `kit.CheckContext`) OR OUT-OF-PROCESS (the CheckContext legs are
 served back over the host's reverse channel — ExecutorService for `cc.Exec()` + CheckContextService for
@@ -361,8 +366,8 @@ their `cmd/serve` shim. Shape:
 - COMPILED-IN: charly's `registerCompiledCheckVerb` (generated into `plugins_generated.go` by pluginsgen,
   which detects the kit shape by the exported `NewCheckVerb`) wraps it in a `kitVerbAdapter` (a package-main
   `CheckVerbProvider` that passes the live `*Runner` as a `kit.CheckContext` via `runnerCheckContext` and
-  converts `kit.Result`→`CheckResult`), concatenates the candy's schema (the candy can't import
-  `internal/schemaconcat`), and registers through the SAME `RegisterBuiltinPluginUnit` gate (origin
+  converts `kit.Result`→`CheckResult`), concatenates the candy's schema (via the public
+  `sdk/schemaconcat`), and registers through the SAME `RegisterBuiltinPluginUnit` gate (origin
   `"builtin"`). Dispatch is the SAME `runOne`→`CheckVerbProvider.RunVerb` path a compiled-in candy verb
   uses — full typed fast path, the real `*Runner`, no envelope.
 - OUT-OF-PROCESS: a `cmd/serve/main.go` shim calls `sdk.ServeCheckVerb(pkg.NewCheckVerb(), calver,
@@ -372,21 +377,20 @@ their `cmd/serve` shim. Shape:
   `LocalTransport` when the candy is NOT in `compiled_plugins`; `invokeVerbProvider` (provider_checkenv.go)
   serves BOTH reverse services on one broker id. The verdict round-trips as the same `{status,message}`
   every out-of-process verb returns.
-- `kit` imports only the stdlib + `charly/spec`; the candy imports `kit` + `sdk` + `spec` + its `params`.
+- `kit` imports only the stdlib + `sdk/spec`; the candy imports `kit` + `sdk` + `spec` + its `params`.
 
 A kit candy keeps the verb's logic (RunVerb on `kit.CheckContext`) OUTSIDE charly's module while preserving
 the typed fast path — runnable in-proc (compiled-in, the real `*Runner`, no envelope) OR out-of-process (the
 reverse channel) with ZERO authoring change.
 
-The SDK (`charly/plugin/sdk`) is the primary charly package an external module imports — `Serve`,
-`ServeCheckVerb` (the kit-verb out-of-process serve entry), `Handshake`, `BuildCapabilities`,
-`ProvidedCapability`, `Conn`, plus the shared out-of-process check-verb helpers `ResultJSON`
-(the `{status,message}` reply) / `CheckRequiredModifiers` (the required-modifier check) + the
-`*Executor` venue methods `VenueCapture`/`VenueHasTool`/`VenueRunSilent`. An external module ALSO
-imports the pure-helper package `charly/plugin/kit` directly (stdlib + `charly/spec` only —
-`ShellQuote`, `TrimPreview`, `MethodSpec`, `WalkPlans`, …; the SDK imports it too). `schemaconcat`
-stays `internal/` (the SDK, under `charly/`, imports it; the external module reaches it only
-transitively through the SDK).
+The SDK module (`github.com/opencharly/sdk`) is the ONLY module a plugin imports — root package
+`sdk` (`Serve`, `ServeCheckVerb` (the kit-verb out-of-process serve entry), `Handshake`,
+`BuildCapabilities`, `ProvidedCapability`, `Conn`, plus the shared out-of-process check-verb helpers
+`ResultJSON` (the `{status,message}` reply) / `CheckRequiredModifiers` (the required-modifier check) +
+the `*Executor` venue methods `VenueCapture`/`VenueHasTool`/`VenueRunSilent`), `sdk/kit` (the
+pure-helper package, stdlib + `sdk/spec` only — `ShellQuote`, `TrimPreview`, `MethodSpec`,
+`WalkPlans`, …; the SDK root imports it too), `sdk/spec`, and `sdk/proto`. `schemaconcat` is the
+public `sdk/schemaconcat` package (the SDK uses it internally).
 
 ## Authoring an external COMMAND plugin (a `charly <word>` subcommand)
 
@@ -445,11 +449,11 @@ compile.)
 - `/charly-image:layer` — the candy authoring surface the `plugin:` block extends.
 - `/charly-check:check` — the `plugin:` check verb + ADE (a plugin's own acceptance plan).
 - `/charly-build:validate` — `charly box validate` rules.
-- `/charly-internals:install-plan` — the `externalDeployTarget` deploy lifecycle (`OpExecute` reverse channel, ledger record) + the `OpEmit` build-time fragment; the deploy wire types in `charly/spec/deploy_wire.go`.
+- `/charly-internals:install-plan` — the `externalDeployTarget` deploy lifecycle (`OpExecute` reverse channel, ledger record) + the `OpEmit` build-time fragment; the deploy wire types in `sdk/spec/deploy_wire.go`.
 - `/charly-build:generate` + `/charly-internals:generate-source` — the build-time plugin connect seam + the `emitTasks` placement-agnostic plugin-verb dispatch (`OpEmit` → fragment).
 
 ## When to Use This Skill
 
-Invoke before authoring or editing any `plugin:` block, any `charly/plugin/**` code, the plugin SDK, a
+Invoke before authoring or editing any `plugin:` block, any `sdk/**` code, the plugin SDK, a
 compiled-in plugin candy (`compiled_plugins:`) or host-coupled kit candy, an external plugin module, or the
 plugin schema/param gen pipeline.

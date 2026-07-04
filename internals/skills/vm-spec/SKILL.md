@@ -4,7 +4,7 @@ description: |
   Go type reference for VmSpec and the discriminated-union source types
   (VmSource cloud_image | bootc | clone | imported | bootstrap). Documents every
   field, validation rules, and the adopt-user decision. Source files:
-  charly/spec/cue_types_gen.go (generated), charly/schema/vm.cue, charly/vmshared/.
+  sdk/spec/cue_types_gen.go (generated), sdk/schema/vm.cue, sdk/vmshared/.
   MUST be invoked before editing VmSpec Go code or authoring vm.yml entries.
 ---
 
@@ -16,10 +16,10 @@ Go type reference for the VM surface. `VmSpec` + `VmSource` + `VmChecksum` + `Vm
 
 | File | Contents |
 |---|---|
-| `charly/spec/cue_types_gen.go` (generated; charly-name aliases in `spec/charly_names.go`) | `VmSpec` (= `Vm`), `VmSource`, `VmChecksum`, `VmNetwork`, `VmSSH`, `VmKeyInjection` |
-| `charly/spec/cue_types_gen.go` (generated) | `VmCloudInit`, `VmCloudInitUser`, `VmCloudInitFile`, `VmCloudInitNetwork`, `VmCloudInitMirrors`, `VmCharlyInstall` |
-| `charly/libvirt_yaml.go` | `LibvirtDomain` + 30+ sub-types (features, CPU, clock, devices, etc.) |
-| `charly/schema/vm.cue` + `cue_kind_vm.go` | `#Vm` — the closed CUE schema validating `VmSpec` + the `#LibvirtDomain`/`#VmCloudInit` subtrees (registered in the per-kind CUE registry; the Go VM/libvirt validators were deleted) |
+| `sdk/spec/cue_types_gen.go` (generated; charly-name aliases in `sdk/spec/charly_names.go`) | `VmSpec` (= `Vm`), `VmSource`, `VmChecksum`, `VmNetwork`, `VmSSH`, `VmKeyInjection` |
+| `sdk/spec/cue_types_gen.go` (generated) | `VmCloudInit`, `VmCloudInitUser`, `VmCloudInitFile`, `VmCloudInitNetwork`, `VmCloudInitMirrors`, `VmCharlyInstall` |
+| `sdk/vmshared/libvirt_yaml.go` | `LibvirtDomain` + 30+ sub-types (features, CPU, clock, devices, etc.) |
+| `sdk/schema/vm.cue` + `cue_kind_vm.go` | `#Vm` — the closed CUE schema validating `VmSpec` + the `#LibvirtDomain`/`#VmCloudInit` subtrees (registered in the per-kind CUE registry; the Go VM/libvirt validators were deleted) |
 
 ## VmSpec (top-level shape)
 
@@ -143,7 +143,7 @@ type VmCharlyInstall struct {
 | `url` | cloud-init runcmd downloads charly from URL at first boot |
 | `skip` | user manages charly install; the vm lifecycle hook's `PrepareVenue` verifies presence only |
 
-## Validation (charly/schema/vm.cue)
+## Validation (sdk/schema/vm.cue)
 
 The closed `#Vm` CUE schema (registered via `cue_kind_vm.go`) enforces every VmSpec
 invariant — there is no Go VM validator. Key checks:

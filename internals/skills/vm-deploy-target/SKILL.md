@@ -4,7 +4,7 @@ description: |
   The `vm` deploy substrate applies an InstallPlan INSIDE a running VM over
   SSH. `vm` is an EXTERNAL out-of-process deploy substrate (like
   local/android/k8s): the plan WALK runs in candy/plugin-deploy-vm via the
-  shared charly/plugin/kit.WalkPlans over the GUEST SSHExecutor the executor
+  shared sdk/kit.WalkPlans over the GUEST SSHExecutor the executor
   reverse channel serves, and the host-side VM venue lifecycle (boot the
   domain, build the guest SSH executor, nested-pod-in-guest, teardown, the
   `charly vm` lifecycle) lives in the registered vmSubstrateLifecycle hook. The
@@ -30,7 +30,7 @@ no in-proc VM deploy target: the plan WALK runs OUT-OF-PROCESS in
 `candy/plugin-deploy-vm` (serving the `deploy:vm` word) — a near-clone of
 `candy/plugin-deploy-local`. The plugin receives the deployment's `InstallPlan`
 VIEWS over the executor reverse channel and walks them via the shared
-`charly/plugin/kit.WalkPlans` — the SAME walk `deploy:local` uses. The
+`sdk/kit.WalkPlans` — the SAME walk `deploy:local` uses. The
 difference is purely the executor's TRANSPORT: the executor the reverse channel
 serves for a vm deploy is the **guest `SSHExecutor`**, so the SAME `kit.WalkPlans`
 that runs a local deploy on the host runs a vm deploy **inside the guest** over SSH.
@@ -195,7 +195,7 @@ deploy it lands in the guest's detected login-shell init via the reverse legs
 shared body/path helpers (`ManagedBlockBody`, `ShellInitFilePath`,
 `replaceOrAppendManagedBlock`)
 live in `charly/shell_profile.go`; the plugin renders the equivalent via
-`charly/plugin/kit/profile.go`. Without this block the per-layer env.d files
+`sdk/kit/profile.go`. Without this block the per-layer env.d files
 exist but are never sourced, so PATH never picks up `~/.npm-global/bin` etc. The
 shell is detected from the GUEST `/etc/passwd` (getent), because the guest's
 interactive default may differ from the operator's (CachyOS ships fish) —

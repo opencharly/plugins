@@ -389,7 +389,7 @@ Raw-XML escape hatch: the `<name>-libvirt` node's `libvirt.snippets:` (list of s
 
 Layer-level raw snippets: a candy's `charly.yml` `libvirt.snippets:` is supported for layers that contribute device XML (e.g., `/charly-distros:qemu-guest-agent` contributes the virtio-serial channel). Box-level `libvirt: [...]` is not a valid field — VM XML lives on the VM entity's `<name>-libvirt` child node.
 
-Source: `charly/libvirt.go`, `charly/libvirt_yaml.go`, `charly/libvirt_yaml_bridge.go`.
+Source: `charly/libvirt.go`, `sdk/vmshared/libvirt_yaml.go`, `candy/plugin-vm/libvirt_yaml_bridge.go`.
 
 ## Common Workflows
 

@@ -5,8 +5,9 @@ description: |
   libvirtxml library) and QEMU argv. Covers RenderDomainXML, device emission (passt
   backend, portForward attribute order, virtio-gpu defaults), firmware plumbing, and
   LibvirtDomain schema shape.
-  Source: charly/libvirt_yaml.go, charly/libvirt_yaml_bridge.go, charly/libvirt_helpers.go,
-  charly/qemu_render.go. MUST be invoked before editing libvirt XML emission.
+  Source: sdk/vmshared/libvirt_yaml.go, candy/plugin-vm/libvirt_yaml_bridge.go,
+  sdk/vmshared/libvirt_helpers.go, sdk/vmshared/qemu_render.go.
+  MUST be invoked before editing libvirt XML emission.
 ---
 
 # libvirt-renderer
@@ -17,12 +18,12 @@ The libvirt renderer converts `VmSpec` + `LibvirtDomain` into a libvirt domain X
 
 | File | Contents | LOC |
 |---|---|---|
-| `charly/libvirt_yaml.go` | `LibvirtDomain` + 30+ sub-types (features, CPU, clock, memory backing, memtune, numatune, cputune, devices, seclabel, launch security, resource, sysinfo) | ~480 |
-| `charly/libvirt_yaml_bridge.go` | `RenderDomainXML`/`BuildLibvirtDomainXML` top-level composition (builds a `libvirtxml.Domain`); `buildDomainDevices` `<devices>` child emitters — channels, graphics, video, rng, memballoon, hostdev, interface (with portForward), filesystem; firmware plumbing (D17); SMBIOS credentials; `XMLPassthrough` merge | ~1850 |
-| `charly/libvirt_helpers.go` | helpers shared by the libvirt YAML bridge + `qemu_render` argv emitter (incl. `VmRuntimeParams`) | ~160 |
-| `charly/libvirt_yaml_listen.go` | structured `<listen>` support for `LibvirtGraphics` | ~130 |
-| `charly/qemu_render.go` | `RenderQemuArgv` for direct-QEMU backend | ~340 |
-| `charly/schema/vm.cue` | `#LibvirtDomain` — the closed CUE schema for the libvirt subtree (enums/ranges/PCI-hex + the `uefi-secure ⇒ smm` cross-rule); registered via `cue_kind_vm.go`. Validation lives here, not in Go |
+| `sdk/vmshared/libvirt_yaml.go` | `LibvirtDomain` + 30+ sub-types (features, CPU, clock, memory backing, memtune, numatune, cputune, devices, seclabel, launch security, resource, sysinfo) | ~480 |
+| `candy/plugin-vm/libvirt_yaml_bridge.go` | `RenderDomainXML`/`BuildLibvirtDomainXML` top-level composition (builds a `libvirtxml.Domain`); `buildDomainDevices` `<devices>` child emitters — channels, graphics, video, rng, memballoon, hostdev, interface (with portForward), filesystem; firmware plumbing (D17); SMBIOS credentials; `XMLPassthrough` merge | ~1850 |
+| `sdk/vmshared/libvirt_helpers.go` | helpers shared by the libvirt YAML bridge + `qemu_render` argv emitter (incl. `VmRuntimeParams`) | ~160 |
+| `sdk/vmshared/libvirt_yaml_listen.go` | structured `<listen>` support for `LibvirtGraphics` | ~130 |
+| `sdk/vmshared/qemu_render.go` | `RenderQemuArgv` for direct-QEMU backend | ~340 |
+| `sdk/schema/vm.cue` | `#LibvirtDomain` — the closed CUE schema for the libvirt subtree (enums/ranges/PCI-hex + the `uefi-secure ⇒ smm` cross-rule); registered via `cue_kind_vm.go`. Validation lives here, not in Go |
 
 ## LibvirtDomain top-level
 
@@ -204,7 +205,7 @@ Intended for environments without libvirt session daemon (some CI runners, air-g
 ## Validation
 
 The libvirt subtree is validated by the closed `#LibvirtDomain` CUE schema
-(`charly/schema/vm.cue`, registered via `cue_kind_vm.go`) — there is no Go
+(`sdk/schema/vm.cue`, registered via `cue_kind_vm.go`) — there is no Go
 libvirt validator. It rejects:
 
 - unknown keys (a typo — the schema is closed, no trailing `...`).

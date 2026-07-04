@@ -183,7 +183,7 @@ There is no in-proc android deploy target.
   truth) + the relaxed `checkDeployProviderBijection` (in-proc XOR externalized).
 - `charly/plugin_prescan.go` — `isExternalDeploySubstrate` (a substrate kind is
   external iff in `externalizedDeploySubstrates`).
-- `charly/spec/deploy_wire.go` — `DeployVenue.Substrate` + `AndroidDeployVenue`.
+- `sdk/spec/deploy_wire.go` — `DeployVenue.Substrate` + `AndroidDeployVenue`.
 - `candy/plugin-adb/deploy.go` — the `deploy:android` provider (boot gate + install
   loop with retry + uninstall reverse ops); `install.go` — the shared installer.
 - `charly/install_plan.go` — `ApkInstallStep`; `charly/install_build.go` —
