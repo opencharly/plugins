@@ -11,7 +11,7 @@ description: |
 
 Provides CLI tools for desktop automation — Wayland-native, X11, and clipboard. Used by the `wl:` check verb (served out-of-process by candy/plugin-wl). Works on all wlroots compositors (sway, labwc). No daemon or special device access needed.
 
-On KWin (KDE Plasma) the `wl:` verb reuses this candy's `wtype` (keyboard) and `wl-clipboard` (KWin implements `wlr-data-control`); window management on KWin is driven by `kdotool` (KWin scripting), which is shipped by the `kde-shell` candy (`/charly-selkies:kde-shell`), not this one. See the "What works where" table below.
+These are **wlroots-only** tools (sway/labwc). On a headless rootless **KWin** (KDE Plasma) pod they do NOT work and each HANGS: KWin implements none of the wlroots protocols they require — `wtype` needs `zwp_virtual_keyboard_manager_v1`, `wl-clipboard` needs `wlr-data-control`, `wlr-randr` needs `wlr-output-management`. So on KWin `plugin-wl` is **compositor-aware** (`detectCompositor`) and drives window management through **`kdotool`** (KWin scripting, shipped by `/charly-selkies:kde-shell`) instead — proven live: `check-selkies-kde-pod`'s `wl-verb-dispatches` probe passes (`wl: status` → `compositor: kwin`), and `plugin-wl` fail-fasts the wlroots paths (a clear "unsupported on KWin" error, never a hang). The bed authors no `wl:` clipboard/input/resolution probes (labwc doesn't lean on them either), but `wl: status` + kdotool window automation are live and asserted. See the "What works where" table below and `/charly-check:wl` "Compositor Compatibility".
 
 **Note:** Screenshots are NOT included in this candy. Use `wl-screenshot-grim` (sway) or `wl-screenshot-pixelflux` (selkies) depending on your compositor.
 
@@ -72,15 +72,22 @@ All packages are in Fedora official repos.
 
 | Tool | sway | labwc (selkies) | KWin (KDE Plasma) |
 |------|------|-----------------|-------------------|
-| wtype | YES | YES | YES (keyboard: type/key/key-combo) |
-| wlrctl pointer | YES | YES | NO (no host-safe pointer backend; click/mouse/scroll/drag are unsupported on KWin) |
-| wlrctl toplevel | YES | YES | NO — window management on KWin is via `kdotool` (from `kde-shell`) |
-| wlr-randr | YES | YES | NO (resolution unsupported on KWin; kscreen-doctor hangs) |
-| wl-clipboard | YES | YES | YES (KWin implements `wlr-data-control`) |
+| wtype | YES | YES | NO — HANGS (needs `zwp_virtual_keyboard_manager_v1`, absent on KWin) |
+| wlrctl pointer | YES | YES | NO (no host-safe pointer backend; click/mouse/scroll/drag unsupported on KWin) |
+| wlrctl toplevel | YES | YES | via **`kdotool`** (plugin-wl routes window mgmt through KWin scripting) |
+| wlr-randr | YES | YES | NO — HANGS (needs `wlr-output-management`, absent on KWin) |
+| wl-clipboard | YES | YES | NO — HANGS (needs `wlr-data-control`, NOT implemented by KWin) |
 | xdotool | YES (XWayland) | YES (XWayland on-demand) | YES (XWayland on-demand) |
 | ydotool | YES | YES (needs /dev/uinput) | n/a (KWin pointer is unsupported) |
 
-On KWin the screenshot path is `pixelflux` (the same selkies capture bridge), the `wl: status` method reports `compositor: kwin` + `kdotool: available`, and the `wl:` verb routes window management (toplevel/windows/focus/close/fullscreen/minimize/geometry) through `kdotool`. KWin pointer (click/double-click/mouse/scroll/drag) and resolution are unsupported and return a clear "unsupported on KWin" error rather than hanging. The KWin-specific deploy-scope `wl` check checks live in the `kde-selkies` candy (`/charly-selkies:kde-selkies`).
+On a **headless rootless KWin pod the wlroots-backed `wl:` tools do NOT work** — KWin
+implements none of the wlroots protocols they require, so `wtype`, `wl-clipboard`, and
+`wlr-randr` each HANG until the caller's deadline. `plugin-wl` is therefore
+**compositor-aware** (`detectCompositor`): on KWin it routes window management through
+**`kdotool`** (KWin scripting) and fail-fasts the wlroots paths with a clear
+"unsupported on KWin" error instead of hanging. Proven live on `check-selkies-kde-pod`:
+`wl: status` → `compositor: kwin` (the `wl-verb-dispatches` probe passes) alongside the
+desktop-ready + frame-not-black stream coverage the labwc flavor also asserts.
 
 ## Used In Boxes
 

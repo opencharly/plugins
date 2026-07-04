@@ -12,7 +12,7 @@ The `wl:` check verb is the unified desktop automation verb for wlroots composit
 
 **Served out-of-process — no host CLI subcommand.** The host dispatches the `wl:` verb through the provider registry exactly like a built-in (`ResolveVerb("wl")` → the out-of-process gRPC provider → `Provider.Invoke` with the full `Op`), and the plugin drives the running container's compositor. Authoring is unchanged from a built-in verb: you write `wl: screenshot`, never `plugin: wl`.
 
-**Per-compositor routing.** The plugin's `detectCompositor` picks the backend per method. On wlroots: `wlrctl` (pointer + `wlrctl toplevel` window management), `wlr-randr` (resolution). On **KWin**: window management (toplevel/windows/focus/close/fullscreen/minimize/geometry) via **`kdotool`** (KWin scripting), keyboard via `wtype`, clipboard via `wl-clipboard`, screenshot via `pixelflux`; `status` reports `compositor: kwin`. KWin **pointer** (click/double-click/mouse/scroll/drag) and **resolution** have no host-safe backend on the headless nested KWin and return a clear "unsupported on KWin" error (not a hang) — see the Compositor Compatibility table below.
+**Per-compositor routing.** The plugin's `detectCompositor` picks the backend per method. On wlroots: `wlrctl` (pointer + `wlrctl toplevel` window management), `wlr-randr` (resolution). On **KWin**: window management (toplevel/windows/focus/close/fullscreen/minimize/geometry) via **`kdotool`** (KWin scripting) + screenshot via `pixelflux`; `status` reports `compositor: kwin`. KWin **keyboard** (type/key — `wtype` needs `zwp_virtual_keyboard_manager_v1`), **clipboard** (`wl-clipboard` needs `wlr-data-control`), **pointer** (click/double-click/mouse/scroll/drag) and **resolution** (`wlr-randr` needs `wlr-output-management`) have NO KWin backend — those wlroots protocols are unimplemented by KWin — so plugin-wl returns a clear "unsupported on KWin" error (not a hang). Proven live on `check-selkies-kde-pod`: `wl: status` → `compositor: kwin`. See the Compositor Compatibility table below.
 
 ### Authoring a `wl:` step
 
@@ -69,21 +69,31 @@ Backend availability per compositor (the plugin routes each method to the availa
 |------|----------|------|-----------------|-------------------|
 | grim | wlr-screencopy | YES | NO (nested compositor) | NO |
 | pixelflux-screenshot | pixelflux API | NO | YES | YES |
-| wtype | zwp_virtual_keyboard_v1 | YES | YES | YES (KWin implements it) |
+| wtype | zwp_virtual_keyboard_v1 | YES | YES | NO — fail-fast (KWin lacks the protocol) |
 | wlrctl pointer | wlr-virtual-pointer | YES | YES | NO — pointer unsupported on KWin |
 | wlrctl toplevel | wlr-foreign-toplevel-management | YES | YES | NO — window mgmt via `kdotool` |
 | kdotool | KWin scripting (D-Bus) | NO | NO | YES (toplevel/focus/close/fullscreen/minimize/geometry) |
 | wlr-randr | wlr-output-management | YES | YES | NO — resolution unsupported on KWin |
-| wl-copy/paste | wlr-data-control | YES | YES | YES (KWin implements it) |
+| wl-copy/paste | wlr-data-control | YES | YES | NO — fail-fast (KWin lacks wlr-data-control) |
 | xdotool | X11 (XWayland) | YES | YES (on-demand) | YES (on-demand) |
 | swaymsg | i3 IPC | YES | NO | NO |
 
-**KWin (selkies-kde-desktop) notes.** Window management routes to `kdotool` (the
-`kde-shell` layer); keyboard/clipboard/screenshot reuse `wtype`/`wl-clipboard`/
-`pixelflux`. Pointer (click/double-click/mouse/scroll/drag) and resolution have no
-host-safe backend on the headless nested KWin (`org_kde_kwin_fake_input` is removed
-in KWin 6, the RemoteDesktop portal is approval-gated, `/dev/uinput` leaks into the
-host, `kscreen-doctor` hangs) and return a clear "unsupported on KWin" error.
+**KWin (selkies-kde-desktop) notes.** On a headless rootless nested KWin pod the
+wlroots-backed `wl:` tools do NOT work — KWin implements none of the wlroots
+protocols they need, so `wtype` (keyboard), `wl-clipboard` (clipboard), and
+`wlr-randr` (resolution) each HANG. `plugin-wl` is therefore **compositor-aware**
+(`detectCompositor`): on KWin it routes **status** (`compositor: kwin`),
+**screenshot** (`pixelflux`), and **window management** (toplevel/windows/focus/
+close/fullscreen/minimize/geometry) through **`kdotool`** (KWin's D-Bus scripting),
+and fail-fasts the wlroots paths with a clear "unsupported on KWin" error instead of
+hanging. Pointer (click/double-click/mouse/scroll/drag) likewise has no host-safe
+backend (`org_kde_kwin_fake_input` removed in KWin 6, RemoteDesktop portal
+approval-gated, `/dev/uinput` leaks into the host) and returns the same clear error.
+PROVEN live on `check-selkies-kde-pod`: the `wl-verb-dispatches` probe passes
+(`wl: status` → `compositor: kwin`) alongside the desktop-ready + frame-not-black
+stream coverage the labwc flavor also asserts. (The KDE session itself is a
+`kwin_wayland --wayland-display wayland-1` nested compositor — see
+`/charly-selkies:selkies-kde-desktop` "De-SDDM".)
 
 **Coordinates.** The `wl:` verb takes **desktop-absolute** `x:`/`y:`. To click an
 element located by CSS selector, read its desktop coordinates from a `cdp: coords`

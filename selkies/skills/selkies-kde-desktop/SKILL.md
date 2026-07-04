@@ -2,7 +2,7 @@
 name: selkies-kde-desktop
 description: >
   The full KDE Plasma flavor of the selkies streaming desktop — a headless pod
-  running startplasma-wayland (kwin_wayland + plasmashell) nested in pixelflux,
+  running kwin_wayland directly (--wayland-display) + plasmashell nested in pixelflux,
   the KDE sibling of the labwc selkies-desktop. MUST be invoked before working
   on the selkies-kde-desktop metalayer, the kde-selkies / kde-shell layers, the
   selkies-kde / selkies-kde-nvidia boxes, or their check beds.
@@ -25,7 +25,9 @@ streaming stack).
 - **`kde-selkies`** — the KDE nested-compositor PRIMITIVE (the swappable seam,
   analogous to `labwc`): `require: [selkies, kde-shell, pipewire, dbus]`; a
   single supervisord service (`kde-selkies-session`, priority 12, `scope: user`)
-  that polls for `/tmp/wayland-1` then `exec dbus-run-session startplasma-wayland`.
+  that polls for `/tmp/wayland-1` then launches `kwin_wayland --wayland-display
+  wayland-1` DIRECTLY (nested) + `plasmashell` on kwin's `wayland-0` — see the
+  De-SDDM section for why NOT `startplasma-wayland`.
 - **`kde-shell`** — the SDDM-free Plasma SESSION package leaf (plasma-desktop
   deps-puller + kwin_wayland + plasmashell + the core session components +
   curated apps), shared by `kde-desktop` (bare-metal SDDM seat) and `kde-selkies`
@@ -38,11 +40,38 @@ streaming stack).
 ## De-SDDM: how Plasma runs headless as a pod (the load-bearing design)
 
 A pod has no DRM seat, no SDDM, no `graphical.target`. `kde-selkies` therefore
-runs `startplasma-wayland` directly under a supervisord poll-for-`wayland-1`
-service — **no `after: graphical-session.target`**, no display manager. kwin
-renders INTO pixelflux's `wayland-1` and creates `wayland-0` for Plasma's own
-clients. This headless-no-seat path is PROVEN on a real pod (`check-selkies-kde-pod`:
-`kde-selkies-session` RUNNING ≥20s, `https://:3000/` → 200, full live-check pass).
+launches `kwin_wayland --wayland-display wayland-1` DIRECTLY under a supervisord
+poll-for-`wayland-1` service — **NOT `startplasma-wayland`, no display manager, no
+`after: graphical-session.target`**. The explicit `--wayland-display wayland-1` flag
+is LOAD-BEARING: it makes KWin NEST into pixelflux (present its composited output as
+a wayland-1 client surface pixelflux captures) and create `wayland-0` for Plasma's
+own clients (plasmashell, Chrome) — the KDE analogue of how labwc auto-nests from
+`WAYLAND_DISPLAY` (labwc is wlroots and nests implicitly; KWin needs the flag).
+
+**Why NOT `startplasma-wayland` (the RCA).** In a systemd-less pod `startplasma-wayland`
+falls back to the legacy `plasma_session` shim, which brings KWin up on the HEADLESS
+backend — KWin holds NO connection to pixelflux's `wayland-1` and opens NO `/dev/dri`,
+so it composites into an off-screen buffer nothing captures and the stream is a
+uniform BLACK frame (a 4046-byte PNG, luma spread 0). Switching to the direct
+`--wayland-display` launch fixed it: real composited content (a 45746-byte frame,
+full luma range 16–235). Two supporting requirements: (1) `cap_sys_nice` is stripped
+from `kwin_wayland` at build (the `kde-selkies-strip-caps` step) so the launcher can
+exec it directly under the pod's no-new-privileges, which rejects exec of a file-cap
+binary (`Operation not permitted`); (2) `plasmashell` is launched on `wayland-0` once
+kwin creates it. PROVEN on `check-selkies-kde-pod`: full R10 live-check pass
+(159 passed / 0 failed), the frame-not-black + agent-check confirming a real
+KWin-composited Plasma desktop, verified visually (Chrome maximized + Plasma panel).
+
+**`wl:` verb coverage on KWin — kdotool works, wlroots tooling doesn't.** The `wl`
+check verb DISPATCHES on KWin via `kdotool` (KWin's own D-Bus/KWin-script window
+automation): `wl: status` reports `compositor: kwin`, proven passing on
+`check-selkies-kde-pod`. What does NOT work on KWin is the wlroots-only tooling —
+`wtype` needs `zwp_virtual_keyboard_manager_v1`, `wl-copy`/`wl-paste` need
+`wlr-data-control`, `wlr-randr` needs `wlr-output-management` (all unimplemented by
+KWin, so each HANGS) — so `plugin-wl` is compositor-aware (`detectCompositor`): those
+wlroots paths FAIL-FAST on KWin instead of hanging, while the kdotool paths run. The
+bed authors no `wl:` clipboard/input/resolution probes (labwc doesn't lean on them
+either), but `wl: status` + kdotool window automation are live and asserted.
 
 **Chrome is a supervised `selkies-core` service.** Chrome is launched and
 supervised by the `[program:chrome]` supervisord service defined in `selkies-core`

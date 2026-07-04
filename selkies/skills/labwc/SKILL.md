@@ -125,7 +125,7 @@ All windows open maximized (ideal for streaming desktop):
 - `/charly-selkies:selkies-desktop-layer` — desktop metalayer that composes labwc + chrome + waybar + selkies
 - `/charly-selkies:waybar-labwc` — status bar configured for labwc
 - `/charly-selkies:chrome` — Chrome browser (supervised by the selkies-core `[program:chrome]` service)
-- `/charly-check:wl` — Wayland automation commands (screenshots, input, window management). Supports KWin (KDE Plasma) in addition to wlroots (sway/labwc); on labwc it uses the wlroots backends (wlrctl pointer/toplevel, wlr-randr, wtype, wl-clipboard, pixelflux-screenshot)
+- `/charly-check:wl` — Wayland automation commands (screenshots, input, window management). On labwc it uses the wlroots backends (wlrctl pointer/toplevel, wlr-randr, wtype, wl-clipboard, pixelflux-screenshot). Those wlroots tools do NOT work on a headless rootless KWin pod (KWin implements none of the wlroots protocols — they hang), so on KWin the compositor-aware `plugin-wl` routes window management through `kdotool` and fail-fasts the wlroots paths; the KDE flavor's `wl-verb-dispatches` probe passes (`compositor: kwin`). See `/charly-check:wl` "Compositor Compatibility"
 
 ## When to Use This Skill
 
