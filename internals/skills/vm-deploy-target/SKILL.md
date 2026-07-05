@@ -63,7 +63,7 @@ out-of-process adapter. In-proc, two targets implement the bare
 Containerfile synthesis; `charly box build`/`generate` itself uses the separate
 `writeCandySteps` → `emitTasks` generator) and `PodDeployTarget` (the pod
 overlay-BUILD engine) — but both are now BUILD ENGINES invoked HOST-SIDE from a
-lifecycle hook (`podSubstrateLifecycle.PrepareVenue`), NOT deploy targets
+lifecycle hook (`candy/plugin-deploy-pod`'s PrepareVenue (M4)), NOT deploy targets
 dispatched by `ResolveTarget`. The deploy LIFECYCLE is the separate
 `UnifiedDeployTarget` interface (Add/Del/Test/Update/Start/…/Rebuild), and its
 sole implementer is the generic `externalDeployTarget`. **ALL FIVE external
@@ -110,7 +110,7 @@ stanza + auto-boot, plus `WaitForSSH` / `WaitForCloudInit` / `WaitForPackageLock
 
 ## Implementation notes
 
-- The `pod` substrate is EXTERNAL (`deploy:pod`, candy/plugin-deploy-pod); `PodDeployTarget` (`charly/deploy_target_pod.go`) is its RETAINED overlay-BUILD engine, invoked HOST-SIDE from `podSubstrateLifecycle.PrepareVenue` (`charly/pod_deploy_lifecycle.go`). Its teardown record is keyed HOST-SIDE by `computeDeployID(name)` like every external deploy (the in-proc pod was record-free).
+- The `pod` substrate is EXTERNAL (`deploy:pod`, candy/plugin-deploy-pod); `PodDeployTarget` (`charly/deploy_target_pod.go`) is its RETAINED overlay-BUILD engine, invoked HOST-SIDE from `candy/plugin-deploy-pod`'s PrepareVenue (M4) (`charly/build_overlay.go`). Its teardown record is keyed HOST-SIDE by `computeDeployID(name)` like every external deploy (the in-proc pod was record-free).
 - `vmNameFromDeployName` strips the `vm:` prefix. `vmEntityForAdd` / `vmEntityForLifecycle` resolve the `kind:vm` entity from a deploy node: the node's `vm:` cross-ref (`node.From`) wins, then the persisted cross-ref, then a legacy `vm:<entity>` prefix, then the deploy name itself.
 - `UnifiedDeployTarget` / `LifecycleTarget` interfaces (`charly/deploy_target_unified.go`) + the `ResolveTarget` dispatcher (`charly/unified_targets.go`) provide the full lifecycle contract (`Add` / `Del` / `Test` / `Update` / `Start` / `Stop` / `Status` / `Logs` / `Shell` / `Rebuild`). `ResolveTarget` returns an `externalDeployTarget` for every externalized substrate (local/vm/pod/k8s/android — all five).
 - Disposability is read per-`BundleNode` via `charly/deploy.go::BundleNode.IsDisposable()` (`disposable: true`, or ephemeral); it is NOT a `VmSpec` field. The disposability-as-authorization gate is NOT applied in the `charly update` path — `charly update <vm>` rebuilds on explicit invocation regardless (it only NOTES non-disposability, never refuses). `externalDeployTarget.Rebuild` delegates to the `vmSubstrateLifecycle.Rebuild` hook, which recreates the domain THEN re-applies the deploy node's layers via the shared `charly bundle add <node>` path — the same layer-apply primitive the local/pod Rebuild use (R3).
