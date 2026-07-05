@@ -16,7 +16,7 @@ description: |
 the on-demand counterpart to the auto-pruning that runs after `charly box build`
 and `charly check run`.
 
-`charly clean` is an **external COMMAND-class plugin** (`candy/plugin-clean`, `command:clean`) — one of cutover C15's four remaining welded-command externalizations (after `tmux`/`preempt`/`feature`/`vm`/`doctor`). The user-facing command is unchanged; only its CLI registration moved out-of-process. The plugin is a THIN forwarder: charly resolves the `clean` word via the discovered (or `/usr/lib/charly/plugins`-baked) plugin and syscall.Exec's it in CLI mode, which raw-forwards the args to the hidden in-core `charly __clean` command. The `CleanCmd.Run` handler STAYS core (`charly/clean.go`) because it reads the project charly.yml `defaults:` (keep_images / keep_check_runs), resolves the build engine (`ResolveRuntime`), and prunes `.build/` / `.check/` artifacts + charly-labeled podman image tags — project + engine + filesystem machinery an out-of-process plugin cannot reach.
+`charly clean` is a **compiled-in COMMAND-class plugin** (`candy/plugin-clean`, `command:clean`) that OWNS the command. The plugin owns the flag grammar (`--dry-run` / `--images` / `--check` / `--keep` / `--invalidate`), the category orchestration, the report output, and the local `pkg/arch` makepkg sweep (`cleanMakepkgArtifacts`, a single-caller file op moved into the plugin). The **shared retention engine** — `pruneImagesByRetention`, `pruneCheckRuns`, `pruneBuildCandyDirs`, `invalidateImageTags`, and the charly-labeled image-tag CalVer/label inventory — STAYS in core (`charly/retention.go`) because it is multi-caller: `charly box build`, `charly check run`, and `charly box list tags` all use it. The plugin reaches it through the generic **"retention" `HostBuild` seam** (`charly/host_build_retention.go`, `spec.RetentionRequest` → `spec.RetentionReply`), which resolves the project's `keep_images` / `keep_check_runs` defaults (`ResolveRuntime` + `LoadConfig`) host-side. clean is **compiled-in** (`charly/charly.yml` `compiled_plugins:`) because its `Invoke(OpRun)` needs the in-proc reverse channel — threaded by `dispatchInProcCommand` ("Seam A") — to call `HostBuild`; the out-of-process `CliMain` path has no reverse channel and errors. This is the same "plugin owns the logic + generic seams for the core-coupled bits" doctrine the vm + pod deploy plugins established — no hidden core-command forward, and no plugin-specific command logic left in core.
 
 Two artifact classes, two policies (operator principle):
 
@@ -96,10 +96,18 @@ the qcow2 build.
 
 ## Implementation
 
-`charly/clean.go` — `pruneImagesByRetention`, `pruneCheckRuns`,
-`cleanMakepkgArtifacts`, `CleanCmd` (the in-core impl + the hidden `charly __clean` registration
-in `charly/main.go`) + `candy/plugin-clean/` (the out-of-tree `command:clean` forwarder).
-Hooks in `BuildCmd.Run` (`charly/build.go`) and
+`candy/plugin-clean/` — the command plugin that OWNS `charly clean`: `command.go`
+(flag grammar + category orchestration + `cleanMakepkgArtifacts` + `hostRetention`, which
+calls the seam), `provider.go` (`Invoke(OpRun)`, the compiled-in dispatch surface),
+`plugin.go` (`NewProvider` / `NewMeta` / `CliMain`). The **shared retention engine** stays
+in core: `charly/retention.go` holds `pruneImagesByRetention`, `pruneCheckRuns`,
+`pruneBuildCandyDirs`, and the `charlyImageTags` inventory (`invalidateImageTags` lives with
+`charly box list tags` in `charly/volume_cp_tags_cmd.go`). The plugin reaches it via the
+generic "retention" `HostBuild` seam — `charly/host_build_retention.go` (`hostBuildRetention`,
+registered as `retentionBuilderKind = "retention"`, resolving defaults with `ResolveRuntime`
++ `LoadConfig`); the compiled-in in-proc reverse channel is threaded by `dispatchInProcCommand`
+(`charly/provider_command_external.go`).
+Auto-prune hooks in `BuildCmd.Run` (`charly/build.go`) and
 `CheckRunCmd.Run` (`charly/check_runner_cmd.go`). Retention keys live on `BoxConfig`
 (`charly/config.go`), merged via `mergeBoxConfig` (`charly/unified.go`), validated in
 `validateBuildTunables` (`charly/validate.go`).
