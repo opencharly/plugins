@@ -144,7 +144,7 @@ Each verb below is also auto-exposed as an MCP tool (`box.new.project`, `box.new
 
 **Safety boundary**: `charly box write` / `charly box cat` resolve the path against `os.Getwd()` (the project root) and reject absolute paths or `..` traversal that would escape the root. They are the deliberate escape hatch for free-form auxiliary files (`pixi.toml`, `package.json`, `root.yml`, `*.service`, scripts) that the schema-aware setters don't cover.
 
-**Comment preservation**: every YAML edit (`set`, `add-layer`, `rm-layer`, `add-rpm`, etc.) goes through the `yaml.v3` *node* API rather than the value API, so human-authored comments and key order are preserved across edits. Tested in `charly/yaml_setter_test.go` and `charly/scaffold_project_test.go`.
+**Comment preservation**: every YAML edit (`set`, `add-layer`, `rm-layer`, `add-rpm`, etc.) goes through the `yaml.v3` *node* API rather than the value API, so human-authored comments and key order are preserved across edits. Tested in `sdk/kit/yaml_test.go` and `charly/scaffold_project_test.go`.
 
 **Project scaffold contents**: `charly box new project` writes a minimal `charly.yml` with `discover: [box, candy]` + empty `box/`/`candy/` dirs. The default distro/builder/init/resource build vocabulary (and the default sidecar templates) are EMBEDDED in the `charly` binary (`charly/charly.yml`, `//go:embed` — the single embedded default config, plain node-form YAML parsed by the same unified loader as any project `charly.yml`), so a new project is immediately usable with no build vocabulary to copy; declare `distro:`/`builder:`/`init:`/`resource:`/`sidecar:` (inline in `charly.yml` or an imported vocab file) only to extend or override the embedded default.
 

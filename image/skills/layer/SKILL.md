@@ -91,7 +91,7 @@ Every editor verb above auto-becomes an MCP tool via Kong reflection (`candy.set
 
 The `charly candy …` group edits `candy/<name>/charly.yml` through the `yaml.v3` Node API, so **comments and key order are preserved** across edits. Unlike unmarshal-then-marshal, nothing gets scrambled when an agent (or a shell script) touches the file:
 
-> The top-level `charly candy` authoring tree is an **external COMMAND-class plugin** (`candy/plugin-candy`, `command:candy`) — one of cutover C15's four remaining welded-command externalizations (after `tmux`/`preempt`/`feature`/`vm`/`doctor`). The user-facing command tree is unchanged; only its CLI registration moved out-of-process. The plugin is a THIN forwarder: charly resolves the `candy` word via the discovered (or `/usr/lib/charly/plugins`-baked) plugin and syscall.Exec's it in CLI mode, which raw-forwards every subcommand token (kong passthrough) to the hidden in-core `charly __candy` command. The `CandyCmd` handlers (`charly/scaffold_cmds.go`) STAY core because they mutate `candy/<name>/charly.yml` via the `yaml.v3` Node API behind the `resolveProjectFile` traversal guard. (This is NOT `charly new candy` — `NewCandyCmd`, a child of `charly new` — which stays a builtin.)
+> The top-level `charly candy` authoring tree is a **COMPILED-IN COMMAND-class plugin** (`candy/plugin-candy`, `command:candy`) that OWNS the entire logic — the `set` / `add-rpm` / `add-deb` / `add-pac` / `add-aur` subcommand grammar AND the comment-preserving `yaml.Node` mutation of `candy/<name>/charly.yml` (`candySet` / `appendCandyPackages` / `candyBodyNode` / `ensureMappingChild` all live IN the plugin, none in core). There is no core candy logic and no HostBuild seam — a plugin editing yaml owns that itself. The ONLY shared pieces are the generic yaml utilities `kit.SetByDotPath` + `kit.MappingChild` (`sdk/kit/yaml.go`), which also back `charly box set` + `charly box scaffold` — ONE copy (R3). Because it is self-contained (no reverse channel), `charly candy` works identically compiled-in OR out-of-process, like `migrate`; the host dispatches the compiled-in placement through `dispatchInProcCommand` → `Invoke(OpRun)` → `runCandyCLI` (which just runs directly). (This is NOT `charly new candy` — a child of `charly new` — which stays a builtin.)
 
 ```bash
 # Append packages (idempotent; handles scaffold's null `package:` value):
@@ -110,7 +110,7 @@ charly box write candy/sshd/sshd_config.d/99-charly.conf --content 'X11Forwardin
 charly box cat candy/sshd/sshd_config.d/99-charly.conf
 ```
 
-Implementation: `charly/scaffold_cmds.go` (verbs) + `charly/yaml_setter.go` (`SetByDotPath`). Tested in `charly/yaml_setter_test.go` — the comment-preservation guarantee is explicitly exercised (leading file comments, sibling keys, and per-key inline comments all survive round trips). See `/charly-internals:go` "Implementation insights" for the full rationale.
+Implementation: `candy/plugin-candy/command.go` (the subcommand grammar + the `yaml.Node` mutation of `candy/<name>/charly.yml`) + the shared generic yaml utilities `kit.SetByDotPath` / `kit.MappingChild` in `sdk/kit/yaml.go`. The comment-preservation guarantee is exercised by `sdk/kit/yaml_test.go` (`TestSetByDotPath_ScalarReplacement` — top-of-file and inline comments survive round trips). See `/charly-internals:plugin` for the compiled-in command-plugin model.
 
 ## Install Surface (what a layer directory holds)
 
