@@ -86,8 +86,13 @@ destroy+build+create+start+re-add the domain (the R10 fresh-rebuild gate). That
 host-only work lives behind a registered hook:
 
 - `vmSubstrateLifecycle` (`charly/vm_deploy_lifecycle.go`) implements the
-  `substrateLifecycle` interface (`charly/deploy_substrate_lifecycle.go`),
-  registered via `registerSubstrateLifecycle("vm", …)` at package-var init.
+  `substrateLifecycle` interface (`charly/deploy_substrate_lifecycle.go`). Its
+  host-coupled methods stay host-side ("it needs core"), but the substrate is
+  EXTERNALIZED (M4b): `candy/plugin-deploy-vm` declares `Lifecycle:true` (so it
+  registers the wire-backed hook at plugin-load), and forwards each lifecycle Op
+  to the hidden `charly __vm-lifecycle <op> <name>` (`charly/vm_lifecycle_cmd.go`)
+  over the generic "cli" host seam — the vm analog of pod's `HostBuild("overlay")`.
+  There is NO compiled-in `registerSubstrateLifecycle("vm", …)` anymore.
 - `externalDeployTarget` consults the registry by substrate word — it never
   branches on `"vm"` directly, only on whether a hook is registered. `vm` is
   the only substrate that registers one today (pod's lifecycle joins this seam
