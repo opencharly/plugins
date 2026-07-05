@@ -9,9 +9,9 @@ description: |
 
 ## Overview
 
-Manage charly's runtime configuration stored in `~/.config/charly/settings.yml`. Controls engine selection, networking, storage paths, secret backend, and agent forwarding.
+Manage charly's runtime configuration stored in `~/.config/charly/config.yml`. Controls engine selection, networking, storage paths, secret backend, and agent forwarding.
 
-`charly settings` is an **external COMMAND-class plugin** (`candy/plugin-settings`, `command:settings`) — one of cutover C15's four remaining welded-command externalizations (after `tmux`/`preempt`/`feature`/`vm`/`doctor`). The user-facing command tree is unchanged; only its CLI registration moved out-of-process. The plugin is a THIN forwarder: charly resolves the `settings` word via the discovered (or `/usr/lib/charly/plugins`-baked) plugin and syscall.Exec's it in CLI mode, which raw-forwards the args to the hidden in-core `charly __settings` command. Because `settings` is a command TREE (get/set/list/path/reset), the plugin raw-forwards every subcommand token through kong passthrough — one forwarder covers the whole tree. The `SettingsCmd` handlers STAY core (`charly/main.go`) because they read and write the runtime config file `~/.config/charly/config.yml` and resolve the credential-store backend + the runtime engine — config machinery an out-of-process plugin cannot reach.
+`charly settings` is a **compiled-in COMMAND-class plugin** (`candy/plugin-settings`, `command:settings`) that OWNS the command — the get/set/list/reset/path subcommand grammar and the output formatting live entirely in the plugin (`candy/plugin-settings/{command.go,provider.go,plugin.go}`). The config subsystem stays in core: reading and writing the runtime config file `~/.config/charly/config.yml` (`charly/runtime_config.go` — `GetConfigValue` / `SetConfigValue` / `ListConfigValues` / `ResetConfigValue` / `RuntimeConfigPath`), the credential-store backend, and the runtime-engine resolution. The plugin reaches that core config subsystem over the generic **"settings" HostBuild seam** (`charly/host_build_settings.go`; `spec.SettingsRequest{Op,Key,Value}` → `spec.SettingsReply{Value,Entries,Error}`, `Op ∈ get/set/list/reset/path`; `resolveSettingsGet` carries the `get` special-cases — `engine.*` resolved via `ResolveRuntime`, `secret_backend` via the resolved credential store). `settings` is compiled into the `charly` binary (`charly/charly.yml` `compiled_plugins:`) because its `Invoke(OpRun)` needs the in-proc reverse channel — threaded by `dispatchInProcCommand` — to call `HostBuild("settings")`; the out-of-process path has no reverse channel and errors. This is the same "plugin owns the command + a generic seam for the core-coupled bits" doctrine as `command:clean` and the vm/pod deploy plugins. There is no hidden core-command forward.
 
 ## Quick Reference
 
@@ -21,7 +21,7 @@ Manage charly's runtime configuration stored in `~/.config/charly/settings.yml`.
 | Set a setting | `charly settings set <key> <value>` | Update a setting |
 | List all | `charly settings list` | Show all settings with values |
 | Reset to default | `charly settings reset <key>` | Remove override, use default |
-| Config path | `charly settings path` | Print path to settings.yml |
+| Config path | `charly settings path` | Print path to config.yml |
 | Migrate secrets | `charly secrets migrate-secrets [--dry-run]` | Move plaintext credentials to keyring (externalized to candy/plugin-secrets) |
 
 ## Key Settings
@@ -82,7 +82,7 @@ charly secrets migrate-secrets --dry-run
 
 ### Resolution Chain
 
-Settings resolve in this order: environment variable > settings.yml > default value.
+Settings resolve in this order: environment variable > config.yml > default value.
 
 ## Cross-References
 
