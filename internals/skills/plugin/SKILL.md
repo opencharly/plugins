@@ -219,7 +219,10 @@ See "Authoring an external COMMAND plugin" below.
 
 ## The per-plugin CUE schema — the single source, two consumers
 
-**Every plugin ships its OWN `.cue` schema, and it is the SINGLE SOURCE for that plugin's params.** It is
+**Every plugin ships its OWN `.cue` schema, and it is the SINGLE SOURCE for that plugin's params.** This is
+CLAUDE.md's "Schema Driven Design (SDD)" pillar applied per-plugin: the schema comes BEFORE the plugin's code,
+and both consumers below are derived from that one source (the cross-generator pipeline map + the
+generation-coverage current state live in `/charly-internals:go` "Schema Driven Design (SDD)"). The schema is
 SELF-CONTAINED (package-less, references no base def) and used two ways — the SAME contract core `spec` uses:
 
 1. **DEV-TIME → Go params.** `cue exp gengotypes` (driven by `task cue:gen`, which wraps the schema with

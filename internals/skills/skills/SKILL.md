@@ -94,22 +94,23 @@ sequences. Every other document links to the owner and NEVER restates it
 
 Named exceptions where CLAUDE.md itself is the canonical copy (skills link
 TO it, never duplicate it): the **Skill Dispatcher** table, the canonical
-**RDD** and **ADE** definitions (strict-policy operationalizes them but the
-definition lives in CLAUDE.md), the **Acceptance checklist**, and the
-**AI Attribution** tier table.
+**RDD**, **ADE**, and **SDD** definitions (strict-policy operationalizes the
+first two and the go skill the third, but each definition lives in CLAUDE.md),
+the **Acceptance checklist**, and the **AI Attribution** tier table.
 
 ### Authoritative-copy registry
 
 | Matrix / catalog / definition | Sole owner |
 |---|---|
 | "R10 gate by change class" matrix (incl. the class → gate → tier cross-walk) + "Flag discipline" catalog | `/charly-check:check` |
-| R1–R5, RDD, ADE operationalization (forbidden patterns, risk table, worked examples) | `/charly-internals:strict-policy` |
+| R1–R5, RDD (incl. "The spike"), ADE operationalization (forbidden patterns, risk table, worked examples) | `/charly-internals:strict-policy` |
+| SDD operationalization (the schema→generated-code pipeline map, the schema-change recipe, the generation-coverage current state) | `/charly-internals:go` |
 | Hard-cutover workflow, forbidden patterns, deliverables | `/charly-internals:cutover-policy` |
 | `disposable:` / `preemptible:` flag semantics, "What counts as an R10 run" | `/charly-internals:disposable` |
 | Landing mechanics (branch loop, multi-repo order, CalVer tags, PR path) | `/charly-internals:git-workflow` |
 | Agent/workflow/team primitives, hooks doctrine | `/charly-internals:agents` |
 | Kernel/plugin doctrine (core = kernel; every capability a plugin candy), the two authoring shapes, placement, the three-lane transport doctrine, the seams catalog, the "Remaining program" kernel-minimization roadmap | `/charly-internals:plugin` |
-| Skill Dispatcher, RDD/ADE definitions, Acceptance checklist, attribution tiers (incl. `documentation reviewed`), Documentation-only change class anchor, Key Rules index | CLAUDE.md |
+| Skill Dispatcher, RDD/ADE/SDD definitions, Acceptance checklist, attribution tiers (incl. `documentation reviewed`), Documentation-only change class anchor, Key Rules index | CLAUDE.md |
 
 ## Mirroring surfaces — sweep when CLAUDE.md wording changes
 

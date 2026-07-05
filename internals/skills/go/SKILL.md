@@ -2,8 +2,11 @@
 name: go
 description: |
   Go CLI development: building the charly binary, running tests, understanding
-  the source code structure.
-  MUST be invoked before reading or modifying any Go source file in charly/.
+  the source code structure. Owns the Schema Driven Design (SDD)
+  operationalization — the sdk/schema/*.cue → `task cue:gen` generation pipeline
+  and the generation-coverage current state.
+  MUST be invoked before reading or modifying any Go source file in charly/
+  or any sdk/schema/*.cue schema file.
 ---
 
 # Go - CLI Development
@@ -21,6 +24,34 @@ The unified format's entry point is `LoadUnified(dir)` at `charly/unified.go`. I
 Projections to today's concrete types: `ProjectConfig()` → `*Config`, `ProjectDistroConfig()` → `*DistroConfig`, etc. Existing `LoadConfig` / `LoadBuildConfigForBox` / `LoadBundleConfig` continue to work unchanged — migration to the unified entry point is incremental.
 
 **Binary-embedded default config (`charly/embed_defaults.go`).** The loader has ONE document-interpretation path (`mergeUnifiedDocs`). The binary-embedded default config is plain node-form YAML at `charly/charly.yml` (`//go:embed charly.yml`, `embed_defaults.go`), parsed by the SAME unified loader as any project `charly.yml` — there is no CUE-source front-end and no compile step: `embeddedDefaults` feeds the embedded bytes straight through the UNCHANGED `mergeUnifiedDocs`, then `applyEmbeddedDefaults` merges the vocabulary in as the lowest-priority base (project-wins). The embedded vocabulary is schema-validated against the sdk schema (`sdk/schema` — `#Distro`/`#Builder`/`#Init`/`#Resource`/`#Sidecar`) through the shared `validateVocabularyCollections` helper (`validate.go`, also used by `charly box validate` for project files) — guarded by `TestEmbeddedDefaults_SchemaConformance`, with `TestEmbeddedDefaults_SameLoaderPath` proving the embed flows through the identical loader core.
+
+### Schema Driven Design (SDD)
+
+The operationalization of CLAUDE.md's "Schema Driven Design (SDD)" pillar — the mandate lives there, the how lives here: the configuration schema comes BEFORE the code, and as much code as possible is GENERATED from the schema. The full pipeline map, source → generator → artifact:
+
+| Source (authored) | Generator | Generated artifact |
+|---|---|---|
+| `sdk/schema/*.cue` (the base ingress schema) | `task cue:gen` — `cue exp gengotypes` + `sdk/internal/schemagen` (concat/retag/vocab/version), both over the shared `sdk/schemaconcat` | `sdk/spec/cue_types_gen.go`, `spec/vocab_gen.go`, `spec/version_gen.go` |
+| each plugin's own `schema/*.cue` | the same pipeline (the superproject `task cue:gen` per-plugin params loop, `-pkg=params`) | `candy/plugin-*/params/cue_types_gen.go` |
+| `charly/charly.yml` `compiled_plugins:` | `pluginsgen` (`charly/internal/pluginsgen`, run by `task build:charly`) | `charly/plugins_generated.go` + the repo-root `go.work` |
+| `sdk/proto/plugin.proto` | `task proto:gen` (pinned protoc + protoc-gen-go/-go-grpc) | `sdk/proto/plugin.pb.go`, `plugin_grpc.pb.go` |
+
+Validation at every boundary derives from the SAME schema: ingress — `sharedCueSchema` (`charly/cue_schema.go`, the `#NodeDoc` load gate) + `validateKindValueCUE`; plugin inputs — `registerPluginUnitSchema` + `validateAuthoredPluginInput` (`/charly-internals:plugin`); migrations — the declarative table `candy/plugin-migrate/migrations.cue` (`/charly-build:migrate`); egress — the files charly WRITES (`/charly-internals:egress`).
+
+**Reproducibility gates** — regeneration on a clean tree is a NO-OP; drift is an R1 incident: `TestGenReproducible` (`sdk/spec/gen_repro_test.go`), `TestPluginsGenReproducible` (`charly/internal/pluginsgen/main_test.go`), and the documented proto diff gate (the `sdk/Taskfile.yml` `proto:gen` header).
+
+**A high-risk schema shape is spiked first** (RDD — `/charly-internals:strict-policy` "The spike"): prove the def compiles, the generated type round-trips, and the gate accepts/rejects as intended on a throwaway run BEFORE coding against it. The def-level `@go(CharlyName)` breakage documented in the next section was caught exactly that way.
+
+**Generation coverage — current state.** The deliberate hand-written exceptions, each permitted ONLY because the generator cannot express the shape, and each kept in lockstep with its schema def — recorded as classified current state, never an indefinite TODO:
+
+- `sdk/spec/union_types.go` — faithful union/shorthand types for CUE disjunctions (`gengotypes` degrades a disjunction to `any`); the matching CUE def is `@go(-)`'d.
+- `sdk/spec/hand_state_types.go` — shapes `gengotypes` cannot express faithfully (`PortSpec`, the open-tailed `VmDeployState`), mirrored against `@go(-)`'d defs.
+- `sdk/spec/charly_names.go` — charly-name Go type aliases (def-level `@go(CharlyName)` is broken in cue v0.16.1; see the next section).
+- `sdk/spec/deploy_wire.go` — the deploy IR wire types, hand-written; the classified candidate for future schema-sourcing.
+- `sdk/proto/plugin.proto` — the RPC message schema is hand-maintained BY DESIGN (payloads ride as JSON of the `spec` types, avoiding a parallel proto type system); the Go stubs are generated from it.
+- `Op.Kind()` (`sdk/spec/charly_methods.go`) — the exactly-one-discriminator cross-field rule, kept in Go because CUE cannot express it as a generable annotation.
+
+The member-by-member detail of the `sdk/spec` package is the next section; the step-by-step recipe is "How to change the charly.yml schema (CUE is the single source of truth)" under Common Workflows — neither is restated here.
 
 ### CUE is the single source of truth — the `sdk/spec` package
 
