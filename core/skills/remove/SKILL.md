@@ -9,14 +9,14 @@ description: |
 
 ## Overview
 
-Removes a service container along with its quadlet file and charly.yml entry. Optionally purges named volumes and runs lifecycle hooks before removal.
+Removes a service container along with its quadlet file and charly.yml entry. `--purge` additionally purges the deploy's named volumes, its encrypted (gocryptfs) volumes, AND the synthesized `<name>-overlay` images an `add_candy:` overlay build produced (`charly/commands.go` `purgeDeployArtifacts`). Runs lifecycle hooks before removal.
 
 ## Quick Reference
 
 | Action | Command | Description |
 |--------|---------|-------------|
 | Remove container | `charly remove <image>` | Remove container, quadlet, and deploy entry |
-| Purge volumes | `charly remove <image> --purge` | Also remove named volumes |
+| Purge volumes | `charly remove <image> --purge` | Also remove named + encrypted volumes AND the `<name>-overlay` images |
 | Keep deploy entry | `charly remove <image> --keep-deploy` | Keep charly.yml entry for re-configuration |
 | With env vars | `charly remove <image> -e KEY=VALUE` | Pass env vars to pre_remove hooks |
 
@@ -40,7 +40,7 @@ charly remove openclaw -e CLEANUP_MODE=full
 
 | Flag | Description |
 |------|-------------|
-| `--purge` | Also remove named volumes associated with the image |
+| `--purge` | Also remove the deploy's named + encrypted volumes AND the synthesized `<name>-overlay` images (an `add_candy:` overlay build's artifacts) — so a pod check bed's `charly remove --purge` teardown no longer leaks its overlay image |
 | `--keep-deploy` | Preserve the charly.yml entry (useful for re-running `charly config`) |
 | `-e, --env KEY=VALUE` | Pass environment variables to pre_remove lifecycle hooks |
 

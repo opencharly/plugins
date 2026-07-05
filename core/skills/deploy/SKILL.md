@@ -861,7 +861,7 @@ immich-volume:
 - **Data provisioning**: `charly config` automatically provisions data from data candies into bind-backed volumes (via `--seed`, default true). `charly update` merges new data non-destructively. See `/charly-core:charly-config` and `/charly-core:charly-update`
 - **`charly shell`/`charly start`**: resolves volume backing, verifies bind dirs exist and encrypted volumes are mounted, generates `-v` flags
 - **`charly config` (quadlet)**: bind-backed volumes become `Volume=` lines with host paths. `--userns=keep-id` added when bind-backed volumes exist
-- **`charly remove --purge`**: removes named volumes
+- **`charly remove --purge`**: removes named volumes (also encrypted volumes + the `<name>-overlay` images — see `/charly-core:remove`)
 - **`charly box inspect --format bind_mounts`**: outputs deploy-configured volume backing
 
 Source: `charly/deploy.go` (`DeployVolumeConfig`, `ResolveVolumeBacking`), `charly/enc.go` (`ResolvedBindMount`).
