@@ -1,7 +1,7 @@
 ---
 name: migrate
 description: |
-  MUST be invoked before any work involving: the `charly migrate` command (the single idempotent migration that brings any opencharly config up to the latest schema CalVer), the CalVer schema-version stamp (`version: YYYY.DDD.HHMM`), the CUE-anchored HEAD/floor (`sdk/schema/version.cue` → `#SchemaVersion`/`#SchemaFloor`), the declarative migration table (`charly/migrations.cue`, applied by the core op-walker in `charly/migrate_engine.go`), the `LatestSchemaVersion()` load-time gate, or adding a new schema cutover as a migration-table entry.
+  MUST be invoked before any work involving: the `charly migrate` command (the single idempotent migration that brings any opencharly config up to the latest schema CalVer), the CalVer schema-version stamp (`version: YYYY.DDD.HHMM`), the CUE-anchored HEAD/floor (`sdk/schema/version.cue` → `#SchemaVersion`/`#SchemaFloor`), the declarative migration table (`candy/plugin-migrate/migrations.cue`, applied by the op-walker in `candy/plugin-migrate/engine.go`), the `LatestSchemaVersion()` load-time gate, or adding a new schema cutover as a migration-table entry.
 ---
 
 # charly migrate — single-command schema migration
@@ -30,7 +30,7 @@ Every push of an charly-project repo (one with an `charly.yml`) carries a **fres
 
 ## The migration table (declarative data)
 
-The migration steps are **declarative DATA, not code**: an ordered list embedded from **`charly/migrations.cue`** (the TABLE stays in the charly module), validated at process start against the `#Migration` schema (`sdk/schema/migration.cue`). Each step is stamped with the CalVer of the date it landed and listed **chronologically** — the order the cutovers were authored in, which is the only correct replay order for an arbitrarily-old config. `charly migrate` applies every step whose version is newer than the config's stamp; each step is idempotent, so applying the whole set is safe (an already-current file is a no-op).
+The migration steps are **declarative DATA, not code**: an ordered list embedded from **`candy/plugin-migrate/migrations.cue`** (the TABLE lives in candy/plugin-migrate), validated at process start against the `#Migration` schema (`sdk/schema/migration.cue`). Each step is stamped with the CalVer of the date it landed and listed **chronologically** — the order the cutovers were authored in, which is the only correct replay order for an arbitrarily-old config. `charly migrate` applies every step whose version is newer than the config's stamp; each step is idempotent, so applying the whole set is safe (an already-current file is a no-op).
 
 A step is a small record:
 
@@ -40,7 +40,7 @@ A step is a small record:
 
 `touches_host: true` flags a step that mutates per-host state (`~/.config/charly`, quadlets, `.secrets`) — those steps are skipped by remote-cache auto-migration (see below). A step carries EITHER an `ops:` list OR a single `apply:` hook, never both.
 
-**The op vocabulary — each op is DATA, zero Go.** Four generic key transforms cover the common cutovers, all applied by ONE comment-preserving yaml.v3 interpreter (the op-walker in `charly/migrate_engine.go`):
+**The op vocabulary — each op is DATA, zero Go.** Four generic key transforms cover the common cutovers, all applied by ONE comment-preserving yaml.v3 interpreter (the op-walker in `candy/plugin-migrate/engine.go`):
 
 | Op | Shape | Effect |
 |---|---|---|
@@ -59,7 +59,9 @@ A step is a small record:
 
 ## How it runs
 
-`runMigrations` (`charly/migrate.go`, driving the engine in `charly/migrate_engine.go`) is **floor-gated**, comparing the config's `version:` stamp against `kit.SchemaFloor()` and `kit.LatestSchemaVersion()`:
+The migration engine is a **COMPILED-IN command plugin** (`candy/plugin-migrate`, `command:migrate`) — the engine, table, and CLI live in the plugin, out of charly core; core keeps only the below-floor/behind-head load-gate HINTS (the `Run: charly migrate` messages). `charly migrate` dispatches to the compiled-in `command:migrate` provider; the remote-cache auto-migration (`refs.go`) resolves the same provider and Invokes it (`OpRun --project-only`) in-proc.
+
+`runMigrations` (`candy/plugin-migrate/engine.go`) is **floor-gated**, comparing the config's `version:` stamp against `kit.SchemaFloor()` and `kit.LatestSchemaVersion()`:
 
 - **at HEAD** → no-op; prints `nothing to migrate (already at schema <HEAD>)`.
 - **below the floor, or not a CalVer at all** → **unmigratable**: refused with an actionable error (`predates the supported floor … re-author against the current schema`) and **NO filesystem change**. Configs from before the baseline reset fall here. A stranded **per-host** config (`~/.config/charly/charly.yml`) at a below-floor version is doubly stuck: it can neither migrate NOR be WRITTEN — `saveDeployState` refuses to overwrite a config it cannot load (`refusing to overwrite … the existing per-host config fails to load … fix it (or remove it to regenerate) first`), so every pod/vm/local deploy — including a `charly check run <bed>` at its `config`/`deploy-add` step — fails until it is reset. Since it holds only regenerable deploy STATE (no authored intent), back it up and reset it to a bare `version: <HEAD>` stub (or remove it); the state rebuilds on the next deploy.
@@ -88,7 +90,7 @@ The payoff of the declarative engine: the common case needs **zero new Go** — 
 1. Bump `#SchemaVersion` in **`sdk/schema/version.cue`** to the new CalVer.
 2. Run the sdk repo's **`task cue:gen`** to regenerate `sdk/spec/version_gen.go` (the superproject `task cue:gen` chains it).
 3. **Land + tag the sdk repo** (its Go-module tag scheme `v0.<YYYYDDD>.<HHMM leading-zeros-stripped>` — see `/charly-internals:git-workflow`).
-4. In the superproject: bump the `sdk` submodule pointer, append the matching entry to **`charly/migrations.cue`** (the TABLE stays in charly) with the same `version:` — **strictly greater** than the previous HEAD, expressing the transform as an `ops:` list (`rename_key` / `delete_key` / `remap_scalar` / `move_key`) — and run the superproject's own gates.
+4. In the superproject: bump the `sdk` submodule pointer, append the matching entry to **`candy/plugin-migrate/migrations.cue`** (the TABLE lives in candy/plugin-migrate) with the same `version:` — **strictly greater** than the previous HEAD, expressing the transform as an `ops:` list (`rename_key` / `delete_key` / `remap_scalar` / `move_key`) — and run the superproject's own gates.
 
 That is the whole common case — no bespoke migrator type, no registry function, no per-migrator Go file. Only a **structural reshape the four ops can't express** additionally registers ONE `goHooks` entry (a Go function named by the step's `apply:` field). Update the HEAD-CalVer fixtures + the repo's own versioned YAML in the same change.
 
@@ -100,7 +102,7 @@ The operator command never changes — it stays `charly migrate`.
 
 Any change to the YAML schema or composition format (a key rename, a deleted key, a new key shape) is a hard-cutover that MUST:
 
-1. **Bump the `#SchemaVersion` CalVer** — edit `sdk/schema/version.cue`, run `task cue:gen`, land + tag the sdk repo, then in the superproject bump the sdk submodule and append the matching entry to `charly/migrations.cue` (the cross-repo sequence under "Adding a future cutover"). The load-time gate then rejects any not-yet-migrated config with a `Run: charly migrate` hint, so every reader sees the new format. Raising `#SchemaVersion` WITHOUT the migration-table entry (or vice-versa) is forbidden — and `version:` is NEVER set above `LatestSchemaVersion()` (newer configs hard-fail at load).
+1. **Bump the `#SchemaVersion` CalVer** — edit `sdk/schema/version.cue`, run `task cue:gen`, land + tag the sdk repo, then in the superproject bump the sdk submodule and append the matching entry to `candy/plugin-migrate/migrations.cue` (the cross-repo sequence under "Adding a future cutover"). The load-time gate then rejects any not-yet-migrated config with a `Run: charly migrate` hint, so every reader sees the new format. Raising `#SchemaVersion` WITHOUT the migration-table entry (or vice-versa) is forbidden — and `version:` is NEVER set above `LatestSchemaVersion()` (newer configs hard-fail at load).
 2. **Mint a fresh per-push git tag** on the landing push — `v<YYYY.DDD.HHMM>` from the push moment (see "Per-push release git tags" above). The tag and the `version:` bump are decoupled: the tag marks the push, `version:` marks the schema. A schema cutover happens to do BOTH at once, but a content-only push (no schema change) still mints a tag at an unchanged `version:`.
 
 ## Idempotency
@@ -114,5 +116,5 @@ Running `charly migrate` twice is a no-op: after the first run the config is sta
 - `/charly-core:deploy` — the deploy entries a migration may rewrite
 - `/charly-local:local-spec` — `kind: local` templates
 - `/charly-build:secrets`, `/charly-build:settings` — the credential schema
-- `/charly-internals:go` — loader internals (`LoadUnified`, `ParseCalVer`, the `gateSchemaVersion` load gate, the `charly/migrate_engine.go` op-walker)
+- `/charly-internals:go` — loader internals (`LoadUnified`, `ParseCalVer`, the `gateSchemaVersion` load gate, the `candy/plugin-migrate/engine.go` op-walker)
 - `/charly-internals:cutover-policy` — why hard-cutover + a single idempotent `charly migrate` is the required shape

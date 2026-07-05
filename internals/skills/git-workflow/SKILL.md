@@ -339,7 +339,7 @@ only by a cutover raising `#SchemaVersion` in `sdk/schema/version.cue`). Every
 landing writes exactly one `CHANGELOG/$VER.md`; a repo WITH a `charly.yml` (superproject,
 `box/<distro>`) additionally mints the matching `v$VER` git tag, while `plugins`/`pkg-*`
 stay tag-exempt (changelog file only). A YAML schema/format change does BOTH: raise
-`#SchemaVersion` (with its `charly/migrations.cue` entry) AND mint the tag. See
+`#SchemaVersion` (with its `candy/plugin-migrate/migrations.cue` entry) AND mint the tag. See
 `/charly-build:migrate`.
 
 ## After landing — cleanliness + report
