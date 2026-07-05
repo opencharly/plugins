@@ -183,7 +183,14 @@ token the arbiter flips the card's host driver via `applyMode → switchMode`
 HostArbiter reverse channel; the host routes it to the driver-switch in
 `candy/plugin-gpu` via the gpu shims — cutover C9): a SHARED claim flips the
 WHOLE IOMMU group to nvidia + regenerates CDI; an EXCLUSIVE claim flips it to
-vfio. The flip is **group-aware** (every function: display→nvidia/vfio,
+vfio. **Before any nvidia→vfio flip the arbiter first RECLAIMS every running
+charly GPU-CDI pod that no active lease covers** — a leaked/stray disposable bed
+whose transient, owner-PID-tied lease died with its check-runner (invisible to
+the host `/proc/*/fd` holder-scan, but enumerated via `podman ps`+inspect over
+the `gpuCDI` host seam) — gracefully stopping each so its `nvidia_uvm` handle is
+freed (they are NOT restored: a bed past its lease is leaked state). So a leaked
+GPU bed can never make the flip wedge, and a residual `EBUSY` is then a GENUINE
+EXTERNAL (non-charly) client. The flip is **group-aware** (every function: display→nvidia/vfio,
 HDMI-audio→snd_hda_intel/vfio) and **safe by construction** — the nvidia→vfio
 detach uses `modprobe -r` (module-refcount-guarded → `EBUSY` fast-fail if a
 client holds the GPU), NEVER a sysfs `unbind` of a busy nvidia, because that

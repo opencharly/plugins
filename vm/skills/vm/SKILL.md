@@ -143,8 +143,11 @@ the GPU** hangs the host, reboot-only. Source-confirmed (NVIDIA open driver
 The switch NEVER sysfs-unbinds a busy nvidia. The nvidia→vfio path detaches via
 **`modprobe -r`**, which is module-refcount-guarded — it returns `EBUSY`
 *immediately* if any client holds the GPU (it never reaches the blocking
-`.remove` loop), so module-unload IS the deterministic preflight gate. If a
-client remains the switch REFUSES rather than force-unbinding. The host-side
+`.remove` loop), so module-unload IS the deterministic preflight gate. Before the
+flip the arbiter first RECLAIMS charly's OWN running GPU-CDI pods that hold no
+active lease (a leaked/stray disposable bed — detail: `/charly-internals:disposable`
+"The mode flip"), so a residual `EBUSY` is a GENUINE EXTERNAL (non-charly) client;
+against that remaining client the switch REFUSES rather than force-unbinding. The host-side
 precondition is fully verifiable WITHOUT touching the device: `lsmod` (nvidia
 refcount + dependents — the only proxy that reflects the in-kernel
 `nvidia_dev_get` refs of uvm/modeset/drm), `lsof /dev/nvidia*`, and
