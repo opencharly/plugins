@@ -3,7 +3,7 @@ name: local-infra
 description: |
   Go file map for the host side of the `local:` (external deploy:local plugin) +
   VM deploy execution surface. Files: local_spec.go, deploy_chain.go,
-  ssh_managed_config.go, sdk/vmshared/hostdistro.go, install_ledger.go, builder_run.go,
+  sdk/kit/sshconfig.go, sdk/vmshared/hostdistro.go, install_ledger.go, builder_run.go,
   shell_profile.go, reverse_ops.go, service_render.go, deploy_ref.go.
   MUST be invoked before reading or modifying any of those files, or when
   debugging `local:` / VM deploy behaviour (ledger state, sudo batching,
@@ -23,7 +23,7 @@ The `InstallPlan` IR (see `/charly-internals:install-plan`) is the central data 
 | `charly/local_spec.go` | `LocalSpec` struct + `findLocalSpec` lookup | `LocalSpec`, `findLocalSpec` |
 | `charly/deploy_chain.go` | `rootExecutorForDeployNode` — picks the root `DeployExecutor` for a `local:` deploy node (`ShellExecutor` for `host:local`/absent, `SSHExecutor` for `host:<user@machine>`) | `rootExecutorForDeployNode` |
 | `charly/deploy_target_external.go` | `externalDeployTarget` — Add/Test/Update/Del lifecycle for the externalized `local:` substrate (and k8s/android) over the executor reverse channel; records/replays teardown ops via the ledger (full detail in `/charly-internals:install-plan`) | `externalDeployTarget` |
-| `charly/ssh_managed_config.go` | `~/.config/charly/ssh_config` fragment writer (managed-block protocol) | `WriteVmSshStanza`, `RemoveVmSshStanza`, `ListVmSshAliases`, `EnsureSshConfigInclude`, `RemoveSshConfigInclude`, `VmSshAlias`, `SshFragmentPath`, `SshConfigPath` |
+| `sdk/kit/sshconfig.go` | `~/.config/charly/ssh_config` fragment writer (managed-block protocol) | `kit.WriteVmSshStanza`, `kit.RemoveVmSshStanza`, `kit.ListVmSshAliases`, `kit.EnsureSshConfigInclude`, `kit.RemoveSshConfigInclude`, `kit.VmSshAlias`, `kit.SshFragmentPath`, `kit.SshConfigPath` |
 | `charly/deploy_executor_ssh.go` | Credential-free `SSHExecutor` (no `-i`, no host-key overrides) | `SSHExecutor` |
 | `charly/deploy_executor.go` | `ShellExecutor` — local shell venue | `ShellExecutor` |
 | `sdk/vmshared/hostdistro.go` | Detect host distro from `/etc/os-release`; glibc preflight | `HostDistro`, `DetectHostDistro`, `DetectHostGlibc`, `CompareGlibc`, `distroIDAliases` |

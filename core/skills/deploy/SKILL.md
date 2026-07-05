@@ -22,7 +22,7 @@ description: |
 
 1. **Execution verbs** — `charly bundle add <name>` / `charly bundle del <name>`. Apply or reverse a deployment. The target is dispatched by which substrate node the deploy carries:
    - `local: {from: <template>}` → the external `deploy:local` plugin (`candy/plugin-deploy-local`) applies to the local filesystem over the executor reverse channel (or, placed under another resource node via tree position, via NestedExecutor into the enclosing deployment). See `/charly-local:local-deploy`.
-   - `vm: {from: <entity>}` → the external `deploy:vm` plugin (`candy/plugin-deploy-vm`) applies INSIDE a running VM over SSH via the reverse channel; the host-side `vmSubstrateLifecycle` hook boots the venue. See "VM target" section below and `/charly-internals:vm-deploy-target`.
+   - `vm: {from: <entity>}` → the external `deploy:vm` plugin (`candy/plugin-deploy-vm`) applies INSIDE a running VM over SSH via the reverse channel; the plugin auto-boots the venue in its `OpPrepareVenue` (via `HostBuild("cli")`), using the host prepare hook's resolved data. See "VM target" section below and `/charly-internals:vm-deploy-target`.
    - `pod: {image: <image>}` → `PodDeployTarget`: overlay Containerfile + quadlet/podman.
    - `k8s: {from: <name>}` → Kustomize base/overlays tree. See `/charly-kubernetes:kubernetes`.
 2. **Config-file management** — `charly bundle show/export/import/reset/path/status`. Read and mutate `~/.config/charly/charly.yml` itself.
@@ -76,7 +76,7 @@ For service lifecycle commands (start/stop/status/logs/update/remove), see `/cha
 Applies a deployment. The substrate node selects the target:
 
 - **`local: {from: <template>}`** — apply layers to the local filesystem via the external `deploy:local` plugin (`candy/plugin-deploy-local`) over the executor reverse channel. With `host: local` (default) the apply runs through a `ShellExecutor` directly; with `host: <user@machine>` it runs over an `SSHExecutor` (picked by `rootExecutorForDeployNode`). See `/charly-local:local-deploy`.
-- **`vm: {from: <entity>}`** — apply layers inside a running `vm` entity via SSH (the external `deploy:vm` plugin, `candy/plugin-deploy-vm`, over the reverse channel). `<vm-name>` must match a `vm` entity; the VM must already be created (`charly vm create <vm-name>`), or the `vmSubstrateLifecycle` hook auto-boots it. See "VM target" section below.
+- **`vm: {from: <entity>}`** — apply layers inside a running `vm` entity via SSH (the external `deploy:vm` plugin, `candy/plugin-deploy-vm`, over the reverse channel). `<vm-name>` must match a `vm` entity; the VM must already be created (`charly vm create <vm-name>`), or the plugin auto-boots it in its `OpPrepareVenue` (via `HostBuild("cli")`). See "VM target" section below.
 - **`k8s: {from: <name>}`** — emit a Kustomize base/overlays tree. See `/charly-kubernetes:kubernetes`.
 - **`pod: {image: <image>}`** (pod, the default target) — container deployment. Multiple pod deploys coexist (`my-dev`, `postgres-staging`, etc.); each gets its own quadlet, container name, and charly.yml entry.
 
@@ -164,7 +164,7 @@ arch:                                          # the deploy name; addressable as
 
 ### Marking a deploy VM-targeted: the `vm:` substrate node
 
-A deploy is VM-targeted when its first child key is the `vm:` substrate node carrying `from: <entity>` — there is no `target:` field. CLI dispatch additionally accepts a `vm:<vm-name>` prefix on the deploy-name argument (`charly bundle add vm:arch`), which `ResolveTarget` reads to route through `externalDeployTarget` (the adapter for the external `vm` substrate). The prefix is an addressing convenience; the `vm:` substrate node is the source of truth. Naming a `vm:` deploy whose `vm` entity isn't declared in `charly.yml` errors at `charly bundle add` time; a declared-but-unbooted VM is auto-booted by the lifecycle hook's `PrepareVenue`.
+A deploy is VM-targeted when its first child key is the `vm:` substrate node carrying `from: <entity>` — there is no `target:` field. CLI dispatch additionally accepts a `vm:<vm-name>` prefix on the deploy-name argument (`charly bundle add vm:arch`), which `ResolveTarget` reads to route through `externalDeployTarget` (the adapter for the external `vm` substrate). The prefix is an addressing convenience; the `vm:` substrate node is the source of truth. Naming a `vm:` deploy whose `vm` entity isn't declared in `charly.yml` errors at `charly bundle add` time; a declared-but-unbooted VM is auto-booted by the vm deploy plugin's `OpPrepareVenue`.
 
 ### `add_candy:` overlay semantics for VM targets
 

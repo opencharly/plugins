@@ -5,17 +5,25 @@ description: |
   SSH. `vm` is an EXTERNAL out-of-process deploy substrate (like
   local/android/k8s): the plan WALK runs in candy/plugin-deploy-vm via the
   shared sdk/kit.WalkPlans over the GUEST SSHExecutor the executor
-  reverse channel serves, and the host-side VM venue lifecycle (boot the
+  reverse channel serves, and the VM venue lifecycle (boot the
   domain, build the guest SSH executor, nested-pod-in-guest, teardown, the
-  `charly vm` lifecycle) lives in the registered vmSubstrateLifecycle hook. The
+  `charly vm` lifecycle) is IMPLEMENTED IN THE PLUGIN candy/plugin-deploy-vm
+  over generic seams — sdk/kit (ssh-config stanza, guest waits, charly delivery),
+  HostBuild("cli") (the `charly vm`/`charly box build` family), and the served
+  guest executor reverse channel (in-guest nested-pod from-box). Core keeps ONLY
+  generic seams + host-resolved DATA the plugin can't compute with no project: a
+  lifecyclePrepareHook + lifecyclePostTeardownHook (charly/vm_lifecycle_preresolve.go)
+  and the grpcSubstrateLifecycle proxy (charly/substrate_lifecycle_grpc.go) that
+  consults them generically by word and persists the returned VmDeployState. The
   bare DeployTarget (Name+Emit) interface has two in-proc BUILD-ENGINE
   implementers (OCITarget, PodDeployTarget, invoked host-side from a lifecycle
   hook); the deploy lifecycle is the UnifiedDeployTarget interface, and ALL FIVE
   external substrates (local/vm/pod/k8s/android) route through the generic
   externalDeployTarget. Covers the DeployExecutor interface,
   SSHExecutor, VmDeployState persistence, and the host-side ledger.
-  Source: charly/vm_deploy_lifecycle.go, charly/deploy_substrate_lifecycle.go,
-  charly/deploy_target_external.go, candy/plugin-deploy-vm/, charly/deploy_executor*.go,
+  Source: candy/plugin-deploy-vm/lifecycle.go, charly/vm_lifecycle_preresolve.go,
+  charly/substrate_lifecycle_grpc.go, charly/deploy_substrate_lifecycle.go,
+  charly/deploy_target_external.go, charly/deploy_executor*.go,
   charly/bundle_add_cmd_vm.go.
   MUST be invoked before editing VM-target deploy code.
 ---
@@ -77,48 +85,75 @@ broker so the plugin runs the deployment's shell/SSH ops on the real venue;
 `Del` replays the RECORDED `ReverseOps` from the ledger (no plugin call). See
 `/charly-internals:install-plan` for the shared IR.
 
-## `vmSubstrateLifecycle` — the host-side VM venue lifecycle hook
+## The vm venue lifecycle — implemented in the plugin over generic seams
 
-Unlike `local`/`android`/`k8s` (which register NO lifecycle hook — their venue
-has no charly-owned lifecycle), `vm` owns a real venue lifecycle: charly boots /
-destroys / consoles / SSHes the domain, and `charly update <vm-bed>` MUST
+Unlike `local`/`android`/`k8s` (whose venue has no charly-owned lifecycle beyond
+the walk), `vm` owns a real venue lifecycle: charly boots / destroys / consoles /
+SSHes the domain, and `charly update <vm-bed>` MUST
 destroy+build+create+start+re-add the domain (the R10 fresh-rebuild gate). That
-host-only work lives behind a registered hook:
+lifecycle is IMPLEMENTED IN THE PLUGIN — NOT in core, and NOT a hollow forward:
 
-- `vmSubstrateLifecycle` (`charly/vm_deploy_lifecycle.go`) implements the
-  `substrateLifecycle` interface (`charly/deploy_substrate_lifecycle.go`). Its
-  host-coupled methods stay host-side ("it needs core"), but the substrate is
-  EXTERNALIZED (M4b): `candy/plugin-deploy-vm` declares `Lifecycle:true` (so it
-  registers the wire-backed hook at plugin-load), and forwards each lifecycle Op
-  to the hidden `charly __vm-lifecycle <op> <name>` (`charly/vm_lifecycle_cmd.go`)
-  over the generic "cli" host seam — the vm analog of pod's `HostBuild("overlay")`.
-  There is NO compiled-in `registerSubstrateLifecycle("vm", …)` anymore.
-- `externalDeployTarget` consults the registry by substrate word — it never
-  branches on `"vm"` directly, only on whether a hook is registered. `vm` is
-  the only substrate that registers one today (pod's lifecycle joins this seam
-  when pod externalizes).
+- `candy/plugin-deploy-vm` declares `Lifecycle: true`, so at plugin-load the
+  generic `grpcSubstrateLifecycle` proxy (`charly/substrate_lifecycle_grpc.go`)
+  is registered for the `deploy:vm` word. The proxy Invokes the plugin's
+  lifecycle Ops (`OpPrepareVenue` / `OpPostApply` / `OpStart` / `OpStop` /
+  `OpStatus` / `OpLogs` / `OpShell` / `OpRebuild` / `OpTeardownExecutor` /
+  `OpArtifactKey` / `OpPostTeardown`), consulting the registry GENERICALLY —
+  it never branches on `"vm"` directly.
+- The plugin (`candy/plugin-deploy-vm/lifecycle.go`) implements each Op ITSELF
+  over three GENERIC seams:
+  - **sdk/kit** — the ssh-config stanza (`kit.WriteVmSshStanza` +
+    `kit.EnsureSshConfigInclude`), the guest-readiness waits (`kit.WaitForSSH` /
+    `kit.WaitForCloudInit` / `kit.WaitForPackageLock`, host-surface ssh with an
+    injected poll), and charly delivery (`kit.EnsureCharlyInGuest` /
+    `kit.EnsureCharlyInVenue`).
+  - **`HostBuild("cli")`** — the generic "cli" host-builder that runs
+    `charly vm build/create/start/stop/console/ssh/destroy` and
+    `charly box build` / `charly vm cp-box` on the host (auto-boot,
+    start/stop/logs/shell/rebuild, nested-pod image build).
+  - **the reverse channel** — the served guest `SSHExecutor` the plugin drives
+    for the in-guest nested-pod `from-box` deploy (`OpPostApply`).
 
-The hook provides:
+Core provides ONLY generic seams + host-resolved DATA the plugin cannot compute
+(it has no project):
 
-| Method | What it does |
+- A **`lifecyclePrepareHook`** registry (`charly/vm_lifecycle_preresolve.go`):
+  the vm hook (`vmLifecyclePrepare`) does `LoadUnified` → `spec.Vm`, resolves the
+  `kind:vm` entity (`vmEntityForAdd`) + the ssh user/port + the prior
+  `VmDeployState`, and ships `spec.LifecyclePrepareInput` on the `OpPrepareVenue`
+  params — the SAME data-seam shape as the in-core k8s/android
+  `deployPreresolvers`. The proxy consults it GENERICALLY by substrate word
+  (`lifecyclePrepareHookFor`); pod registers none.
+- A **`lifecyclePostTeardownHook`** (same file): the one residual host cleanup
+  the plugin can't do — vm's ephemeral-lifecycle teardown (systemd timers +
+  libvirt snapshot refcounts).
+- The proxy persists the plugin's returned `VmDeployState` patch via the generic
+  `saveDeployState` (extended with `VmState` / `VmCrossRef`), and removes the
+  charly.yml entry keys the plugin ships in `PostTeardownReply.RemoveEntries`.
+
+So NO vm lifecycle logic remains in core: the plugin owns the venue lifecycle
+over the generic seams, and core owns only the DATA preresolver + the ephemeral
+post-teardown hook + generic state persistence. This is the vm analog of pod
+(`candy/plugin-deploy-pod`, which drives `HostBuild("overlay")` +
+`HostBuild("cli")`).
+
+Each Op:
+
+| Op | What it does |
 |---|---|
-| `PrepareVenue` | The full host-side preflight, run BEFORE the plugin walks: resolve the `kind:vm` entity, write the managed ssh-config Host stanza (+ ensure the Include line), auto-boot the domain (`autoBootVmIfNeeded`), `WaitForSSH` / `WaitForCloudInit` / `WaitForPackageLock`, `EnsureCharlyInGuest`, build + return the guest `SSHExecutor` the reverse channel serves, and persist `VmDeployState`. |
-| `ArtifactKey` | Keys candy artifacts (+ the k3s `ClusterProfile`) under `vm:<entity>`, NOT the deploy name — one k3s cluster per VM is reached by several beds, so its profile lands under the shared `vm-<entity>` name the `cluster:` refs use. |
-| `PostApply` | Deploys nested `target: pod` children as persistent in-guest quadlets (`deployNestedPodsInGuest`), AFTER the walk (so the VM's own candies + any kernel-driver reboot are already applied). Add only; skipped under `--node-only`. |
-| `TeardownExecutor` | Returns the guest `SSHExecutor` (against the managed alias, no boot) the recorded `ReverseOps` replay over IN THE GUEST. |
-| `PostTeardown` | Host cleanup after teardown: `RemoveVmSshStanza` + `removeVmDeployEntry` + ephemeral lifecycle teardown. |
-| `Start` / `Stop` / `Status` / `Logs` / `Shell` / `Rebuild` | Shell to the `charly vm` family. `Rebuild` does `charly vm destroy` + `build` + `create` + `start` + `charly bundle add <name>` (re-applying the deploy's candies to the fresh guest via the shared layer-apply primitive, R3) — the path `charly update <vm-bed>` routes through. |
-
-`PrepareVenue` LIFTS the prior in-proc preflight: resolve entity + ssh-config
-stanza + auto-boot, plus `WaitForSSH` / `WaitForCloudInit` / `WaitForPackageLock`
-/ `EnsureCharlyInGuest`, into one host-side step that runs before the plugin walks.
+| `OpPrepareVenue` | The full venue preflight, run BEFORE the walk. Consumes the host `lifecyclePrepareHook`'s resolved `spec.LifecyclePrepareInput`; writes the managed ssh-config Host stanza (`kit.WriteVmSshStanza` + `kit.EnsureSshConfigInclude`), auto-boots the domain via `HostBuild("cli")`, waits (`kit.WaitForSSH` / `WaitForCloudInit` / `WaitForPackageLock`), `kit.EnsureCharlyInGuest`, then returns the guest-`SSHExecutor` `VenueDescriptor` the proxy re-materializes + serves and the `VmDeployState` patch the proxy persists. |
+| `OpArtifactKey` | Keys candy artifacts (+ the k3s `ClusterProfile`) under `vm:<entity>`, NOT the deploy name — one k3s cluster per VM is reached by several beds, so its profile lands under the shared `vm-<entity>` name the `cluster:` refs use. |
+| `OpPostApply` | Deploys nested `target: pod` children as persistent in-guest quadlets over the served guest executor, AFTER the walk (so the VM's own candies + any kernel-driver reboot are already applied). Add only; skipped under `--node-only`. |
+| `OpTeardownExecutor` | Returns the guest-`SSHExecutor` `VenueDescriptor` (against the managed alias, no boot) the recorded `ReverseOps` replay over IN THE GUEST. |
+| `OpPostTeardown` | Removes the managed ssh-config stanza (`kit.RemoveVmSshStanza`) and ships the charly.yml entry keys to strip in `PostTeardownReply.RemoveEntries`; the core `lifecyclePostTeardownHook` runs the residual ephemeral-lifecycle teardown. |
+| `OpStart` / `OpStop` / `OpStatus` / `OpLogs` / `OpShell` / `OpRebuild` | Drive the `charly vm` family via `HostBuild("cli")`. `OpRebuild` does `charly vm destroy` + `build` + `create` + `start` + `charly bundle add <name>` (re-applying the deploy's candies to the fresh guest via the shared layer-apply primitive, R3) — the path `charly update <vm-bed>` routes through. |
 
 ## Implementation notes
 
 - The `pod` substrate is EXTERNAL (`deploy:pod`, candy/plugin-deploy-pod); `PodDeployTarget` (`charly/deploy_target_pod.go`) is its RETAINED overlay-BUILD engine, invoked HOST-SIDE from `candy/plugin-deploy-pod`'s PrepareVenue (M4) (`charly/build_overlay.go`). Its teardown record is keyed HOST-SIDE by `computeDeployID(name)` like every external deploy (the in-proc pod was record-free).
-- `vmNameFromDeployName` strips the `vm:` prefix. `vmEntityForAdd` / `vmEntityForLifecycle` resolve the `kind:vm` entity from a deploy node: the node's `vm:` cross-ref (`node.From`) wins, then the persisted cross-ref, then a legacy `vm:<entity>` prefix, then the deploy name itself.
+- `vmNameFromDeployName` strips the `vm:` prefix. `vmEntityForAdd` (`charly/vm_lifecycle_preresolve.go`, used by the host prepare hook) resolves the `kind:vm` entity from a deploy node: the node's `vm:` cross-ref (`node.From`) wins, then the persisted cross-ref, then a legacy `vm:<entity>` prefix, then the deploy name itself.
 - `UnifiedDeployTarget` / `LifecycleTarget` interfaces (`charly/deploy_target_unified.go`) + the `ResolveTarget` dispatcher (`charly/unified_targets.go`) provide the full lifecycle contract (`Add` / `Del` / `Test` / `Update` / `Start` / `Stop` / `Status` / `Logs` / `Shell` / `Rebuild`). `ResolveTarget` returns an `externalDeployTarget` for every externalized substrate (local/vm/pod/k8s/android — all five).
-- Disposability is read per-`BundleNode` via `charly/deploy.go::BundleNode.IsDisposable()` (`disposable: true`, or ephemeral); it is NOT a `VmSpec` field. The disposability-as-authorization gate is NOT applied in the `charly update` path — `charly update <vm>` rebuilds on explicit invocation regardless (it only NOTES non-disposability, never refuses). `externalDeployTarget.Rebuild` delegates to the `vmSubstrateLifecycle.Rebuild` hook, which recreates the domain THEN re-applies the deploy node's layers via the shared `charly bundle add <node>` path — the same layer-apply primitive the local/pod Rebuild use (R3).
+- Disposability is read per-`BundleNode` via `charly/deploy.go::BundleNode.IsDisposable()` (`disposable: true`, or ephemeral); it is NOT a `VmSpec` field. The disposability-as-authorization gate is NOT applied in the `charly update` path — `charly update <vm>` rebuilds on explicit invocation regardless (it only NOTES non-disposability, never refuses). `externalDeployTarget.Rebuild` delegates through the `grpcSubstrateLifecycle` proxy to the plugin's `OpRebuild` (over `HostBuild("cli")`), which recreates the domain THEN re-applies the deploy node's layers via the shared `charly bundle add <node>` path — the same layer-apply primitive the local/pod Rebuild use (R3).
 
 The `vm` substrate brings `charly bundle add vm:<name>` online: the same
 `InstallPlan` IR that drives pod builds and host deploys runs **inside a VM**
@@ -134,12 +169,14 @@ from the executor), so the reverse ops run IN THE GUEST.
 | File | Contents |
 |---|---|
 | `charly/deploy_target_external.go` | `externalDeployTarget` — the generic out-of-process adapter for all five external substrates; `Add` Invokes `deploy:vm` over the reverse channel, `Del` replays recorded `ReverseOps` |
-| `charly/deploy_substrate_lifecycle.go` | `substrateLifecycle` interface + the `registerSubstrateLifecycle` / `substrateLifecycleFor` registry |
-| `charly/vm_deploy_lifecycle.go` | `vmSubstrateLifecycle` — the host-side VM venue lifecycle hook (`PrepareVenue` / `ArtifactKey` / `PostApply` / `TeardownExecutor` / `PostTeardown` / `Start` / `Stop` / `Status` / `Logs` / `Shell` / `Rebuild`); `vmEntityForAdd` + `autoBootVmIfNeeded` |
+| `charly/deploy_substrate_lifecycle.go` | the generic `substrateLifecycle` interface + the `registerSubstrateLifecycle` / `substrateLifecycleFor` registry |
+| `charly/substrate_lifecycle_grpc.go` | `grpcSubstrateLifecycle` — the generic proxy implementing `substrateLifecycle` by Invoking an out-of-process substrate's lifecycle Ops; consults the `lifecyclePrepareHook` / `lifecyclePostTeardownHook` by word, re-materializes the plugin's returned `VenueDescriptor`, and persists the returned `VmDeployState` via `saveDeployState` |
+| `charly/vm_lifecycle_preresolve.go` | the vm `lifecyclePrepareHook` (`vmLifecyclePrepare` — `LoadUnified` → `spec.Vm` + entity + ssh user/port + prior `VmDeployState`, shipped as `spec.LifecyclePrepareInput`) + the vm `lifecyclePostTeardownHook` (ephemeral-lifecycle host cleanup); `vmEntityForAdd` |
+| `candy/plugin-deploy-vm/lifecycle.go` | the plugin's venue lifecycle — implements every lifecycle Op (`OpPrepareVenue` / `OpPostApply` / `OpStart` / … / `OpPostTeardown`) over `kit` + `HostBuild("cli")` + the served guest executor |
 | `candy/plugin-deploy-vm/` | the out-of-process `deploy:vm` plugin (the plan WALK via `kit.WalkPlans` over the guest `SSHExecutor`) |
 | `charly/deploy_executor.go` | `DeployExecutor` interface (RunShell, Scp, Close) + `ShellExecutor` — local shell exec (used host-side for the builder-image step and `RunHostStep`) |
 | `charly/deploy_executor_ssh.go` | `SSHExecutor` — ssh client with passt-friendly timeouts + WaitForSSH + WaitForCloudInit |
-| `charly/bundle_add_cmd_vm.go` | VM-only deploy helpers that REMAIN host-side: `deployNestedPodsInGuest`, `vmNameFromDeployName`, `sshReverseRunner`, `resolveVmSshUser` / `resolveVmSshPort`, `saveVmDeployState`, `removeVmDeployEntry` |
+| `charly/bundle_add_cmd_vm.go` | VM-only host-side deploy helpers that REMAIN: `vmNameFromDeployName`, `sshReverseRunner`, `resolveVmSshUser` / `resolveVmSshPort`, `saveVmDeployState`, `removeVmDeployEntry` |
 | `charly/vm_create_spec.go` | `VmCreateCmd.runVmSpecCreate` — prereq: VM must be created before deploy |
 
 ## DeployExecutor interface
@@ -159,18 +196,23 @@ Two implementations:
 
 **Name choice**: the interface is `DeployExecutor` — a deploy-scoped name kept distinct from the check runner's own execution types.
 
-## PrepareVenue preflight flow
+## OpPrepareVenue preflight flow
 
-`vmSubstrateLifecycle.PrepareVenue` runs the host-side preflight BEFORE the
-plugin walks the plans:
+The venue preflight runs in TWO parts. FIRST the host `lifecyclePrepareHook`
+(`vmLifecyclePrepare`, `charly/vm_lifecycle_preresolve.go`) resolves the DATA the
+plugin can't compute — it `LoadUnified`s the project, resolves the `kind:vm`
+entity (`vmEntityForAdd`) + its `VmSpec`, the ssh user/port (`resolveVmSshUser` /
+`resolveVmSshPort`), and the prior `VmDeployState`, and ships them as
+`spec.LifecyclePrepareInput` on the `OpPrepareVenue` params. THEN the plugin's
+`OpPrepareVenue` (`candy/plugin-deploy-vm/lifecycle.go`) runs the venue steps
+over the generic seams, BEFORE the walk:
 
-1. **Resolve the `kind:vm` entity** from the deploy node (`vmEntityForAdd`) + load the `VmSpec` from `charly.yml`.
-2. **Publish the managed ssh-config stanza** (`WriteVmSshStanza`) for the VM alias + `EnsureSshConfigInclude`.
-3. **Auto-boot** (`autoBootVmIfNeeded`): TCP-probe the SSH port and, if unreachable, `charly vm build` + `charly vm create`. No-op in DryRun, when nested, and when `CHARLY_DEPLOY_NO_AUTOBOOT` is set.
-4. **Wait for SSH.** `SSHExecutor.WaitForSSH` — polls `net.Dial` to `host:port` with exponential backoff, accommodating cold-boot VMs where cloud-init is provisioning sshd.
-5. **Wait for cloud-init + package lock** (cloud_image / cloud-init sources). `WaitForCloudInit` polls `cloud-init status --wait`; `WaitForPackageLock` waits for the package manager.
-6. **EnsureCharlyInGuest.** Runs the `VmCharlyInstall.Strategy` state machine (see `/charly-internals:cloud-init-renderer`).
-7. **Build + return the guest `SSHExecutor`** (the reverse channel serves it to the plugin) and **persist `VmDeployState`**.
+1. **Publish the managed ssh-config stanza** (`kit.WriteVmSshStanza`) for the VM alias + `kit.EnsureSshConfigInclude`.
+2. **Auto-boot** via `HostBuild("cli")`: TCP-probe the SSH port and, if unreachable, `charly vm build` + `charly vm create`. No-op in DryRun, when nested, and when `CHARLY_DEPLOY_NO_AUTOBOOT` is set.
+3. **Wait for SSH.** `kit.WaitForSSH` — polls `net.Dial` to `host:port` with exponential backoff (an injected poll), accommodating cold-boot VMs where cloud-init is provisioning sshd.
+4. **Wait for cloud-init + package lock** (cloud_image / cloud-init sources). `kit.WaitForCloudInit` polls `cloud-init status --wait`; `kit.WaitForPackageLock` waits for the package manager.
+5. **`kit.EnsureCharlyInGuest`.** Runs the `VmCharlyInstall.Strategy` state machine (see `/charly-internals:cloud-init-renderer`).
+6. **Return the guest `SSHExecutor` `VenueDescriptor`** (the proxy re-materializes it + the reverse channel serves it to the walk) and the **`VmDeployState` patch** the proxy persists via `saveDeployState`.
 
 The plugin's `kit.WalkPlans` then resolves the guest home (`exec.ResolveHome`),
 walks the plans inside the guest, and writes the guest ledger / env.d via the
@@ -251,16 +293,16 @@ storage, and ALL of the load / integrity-probe / tag steps follow it consistentl
 - **default** → the guest's ROOT podman (`sudo podman`), for a `sudo podman run
   --device nvidia.com/gpu=all` consumer that needs `/dev/nvidia*` via root.
 - **`--rootless`** → the SSH user's ROOTLESS podman (`podman`, no sudo; the tag
-  runs via `RunUser`, not `RunSystem`). This is what `deployNestedPodsInGuest`
-  uses: the nested pod comes up via the guest user's own `charly bundle from-box`
+  runs via `RunUser`, not `RunSystem`). This is what the plugin's `OpPostApply`
+  nested-pod deploy uses: the nested pod comes up via the guest user's own `charly bundle from-box`
   (a `--user` quadlet) which reads the USER's storage, so the image MUST land
   there — a root-loaded image would be invisible to it.
 
-## Nested pod-in-VM — persistent in-guest quadlet (`deployNestedPodsInGuest`)
+## Nested pod-in-VM — persistent in-guest quadlet (the plugin's `OpPostApply`)
 
 A `target: vm` deploy whose `nested:` map has `target: pod` children brings each
 child up as a PERSISTENT in-guest quadlet — the nested-pod-in-VM capability.
-`vmSubstrateLifecycle.PostApply` calls `deployNestedPodsInGuest` AFTER the plan
+The plugin's `OpPostApply` (`candy/plugin-deploy-vm`) brings up each nested pod AFTER the plan
 walk (so the guest's own layers, including any kernel-driver reboot + the
 boot-time `nvidia-ctk cdi generate`, are already applied). For each child it:
 
@@ -303,7 +345,7 @@ type VmDeployState struct {
 }
 ```
 
-Persisted in `~/.config/charly/charly.yml` as the `vm_state:` field on the VM's deploy entry (`BundleNode.VmState`), written by `saveVmDeployState` in `PrepareVenue`. Each `charly vm build` / `charly vm create` / `charly bundle add vm:<name>` iteration updates the relevant fields. `charly bundle del vm:<name>` preserves the state (so re-adding picks up InstanceID etc.) unless `--purge` is passed.
+Persisted in `~/.config/charly/charly.yml` as the `vm_state:` field on the VM's deploy entry (`BundleNode.VmState`). On a deploy the plugin returns the `VmDeployState` patch from `OpPrepareVenue`, and the `grpcSubstrateLifecycle` proxy persists it via the generic `saveDeployState` (extended with `VmState` / `VmCrossRef`). Each `charly vm build` / `charly vm create` / `charly bundle add vm:<name>` iteration updates the relevant fields. `charly bundle del vm:<name>` preserves the state (so re-adding picks up InstanceID etc.) unless `--purge` is passed.
 
 ## SSH key idempotency
 
@@ -314,8 +356,10 @@ Persisted in `~/.config/charly/charly.yml` as the `vm_state:` field on the VM's 
 `charly bundle add vm:<name>` resolves via `bundle_add_cmd.go::dispatchNode` →
 `ResolveTarget` → `externalDeployTarget` when the deploy node is a `vm:`
 substrate (or the deploy name starts with `vm:`). `externalDeployTarget.Add`
-runs the `vmSubstrateLifecycle.PrepareVenue` preflight (boot + guest executor),
-then Invokes `deploy:vm` to walk the plans inside the guest:
+runs the venue preflight through the `grpcSubstrateLifecycle` proxy — the host
+`lifecyclePrepareHook` resolves the DATA, then the plugin's `OpPrepareVenue`
+boots the domain + returns the guest executor — then Invokes `deploy:vm` to walk
+the plans inside the guest:
 
 ```
 charly bundle add vm:arch ripgrep           # apply ripgrep layer in the guest
@@ -325,7 +369,7 @@ charly bundle add vm:arch fedora-coder \    # apply full fedora-coder layer set
 charly bundle del vm:arch                   # reverse all applied layers in the guest
 ```
 
-Prereq: the VM is auto-booted by `PrepareVenue` if not already reachable
+Prereq: the VM is auto-booted by the plugin's `OpPrepareVenue` if not already reachable
 (`charly vm build` + `charly vm create`), or you can create it explicitly first
 (`charly vm create arch`).
 
@@ -337,9 +381,9 @@ When the VM's network uses libvirt user-mode + `<backend type='passt'/>` + `<por
 
 - `/charly-internals:install-plan` — InstallPlan IR (the in-proc DeployTarget implementers + step kinds; `externalDeployTarget` consumes the IR for the external substrates)
 - `/charly-internals:plugin` — the out-of-process plugin model + the executor reverse channel `candy/plugin-deploy-vm` rides
-- `/charly-internals:vm-spec` — VmSpec consumed by the vm lifecycle hook
+- `/charly-internals:vm-spec` — VmSpec consumed by the vm deploy plugin's host prepare hook
 - `/charly-internals:libvirt-renderer` — renders domain XML; portForward + passt backend
-- `/charly-internals:cloud-init-renderer` — `EnsureCharlyInGuest` (runs in `PrepareVenue`)
+- `/charly-internals:cloud-init-renderer` — `kit.EnsureCharlyInGuest` (runs in the plugin's `OpPrepareVenue`)
 - `/charly-core:deploy` — `charly bundle add vm:<name>` command + charly.yml schema
 - `/charly-local:local-deploy` — the sibling external substrate (`deploy:local` via `candy/plugin-deploy-local`); same `kit.WalkPlans` + ReverseOps model
 - `/charly-vm:vm` — VM lifecycle; creates the venue the vm deploy runs against

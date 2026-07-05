@@ -450,16 +450,19 @@ only in each repo's `CHANGELOG/`):
   `HostBuild("cli")`). The generic seams it added — the `"cli"` host-builder, the live-inputs
   threading, the `spec.LifecycleOpts`/`HostEnv`/`PrepareVenueReply`/`PostTeardownReply` wire types —
   are reused by the vm lifecycle.
-- **`deploy:vm` lifecycle — DONE** (`candy/plugin-deploy-vm`, M4b): the substrate declares
-  `Lifecycle:true` and forwards each host-side venue-lifecycle Op to the hidden `charly __vm-lifecycle
-  <op> <name>` (`charly/vm_lifecycle_cmd.go`) over the generic "cli" seam. The vm venue lifecycle is
-  MONOLITHICALLY host-coupled (LoadUnified → `spec.Vm`, the libvirt domain boot, the managed ssh-config,
-  the SSH readiness waits + `EnsureCharlyInGuest`, `VmDeployState`), so per "it needs core ⇒ a generic
-  host seam" the host-coupled `vmSubstrateLifecycle` methods stay core UNCHANGED and the plugin reaches
-  them over the cli seam — the vm analog of pod's `HostBuild("overlay")`. `__vm-lifecycle` dispatches to
-  the same method and prints the exact reply JSON the proxy decodes (a data Op passes its stdout
-  through). No compiled-in `substrateLifecycle` remains; no sdk change (reuses M4a's wire types + cli
-  builder). R10: `check-charly-vm` + `check-k3s-vm` both PASS.
+- **`deploy:vm` lifecycle — DONE** (`candy/plugin-deploy-vm`): the substrate declares `Lifecycle:true`
+  and IMPLEMENTS each venue-lifecycle Op ITSELF in `candy/plugin-deploy-vm/lifecycle.go` over the generic
+  seams — `sdk/kit` (the managed ssh-config stanza, the SSH readiness waits, `kit.EnsureCharlyInGuest`),
+  `HostBuild("cli")` (the `charly vm`/`charly box build` family: auto-boot, start/stop/logs/shell/rebuild,
+  nested-pod image build), and the served guest executor reverse channel (the in-guest nested-pod
+  `from-box`). Core keeps ONLY generic seams + host-resolved DATA the plugin can't compute with no
+  project: a `lifecyclePrepareHook` (`charly/vm_lifecycle_preresolve.go`) that `LoadUnified`s → `spec.Vm`,
+  resolves the entity + ssh user/port + prior `VmDeployState`, and ships `spec.LifecyclePrepareInput` on
+  the `OpPrepareVenue` params (the SAME k8s/android-preresolver-shaped DATA seam), plus a
+  `lifecyclePostTeardownHook` for the one residual host cleanup (vm's ephemeral-lifecycle teardown). The
+  generic `grpcSubstrateLifecycle` proxy consults both hooks by word and persists the returned
+  `VmDeployState` via `saveDeployState`. No vm-specific lifecycle code remains in core — the vm analog of
+  pod's `HostBuild("overlay")` + `HostBuild("cli")`. R10: `check-charly-vm` + `check-k3s-vm` both PASS.
 - **Classified core-adjacent candidates (each its own future cutover, decided then, not committed to
   by this doctrine):** `registry.go`+`merge.go` (shedding go-containerregistry, the largest remaining
   core dep), the status subsystem, `alias.go`, and the scaffold. These are recorded as classified —

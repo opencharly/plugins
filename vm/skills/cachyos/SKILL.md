@@ -53,8 +53,8 @@ bare-metal KDE Plasma SDDM seat as in-guest layers, AND (b) a nested
 `selkies-kde-nvidia` streaming pod (real NVENC). It applies the `nvidia` toolkit +
 the locally-vendored `nvidia-driver` kernel layer (whose `reboot: true` reboots the
 guest mid-deploy so the open module loads on a clean boot and the boot-time
-`nvidia-ctk cdi generate` writes `/etc/cdi/nvidia.yaml`), then the vm lifecycle hook's
-`PostApply` (`deployNestedPodsInGuest`) host-builds `selkies-kde-nvidia`, `charly vm cp-box
+`nvidia-ctk cdi generate` writes `/etc/cdi/nvidia.yaml`), then the vm deploy plugin's
+`OpPostApply` host-builds `selkies-kde-nvidia`, `charly vm cp-box
 --rootless`s it into the guest user's podman as `localhost/charly-selkies-kde:latest`,
 and runs the guest's own project-free `charly bundle from-box
 localhost/charly-selkies-kde:latest selkies-kde` — a PERSISTENT in-guest `--user`
