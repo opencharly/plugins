@@ -438,9 +438,11 @@ The kernel/plugin doctrine (CLAUDE.md "Core is the kernel; EVERY capability is a
 substantially realized: the SDK boundary (`github.com/opencharly/sdk`) is extracted, all 74 plugins
 share the one dual-placement authoring shape, and every verb / kind / step / builder, all five deploy
 SUBSTRATES (local/pod/vm/k8s/android), the compiled-in commands (migrate/clean/settings/candy/…), and
-egress / k8sgen / gpu / arbiter / secrets / enc / tunnel are plugin candies. What is captured HERE is
-the remaining in-flight work — listed as CURRENT STATE, never an indefinite TODO (completed cutovers
-live only in each repo's `CHANGELOG/`):
+egress / k8sgen / gpu / arbiter / secrets / enc / tunnel are plugin candies — and BOTH the pod and vm
+substrate venue lifecycles are externalized (M4). What is captured HERE is the kernel-minimization
+state — the externalized substrate lifecycles (kept for the seam pattern they establish) and the
+remaining classified candidates — as CURRENT STATE, never an indefinite TODO (completed cutovers live
+only in each repo's `CHANGELOG/`):
 
 - **`deploy:pod` lifecycle — DONE** (`candy/plugin-deploy-pod`): the host-side pod venue lifecycle is
   externalized over the reverse channel (PrepareVenue via `HostBuild("overlay")` → the retained core
@@ -448,15 +450,16 @@ live only in each repo's `CHANGELOG/`):
   `HostBuild("cli")`). The generic seams it added — the `"cli"` host-builder, the live-inputs
   threading, the `spec.LifecycleOpts`/`HostEnv`/`PrepareVenueReply`/`PostTeardownReply` wire types —
   are reused by the vm lifecycle.
-- **`deploy:vm` lifecycle — IN FLIGHT** (`candy/plugin-deploy-vm`, the walk is already external; the
-  host-side venue lifecycle in `charly/vm_deploy_lifecycle.go` is the last compiled-in
-  `substrateLifecycle`). Externalizing it moves the ssh-config stanza machinery, the SSH readiness
-  waits (`WaitForSSH`/`WaitForCloudInit`/`WaitForPackageLock`), and `EnsureCharlyInGuest` into `sdk/kit`
-  over a host RunCapture/scp surface (the delivery rewrite — the plugin's `os.Executable()` is the
-  PLUGIN binary, so the host charly rides `HostEnv.CharlyBin` and is delivered by `scp` over the ssh
-  alias), plus a host vm-preresolver shipping the resolved `spec.Vm` + ssh coordinates, plus
-  `deployNestedPodsInGuest`. The reverse-channel seams already exist (M4a); the risk is the guest
-  install-delivery rewrite, RDD-proven on `check-charly-vm` before the split.
+- **`deploy:vm` lifecycle — DONE** (`candy/plugin-deploy-vm`, M4b): the substrate declares
+  `Lifecycle:true` and forwards each host-side venue-lifecycle Op to the hidden `charly __vm-lifecycle
+  <op> <name>` (`charly/vm_lifecycle_cmd.go`) over the generic "cli" seam. The vm venue lifecycle is
+  MONOLITHICALLY host-coupled (LoadUnified → `spec.Vm`, the libvirt domain boot, the managed ssh-config,
+  the SSH readiness waits + `EnsureCharlyInGuest`, `VmDeployState`), so per "it needs core ⇒ a generic
+  host seam" the host-coupled `vmSubstrateLifecycle` methods stay core UNCHANGED and the plugin reaches
+  them over the cli seam — the vm analog of pod's `HostBuild("overlay")`. `__vm-lifecycle` dispatches to
+  the same method and prints the exact reply JSON the proxy decodes (a data Op passes its stdout
+  through). No compiled-in `substrateLifecycle` remains; no sdk change (reuses M4a's wire types + cli
+  builder). R10: `check-charly-vm` + `check-k3s-vm` both PASS.
 - **Classified core-adjacent candidates (each its own future cutover, decided then, not committed to
   by this doctrine):** `registry.go`+`merge.go` (shedding go-containerregistry, the largest remaining
   core dep), the status subsystem, `alias.go`, and the scaffold. These are recorded as classified —
