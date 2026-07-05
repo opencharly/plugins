@@ -432,6 +432,36 @@ The host's `base ++ plugin` splice therefore exists to detect a def-name **colli
 resolve base references. (`TestExternalSchemaSelfContained` proves a base-referencing schema fails a standalone
 compile.)
 
+## The remaining program — kernel-minimization roadmap (current state)
+
+The kernel/plugin doctrine (CLAUDE.md "Core is the kernel; EVERY capability is a plugin candy") is
+substantially realized: the SDK boundary (`github.com/opencharly/sdk`) is extracted, all 74 plugins
+share the one dual-placement authoring shape, and every verb / kind / step / builder, all five deploy
+SUBSTRATES (local/pod/vm/k8s/android), the compiled-in commands (migrate/clean/settings/candy/…), and
+egress / k8sgen / gpu / arbiter / secrets / enc / tunnel are plugin candies. What is captured HERE is
+the remaining in-flight work — listed as CURRENT STATE, never an indefinite TODO (completed cutovers
+live only in each repo's `CHANGELOG/`):
+
+- **`deploy:pod` lifecycle — DONE** (`candy/plugin-deploy-pod`): the host-side pod venue lifecycle is
+  externalized over the reverse channel (PrepareVenue via `HostBuild("overlay")` → the retained core
+  overlay engine `charly/build_overlay.go`; Start/Stop/Status/Logs/Shell/Rebuild/PostTeardown via
+  `HostBuild("cli")`). The generic seams it added — the `"cli"` host-builder, the live-inputs
+  threading, the `spec.LifecycleOpts`/`HostEnv`/`PrepareVenueReply`/`PostTeardownReply` wire types —
+  are reused by the vm lifecycle.
+- **`deploy:vm` lifecycle — IN FLIGHT** (`candy/plugin-deploy-vm`, the walk is already external; the
+  host-side venue lifecycle in `charly/vm_deploy_lifecycle.go` is the last compiled-in
+  `substrateLifecycle`). Externalizing it moves the ssh-config stanza machinery, the SSH readiness
+  waits (`WaitForSSH`/`WaitForCloudInit`/`WaitForPackageLock`), and `EnsureCharlyInGuest` into `sdk/kit`
+  over a host RunCapture/scp surface (the delivery rewrite — the plugin's `os.Executable()` is the
+  PLUGIN binary, so the host charly rides `HostEnv.CharlyBin` and is delivered by `scp` over the ssh
+  alias), plus a host vm-preresolver shipping the resolved `spec.Vm` + ssh coordinates, plus
+  `deployNestedPodsInGuest`. The reverse-channel seams already exist (M4a); the risk is the guest
+  install-delivery rewrite, RDD-proven on `check-charly-vm` before the split.
+- **Classified core-adjacent candidates (each its own future cutover, decided then, not committed to
+  by this doctrine):** `registry.go`+`merge.go` (shedding go-containerregistry, the largest remaining
+  core dep), the status subsystem, `alias.go`, and the scaffold. These are recorded as classified —
+  the doctrine names them so the kernel boundary is explicit, not so they are promised on a schedule.
+
 ## Verification
 
 - `go test ./...` — the registry/transport/schema seams (`TestPluginGRPCRoundTrip`,
