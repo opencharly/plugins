@@ -109,7 +109,7 @@ the **Acceptance checklist**, and the **AI Attribution** tier table.
 | `disposable:` / `preemptible:` flag semantics, "What counts as an R10 run" | `/charly-internals:disposable` |
 | Landing mechanics (branch loop, multi-repo order, CalVer tags, PR path) | `/charly-internals:git-workflow` |
 | Agent/workflow/team primitives, hooks doctrine | `/charly-internals:agents` |
-| Kernel/plugin doctrine (core = kernel; every capability a plugin candy), the two authoring shapes, placement, the three-lane transport doctrine, the seams catalog, the "Remaining program" kernel-minimization roadmap | `/charly-internals:plugin` |
+| Kernel/plugin doctrine (core = kernel; every capability a plugin candy), the two authoring shapes, placement, the three-lane transport doctrine, the seams catalog, **the kernel/plugin boundary law** (E/M/B/D/R) + the incomplete-seam mandate | `/charly-internals:plugin` |
 | Skill Dispatcher, RDD/ADE/SDD definitions, Acceptance checklist, attribution tiers (incl. `documentation reviewed`), Documentation-only change class anchor, Key Rules index | CLAUDE.md |
 
 ## Mirroring surfaces — sweep when CLAUDE.md wording changes

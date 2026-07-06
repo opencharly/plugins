@@ -10,6 +10,8 @@ Every opencharly image carries a complete snapshot of "what can this image do, w
 
 Source of truth: `charly/capabilities.go` + `charly/labels.go`. The CLI read-side probe is `charly box labels <ref>` (whole contract sorted; `--format <key>` for one raw value with a non-zero exit when absent; `--all` for non-charly labels too) — the charly-native R8 artifact check. See also `/charly-internals:go` for the broader Go architecture and `/charly-internals:install-plan` for how this feeds the build/deploy IR.
 
+**Boundary-law note.** The `ai.opencharly.*` label contract is a **resolved-envelope** contract, not a typed-kind one (`/charly-internals:plugin` "The kernel/plugin boundary law"): an image advertises what it provides / needs / can do as generic label DATA that any consumer reads by key — the kernel never imports a concrete kind's `spec.<Kind>` type to interpret a label. A new capability field is generic label vocabulary (Data), gated by `TestCapabilityLabelCompleteness`; it never adds a per-kind branch.
+
 ## The `Capabilities` type alias
 
 ```go

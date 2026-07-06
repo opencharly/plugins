@@ -442,41 +442,77 @@ The host's `base ++ plugin` splice therefore exists to detect a def-name **colli
 resolve base references. (`TestExternalSchemaSelfContained` proves a base-referencing schema fails a standalone
 compile.)
 
-## The remaining program — kernel-minimization roadmap (current state)
+## The kernel/plugin boundary law — what belongs in the kernel vs a plugin
 
-The kernel/plugin doctrine (CLAUDE.md "Core is the kernel; EVERY capability is a plugin candy") is
-substantially realized: the SDK boundary (`github.com/opencharly/sdk`) is extracted, all 74 plugins
-share the one dual-placement authoring shape, and every verb / kind / step / builder, all five deploy
-SUBSTRATES (local/pod/vm/k8s/android), the compiled-in commands (migrate/clean/settings/candy/…), and
-egress / k8sgen / gpu / arbiter / secrets / enc / tunnel are plugin candies — and BOTH the pod and vm
-substrate venue lifecycles are externalized (M4). What is captured HERE is the kernel-minimization
-state — the externalized substrate lifecycles (kept for the seam pattern they establish) and the
-remaining classified candidates — as CURRENT STATE, never an indefinite TODO (completed cutovers live
-only in each repo's `CHANGELOG/`):
+This is the authoritative detail for CLAUDE.md's **"The kernel/plugin boundary law"** pillar. It decides,
+uniformly and with NO per-kind exception, whether any schema / typed shape / validation / behaviour is
+KERNEL (`charly/` core + `sdk/`) or PLUGIN. Read it before adding or placing any capability.
 
-- **`deploy:pod` lifecycle — DONE** (`candy/plugin-deploy-pod`): the host-side pod venue lifecycle is
-  externalized over the reverse channel (PrepareVenue via `HostBuild("overlay")` → the retained core
-  overlay engine `charly/build_overlay.go`; Start/Stop/Status/Logs/Shell/Rebuild/PostTeardown via
-  `HostBuild("cli")`). The generic seams it added — the `"cli"` host-builder, the live-inputs
-  threading, the `spec.LifecycleOpts`/`HostEnv`/`PrepareVenueReply`/`PostTeardownReply` wire types —
-  are reused by the vm lifecycle.
-- **`deploy:vm` lifecycle — DONE** (`candy/plugin-deploy-vm`): the substrate declares `Lifecycle:true`
-  and IMPLEMENTS each venue-lifecycle Op ITSELF in `candy/plugin-deploy-vm/lifecycle.go` over the generic
-  seams — `sdk/kit` (the managed ssh-config stanza, the SSH readiness waits, `kit.EnsureCharlyInGuest`),
-  `HostBuild("cli")` (the `charly vm`/`charly box build` family: auto-boot, start/stop/logs/shell/rebuild,
-  nested-pod image build), and the served guest executor reverse channel (the in-guest nested-pod
-  `from-box`). Core keeps ONLY generic seams + host-resolved DATA the plugin can't compute with no
-  project: a `lifecyclePrepareHook` (`charly/vm_lifecycle_preresolve.go`) that `LoadUnified`s → `spec.Vm`,
-  resolves the entity + ssh user/port + prior `VmDeployState`, and ships `spec.LifecyclePrepareInput` on
-  the `OpPrepareVenue` params (the SAME k8s/android-preresolver-shaped DATA seam), plus a
-  `lifecyclePostTeardownHook` for the one residual host cleanup (vm's ephemeral-lifecycle teardown). The
-  generic `grpcSubstrateLifecycle` proxy consults both hooks by word and persists the returned
-  `VmDeployState` via `saveDeployState`. No vm-specific lifecycle code remains in core — the vm analog of
-  pod's `HostBuild("overlay")` + `HostBuild("cli")`. R10: `check-charly-vm` + `check-k3s-vm` both PASS.
-- **Classified core-adjacent candidates (each its own future cutover, decided then, not committed to
-  by this doctrine):** `registry.go`+`merge.go` (shedding go-containerregistry, the largest remaining
-  core dep), the status subsystem, `alias.go`, and the scaffold. These are recorded as classified —
-  the doctrine names them so the kernel boundary is explicit, not so they are promised on a schedule.
+**The law.** The kernel is a **kind-blind execution substrate**: a construct is KERNEL iff it is one of
+four kind-AGNOSTIC things —
+
+- **(E) Envelope** — a generic carrier or the reserved vocab naming its slots: `#Node`(arm-less) /
+  `#Step` / `#Op` / the `#Deploy` tree / the `InstallPlan` IR / `#Context`, and the wire replies plugins
+  resolve into (`VenueDescriptor`, `EmitReply`, `BuilderResolveReply`, `DeployVenue`, `StepEmitRequest`,
+  the opaque `Substrate json.RawMessage`). Carries opaque, word-tagged payloads; encodes no kind.
+- **(M) Mechanism** — a generic engine that transports / renders / validates / re-materializes an
+  envelope, dispatched **by word against a data table, never branching on a concrete kind**, AND
+  irreducibly on the load/build/deploy spine: the loader (prescan + capability routing), the provider
+  registry + transports + reverse-channel legs, the IR compiler + host build engine (RenderTemplate,
+  phase matrix, cache-mounts, multi-stage splice, egress), the deploy kernel (tree walk + the closed
+  transport set `deploy_executor_nested.go` + executor composition + IR walk), the CUE-unify check
+  (`validateAuthoredPluginInput` / `validateKindValueCUE` — the unify-and-fail *act*), the ledger, the
+  Kong spine. A kind-blind mechanism the spine reaches THROUGH a seam (a reshaper, the migration
+  op-walker) is itself a PLUGIN — kind-blind is necessary, spine-irreducible is the refinement.
+- **(B) Bootstrap** — the single irreducible root that must exist before any plugin can load: the
+  `candy`⊻`box` factory (`candyIsImage`+`buildCandy`) + the provider-registry seed. It cannot be a
+  plugin without a bootstrap cycle (the discovered-candy pre-check calls it directly).
+- **(D) Data-not-code** — a kind-recognition fact (which words are kinds / nest members / validate
+  against which value-def) loaded from CUE/config and consulted by word: the CUE-derived vocab
+  (`spec.OpVerbs`/`StepKeywords`/`DocDirectives`/`ResourceKinds`), the schema-version consts, the
+  `#Migration` grammar. NEVER a compiled-in per-kind Go branch or map.
+
+- **(R) Resolve-to-envelope — the DEFAULT.** Everything else — a kind's schema, typed Go shape,
+  deep-validation def, render/behaviour, and produced artifact — is a PLUGIN. It reaches the kernel only
+  by **resolving** its config into an E-envelope that a Mechanism consumes.
+
+**The decision procedure.** For any construct ask: generic Envelope (E)? kind-blind + spine-irreducible
+Mechanism (M)? the Bootstrap root (B)? kind-recognition Data (D)? If none → it is a plugin (R). Placement
+is decided ONLY by this test; **difficulty NEVER enters it** (CLAUDE.md forbidden-excuse catalog) — a
+thing stays kernel only because it is E/M/B/D, never because moving it is hard.
+
+**The un-gameable self-test — the "incomplete seam".** The four kernel escapes are each kind-AGNOSTIC and
+may never name a concrete kind in code. So a kernel `import` of a `spec.<Kind>` struct read for its
+fields, a `switch` on a kind word, or a per-kind Go map is BY DEFINITION an R-item that leaked — an
+**incomplete seam: a bug fixed immediately (one R10-gated cutover each), never a kept exception, never
+parked as a "remaining candidate."** Those three tells are what you grep for.
+
+**The canonical shape every kind copies — resolve-to-envelope.** `builder` is the reference: its plugin
+serves its own `#BuilderInput` schema, decodes into its own params, validates its own input, and RESOLVES
+via `Invoke(OpResolve)` → `spec.BuilderResolveReply` (`Stage`/`CopyArtifacts`/`InlineFragment`); the build
+engine splices the generic fragment and never imports a builder struct. Every concrete kind reaches the
+kernel the same way — a distro resolves to install/phase/localpkg fragments, a substrate to a
+`VenueDescriptor` + `InstallPlan`, a sidecar to a peer-`Deploy` fragment, a resource to a device fragment.
+The kernel consumes the generic envelope; the plugin owns the schema, the validation (`OpValidate`), and
+the resolution. The build-time `OpEmit` (step/verb fragment), the F6 `grpcSubstrateLifecycle`
+(`VenueDescriptor`), and the `HostArbiter`/`HostBuild`/`InvokeProvider`/`RunHostStep` reverse legs are the
+existing seams a de-typing rides — no new seam is usually needed, only the consumer stops re-typing.
+
+**Realized architecture (present state).** The SDK boundary (`github.com/opencharly/sdk`) is extracted;
+every verb / kind / step / builder / command, all five deploy substrates (local/pod/vm/k8s/android) with
+their pod + vm venue lifecycles, and egress / k8sgen / gpu / arbiter / secrets / enc / tunnel are plugin
+candies over the generic seams (`HostBuild("overlay"/"cli"/"step-emit")`, `grpcSubstrateLifecycle`, the
+`ExecutorService` reverse legs, the opaque `Substrate`/`DeployVenue.Substrate` payloads). Where a concrete
+kind's TYPED shape is still consumed in core — a `spec.<Kind>` field-read, a `kindValueDef`-style per-kind
+map, a substrate-word `switch` — that is a known **incomplete seam** being closed one cutover at a time
+under this law; the active inventory + sequence live in the cutover plan + each repo's `CHANGELOG/`, never
+as a snapshot here.
+
+**Whole subsystems obey the same law.** A generic subsystem is kernel only as a spine-irreducible
+Mechanism (M); one the spine reaches through a seam is a plugin. The subsystems still carrying non-trivial
+core weight — the OCI `registry.go`+`merge.go` (go-containerregistry), the status subsystem, `alias.go`,
+the scaffold — are each judged by that test, not parked: where the test says plugin, it is an incomplete
+seam fixed as its own cutover, never an indefinite candidate.
 
 ## Verification
 
