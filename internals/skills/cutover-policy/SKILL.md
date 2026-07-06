@@ -92,8 +92,15 @@ Forbidden internal-voice triggers (each is a confession, NOT a defence):
 - "for tractable wall-clock ..."
 - "I'll narrow scope just for this canary ..."
 - "let me ask whether to phase it"
+- "it's huge / a multi-cutover sub-program / a multi-session effort"
+- "it can't be finished this session / at a session boundary"
+- "I've scoped it as a focused effort for later"
+- "it's ready to grind whenever you want / as its own focused sequence"
+- "I'll revert this working foundation and report it as scoped-for-later"
 
 If you catch yourself forming any of those: STOP forming them. The plan executes as written.
+
+**Size is the same forbidden argument as difficulty — decompose to KEEP GOING, never to defer.** A cutover that turns out large is NOT a reason to stop; it is a reason to **decompose it into atomic per-unit cutovers and land the FIRST one NOW**, then the next, then the next, until the whole is done — compacting context and continuing as many turns as it takes. Decomposition is legal ONLY as forward motion (land unit 1, continue to unit 2); it is FORBIDDEN as a deferral device ("I've split it into N cutovers, I'll do them later"). **Reverting or discarding already-working code because the remaining scope is large is the worst form of the excuse** — it destroys real progress to manufacture a stopping point; if a spike proved the mechanism works, you KEEP the working code and land it, you never revert-and-defer. And the excuse stays forbidden when dressed as *"an honest assessment," "a scoping finding," "the spike's deliverable,"* or *"exhaustively confirmed scope"*: an honest report of remaining work is legitimate ONLY as a preface to continuing it in the SAME turn. (This mirrors CLAUDE.md "Hard Cutover by Default" — the Forbidden-excuse catalog, difficulty AND size.)
 
 ## What a clean cutover PR looks like
 
