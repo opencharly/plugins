@@ -29,9 +29,7 @@ Validates that the `aur:` package format works correctly on Arch Linux boxes. In
 my-image:
   candy:
     base: arch
-  my-image-candy:
-    candy:
-      - arch-aur-test
+    candy: [arch-aur-test]
 ```
 
 Requires an Arch-based box with `build: [pac, aur]` so the builder can resolve AUR packages.

@@ -36,20 +36,24 @@ built-in verb: you write `libvirt: info`, never `plugin: libvirt`.
 
 ### Authoring a `libvirt:` step
 
-The method name becomes the verb's YAML value (`libvirt: <method>`); the former
-CLI positional args become sibling Op modifier fields. A query/probe is a
-`check:` step; an action that changes domain state (send-key, passwd, snapshot
-create/revert) is a `run:` step. Shared matchers (`stdout:`, `stderr:`,
-`exit_status:`) and the artifact validators (`artifact_min_bytes:`,
-`artifact_min_dimensions:`, `artifact_not_uniform:`) work like every other
-verb. **`context: [deploy]`** — the verb needs a running VM; under `charly check
+The method name is the scalar value for a bare-method step (`libvirt: info`), or
+the `method:` key of the `libvirt:` map when the step carries libvirt-exclusive
+fields (`text:`, `input:`, `key:`, `command:`, `uri:`, `artifact:` and the artifact
+validators) — those live INSIDE the `libvirt:` map. Two things stay step-level
+siblings of the `libvirt:` key: the shared matchers (`stdout:`, `stderr:`,
+`exit_status:`) AND the `target:` snapshot name (a genuinely shared `#Op` modifier
+the `snapshot/*` methods read). A query/probe is a `check:` step; an action that
+changes domain state (send-key, passwd, snapshot create/revert) is a `run:` step.
+**`context: [deploy]`** — the verb needs a running VM; under `charly check
 box` (no running VM) it skips. Run a candy's baked `libvirt:` steps against a
 live VM deployment with `charly check live <vm> --filter libvirt`.
 
 ## Method surface
 
-Every method below is the `libvirt:` value; the former CLI flags are sibling
-modifier fields on the same step.
+Every method below is the `libvirt:` map's `method:` (or the scalar value for a
+bare method). The Modifiers column names the libvirt-exclusive fields that live
+INSIDE the `libvirt:` map — EXCEPT `target:` (the `snapshot/*` name), which is a
+shared `#Op` sibling of the `libvirt:` key.
 
 **Top-level:**
 
@@ -92,9 +96,10 @@ modifier fields on the same step.
 | `snapshot/revert` | `target:` | revert to a snapshot |
 | `snapshot/delete` | `target:` | delete a snapshot |
 
-The `libvirt: <method>` value validates against this method set (the
-`#LibvirtMethod` enum on charly's core closed `#Op`) at `charly box validate`
-time.
+The `libvirt: <method>` value validates against this method set — the
+`#LibvirtMethod` enum, now the `method:` field of the plugin's own `#LibvirtInput`
+schema (`candy/plugin-vm/schema/vm.cue`), served over the Describe channel and
+spliced onto the base — at `charly box validate` time.
 
 ### Nested-runtime operator commands (beyond the declarative set)
 
@@ -137,83 +142,79 @@ libvirt/virsh vocabulary so skills translate cleanly. Design choices:
 
 ## End-to-end example
 
-Each step is its own child node of the candy/box, named by its `id:`; a
+Each step is an ordered list item under the candy/box `plan:`; a
 probe is a `check:` step, a state-changing action is a `run:` step. Run with
 `charly check live arch --filter libvirt`.
 
 ```yaml
 # Sanity — the domain is up and the agent is reachable.
-libvirt-domains-listed:
-    check: the session lists the arch domain
-    id: libvirt-domains-listed
-    libvirt: list
-    context: [deploy]
-    stdout:
-        contains: arch
-libvirt-agent-reachable:
-    check: the domain reports a reachable guest agent
-    id: libvirt-agent-reachable
-    libvirt: info
-    context: [deploy]
-    stdout:
-        contains: "Agent: true"
+- check: the session lists the arch domain
+  id: libvirt-domains-listed
+  libvirt: list
+  context: [deploy]
+  stdout:
+    contains: arch
+- check: the domain reports a reachable guest agent
+  id: libvirt-agent-reachable
+  libvirt: info
+  context: [deploy]
+  stdout:
+    contains: "Agent: true"
 
 # Framebuffer capture (independent of SPICE wire state).
-libvirt-framebuffer:
-    check: a non-uniform framebuffer screenshot is captured
-    id: libvirt-framebuffer
-    libvirt: screenshot
+- check: a non-uniform framebuffer screenshot is captured
+  id: libvirt-framebuffer
+  libvirt:
+    method: screenshot
     artifact: /tmp/fb.png
-    context: [deploy]
     artifact_not_uniform: true
+  context: [deploy]
 
 # Keyboard injection via libvirt (alternate path to the `spice: key` verb).
-libvirt-send-chord:
-    run: switch to VT2 via a libvirt key chord
-    id: libvirt-send-chord
-    libvirt: send-key
+- run: switch to VT2 via a libvirt key chord
+  id: libvirt-send-chord
+  libvirt:
+    method: send-key
     key: "ctrl+alt+F2"
-    context: [deploy]
+  context: [deploy]
 
 # QMP escape hatch.
-libvirt-qmp-status:
-    check: QMP reports the running domain status
-    id: libvirt-qmp-status
-    libvirt: qmp
+- check: QMP reports the running domain status
+  id: libvirt-qmp-status
+  libvirt:
+    method: qmp
     text: query-status
-    context: [deploy]
-    stdout:
-        contains: running
+  context: [deploy]
+  stdout:
+    contains: running
 
 # qemu-guest-agent (only if the guest has qemu-guest-agent installed).
-libvirt-guest-uname:
-    check: the guest agent runs uname
-    id: libvirt-guest-uname
-    libvirt: guest/exec
+- check: the guest agent runs uname
+  id: libvirt-guest-uname
+  libvirt:
+    method: guest/exec
     command: uname -a
-    context: [deploy]
-    stdout:
-        contains: Linux
+  context: [deploy]
+  stdout:
+    contains: Linux
 
 # Transactional testing: snapshot → … → revert → delete.
-libvirt-snapshot-create:
-    run: snapshot the domain before a destructive step
-    id: libvirt-snapshot-create
-    libvirt: snapshot/create
-    target: pre-exp
-    context: [deploy]
-libvirt-snapshot-revert:
-    run: revert to the pre-experiment snapshot
-    id: libvirt-snapshot-revert
-    libvirt: snapshot/revert
-    target: pre-exp
-    context: [deploy]
-libvirt-snapshot-delete:
-    run: delete the snapshot
-    id: libvirt-snapshot-delete
-    libvirt: snapshot/delete
-    target: pre-exp
-    context: [deploy]
+# The snapshot name rides the SHARED #Op `target:` sibling, not the libvirt map.
+- run: snapshot the domain before a destructive step
+  id: libvirt-snapshot-create
+  libvirt: snapshot/create
+  target: pre-exp
+  context: [deploy]
+- run: revert to the pre-experiment snapshot
+  id: libvirt-snapshot-revert
+  libvirt: snapshot/revert
+  target: pre-exp
+  context: [deploy]
+- run: delete the snapshot
+  id: libvirt-snapshot-delete
+  libvirt: snapshot/delete
+  target: pre-exp
+  context: [deploy]
 ```
 
 ## Remote libvirt (qemu+ssh://)

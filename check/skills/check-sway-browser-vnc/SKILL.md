@@ -21,8 +21,8 @@ in main).
 ## Bed (a `disposable: true` deploy)
 
 A check bed is just a deploy marked `disposable: true` — there is no separate
-`check:` block. Each delta probe sway-browser-vnc doesn't bake is its own child
-step node under the deploy (named by its `id:`); mirror `box/fedora/charly.yml`:
+`check:` block. Each delta probe sway-browser-vnc doesn't bake is an ordered list
+item under the deploy's `plan:` (named by its `id:`); mirror `box/fedora/charly.yml`:
 
 ```yaml
 check-sway-browser-vnc-pod:
@@ -30,29 +30,28 @@ check-sway-browser-vnc-pod:
         image: sway-browser-vnc      # the shipping image, deployed as-is
         disposable: true
         lifecycle: dev
-    esbv-pod-http-cdp:
-        check: CDP /json/version answers over the published HOST_PORT
-        http: "http://127.0.0.1:${HOST_PORT:9222}/json/version"
-        id: esbv-pod-http-cdp
-        context: [deploy]
-        status: 200
-    esbv-pod-cdp-list:
-        check: CDP enumerates the live debugging targets
-        cdp: list
-        id: esbv-pod-cdp-list
-        context: [deploy]
-    esbv-pod-wl-sway-tree:
-        check: the Sway tree is reachable over the Wayland socket
-        wl: sway-tree
-        id: esbv-pod-wl-sway-tree
-        context: [deploy]
-    esbv-pod-record-start:
-        check: a terminal recording starts
-        record: start
-        id: esbv-pod-record-start
-        context: [deploy]
-        record_name: check-term
-        record_mode: terminal
+        plan:
+            - check: CDP /json/version answers over the published HOST_PORT
+              id: esbv-pod-http-cdp
+              context: [deploy]
+              http:
+                http: "http://127.0.0.1:${HOST_PORT:9222}/json/version"
+                status: 200
+            - check: CDP enumerates the live debugging targets
+              id: esbv-pod-cdp-list
+              context: [deploy]
+              cdp: list
+            - check: the Sway tree is reachable over the Wayland socket
+              id: esbv-pod-wl-sway-tree
+              context: [deploy]
+              wl: sway-tree
+            - check: a terminal recording starts
+              id: esbv-pod-record-start
+              context: [deploy]
+              record:
+                method: start
+                record_name: check-term
+                record_mode: terminal
 ```
 
 `disposable: true` is the sole authorization for `charly update`/`charly remove` to
@@ -65,7 +64,7 @@ time (`charly box validate` notes this).
 
 `sway-browser-vnc` already bakes binaries/services + cdp/vnc/wl/dbus checks,
 and inherits the two `mcp:` probes from the `chrome-devtools-mcp` layer.
-The bed's child step nodes above add the remaining deploy-context `check:` steps —
+The bed's `plan:` steps above add the remaining deploy-context `check:` steps —
 operator-side `http:` (CDP `/json/version` via `HOST_PORT`), `cdp: list`,
 `wl: sway-tree`, and `record: start` — so a single `charly check live` run
 exercises the full cdp/wl/vnc/dbus/mcp/record surface.

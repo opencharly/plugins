@@ -40,24 +40,30 @@ write `record: start`, never `plugin: record`.
 | List recordings | `record: list` | Show active recording sessions |
 | Send command | `record: cmd` + `text:` (+ optional `record_name:`) | Send a command line into the recording terminal |
 
+Every `+ <field>:` entry is a key INSIDE the `record:` map (`record: {method: start, record_name: …}`);
+only `stdout:`/`stderr:`/`exit_status:` and `context:`/`id:`/`timeout:` are siblings.
+
 Run a candy's baked `record:` steps against a live deployment with
 `charly check live <image> --filter record`.
 
 ## Methods
 
-Each method is the declarative `record:` step you author: the method name is the
-verb's YAML value, modifiers are sibling fields. Shared matchers (`stdout:`,
-`stderr:`, `exit_status:`, and — for `stop` — the artifact validators) work like every
-other verb. All `record:` steps are **deploy-context only** (they need a running
-container), so author them with `context: [deploy]`.
+Each method is the declarative `record:` step you author — an ordered list item under
+the candy/box `plan:`. The method name is the scalar value for a bare-method step
+(`record: list`), or the `method:` key of the `record:` map when the step carries
+record-exclusive fields (`record_name:`, `record_mode:`, `record_fps:`,
+`record_audio:`, `text:`, `artifact:` and the artifact validators) — those live INSIDE
+the `record:` map. Only the shared matchers (`stdout:`, `stderr:`, `exit_status:`) and
+`context:`/`id:`/`timeout:` stay siblings. All `record:` steps are **deploy-context
+only** (they need a running container), so author them with `context: [deploy]`.
 
 ### `record: start` — Start Recording
 
 ```yaml
-demo-record-start:
-    check: a terminal recording starts
-    record: start
-    context: [deploy]
+- check: a terminal recording starts
+  context: [deploy]
+  record:
+    method: start
     record_name: demo          # session name (default: default); multiple concurrent recordings supported
     record_mode: terminal      # terminal (asciinema), desktop (video), or empty/auto (auto-detect)
     # record_fps: 30           # frames per second for desktop recording (default 30)
@@ -73,10 +79,10 @@ demo-record-start:
 ### `record: stop` — Stop Recording
 
 ```yaml
-demo-record-stop:
-    check: the terminal recording captured real events
-    record: stop
-    context: [deploy]
+- check: the terminal recording captured real events
+  context: [deploy]
+  record:
+    method: stop
     record_name: demo
     artifact: /tmp/demo.cast    # the recording file is copied from the container to this host path
     artifact_min_bytes: 200
@@ -89,12 +95,11 @@ demo-record-stop:
 ### `record: list` — List Active Recordings
 
 ```yaml
-demo-record-list:
-    check: the recording session is active
-    record: list
-    context: [deploy]
-    stdout:
-        contains: demo
+- check: the recording session is active
+  context: [deploy]
+  record: list
+  stdout:
+    contains: demo
 ```
 
 Emits all active recording sessions with name, mode, and file path.
@@ -102,10 +107,10 @@ Emits all active recording sessions with name, mode, and file path.
 ### `record: cmd` — Send Command to Recording
 
 ```yaml
-demo-record-cmd:
-    check: a command is sent into the recording
-    record: cmd
-    context: [deploy]
+- check: a command is sent into the recording
+  context: [deploy]
+  record:
+    method: cmd
     record_name: demo
     text: echo 'Hello World'
 ```
@@ -122,36 +127,37 @@ Sends a command into the recording's tmux session. For terminal recordings, the 
 
 ## Use Case: Terminal Demo Recording
 
-A demo is an ordered set of `record:` step nodes in a candy/box plan, run together by
-`charly check live <image> --filter record`:
+A demo is an ordered list of `record:` steps under a candy/box `plan:`, run together
+by `charly check live <image> --filter record`:
 
 ```yaml
 # candy/<name>/charly.yml — ordered record: steps drive the whole demo
-demo-start:
-    check: the terminal recording starts
-    record: start
-    context: [deploy]
-    record_name: demo
-    record_mode: terminal
-demo-hello:
-    check: echo into the recording
-    record: cmd
-    context: [deploy]
-    record_name: demo
-    text: echo 'Hello World'
-demo-ls:
-    check: ls into the recording
-    record: cmd
-    context: [deploy]
-    record_name: demo
-    text: ls -la
-demo-stop:
-    check: the recording stops and is captured
-    record: stop
-    context: [deploy]
-    record_name: demo
-    artifact: /tmp/demo.cast
-    artifact_min_cast_events: 3
+plan:
+    - check: the terminal recording starts
+      context: [deploy]
+      record:
+        method: start
+        record_name: demo
+        record_mode: terminal
+    - check: echo into the recording
+      context: [deploy]
+      record:
+        method: cmd
+        record_name: demo
+        text: echo 'Hello World'
+    - check: ls into the recording
+      context: [deploy]
+      record:
+        method: cmd
+        record_name: demo
+        text: ls -la
+    - check: the recording stops and is captured
+      context: [deploy]
+      record:
+        method: stop
+        record_name: demo
+        artifact: /tmp/demo.cast
+        artifact_min_cast_events: 3
 ```
 
 ```bash
@@ -169,28 +175,28 @@ Compose `record:` with the `cdp:`/`wl:` verbs so the browser/desktop interaction
 visible in the captured video:
 
 ```yaml
-walkthrough-start:
-    check: a desktop recording starts
-    record: start
-    context: [deploy]
+- check: a desktop recording starts
+  context: [deploy]
+  record:
+    method: start
     record_name: walkthrough
     record_mode: desktop
     record_audio: true
-walkthrough-open:
-    check: navigate the browser (visible in the recording)
-    cdp: open
-    context: [deploy]
+- check: navigate the browser (visible in the recording)
+  context: [deploy]
+  cdp:
+    method: open
     url: https://github.com
-walkthrough-click:
-    check: click on the desktop
-    wl: click
-    context: [deploy]
+- check: click on the desktop
+  context: [deploy]
+  wl:
+    method: click
     x: 640
     y: 360
-walkthrough-stop:
-    check: the walkthrough video is captured
-    record: stop
-    context: [deploy]
+- check: the walkthrough video is captured
+  context: [deploy]
+  record:
+    method: stop
     record_name: walkthrough
     artifact: /tmp/walkthrough.mp4
     artifact_min_bytes: 10000

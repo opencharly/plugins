@@ -23,20 +23,20 @@ PAC: `base-devel`, `git`
 The `run:` step downloads the latest `yay` binary from GitHub releases:
 
 ```yaml
-# yay charly.yml — a plan step is a child step node (no plan: list)
+# yay charly.yml — steps are an ordered list under plan:
 yay:
   candy:
     version: 2026.144.1443
-  yay-step-0:
-    run: download the latest yay binary from GitHub releases
-    command: |
-      ARCH=$(uname -m)
-      URL=$(curl -fsSL https://api.github.com/repos/Jguer/yay/releases/latest \
-        | grep -o "https://github.com/Jguer/yay/releases/download/[^\"]*_${ARCH}.tar.gz")
-      curl -fsSL "$URL" | tar -xzf - -C /usr/local/bin --strip-components=1 --wildcards '*/yay'
+    plan:
+      - run: download the latest yay binary from GitHub releases
+        command: |
+          URL=$(curl -fsSL https://api.github.com/repos/Jguer/yay/releases/latest \
+            | grep -o "https://github.com/Jguer/yay/releases/download/[^\"]*_${BUILD_ARCH}.tar.gz")
+          curl -fsSL "$URL" | tar -xzf - -C /usr/local/bin --strip-components=1 --wildcards '*/yay'
+        run_as: root
 ```
 
-Architecture-aware: downloads the correct binary for `x86_64` or `aarch64`.
+Architecture-aware: `${BUILD_ARCH}` expands to the correct binary for `x86_64` or `aarch64` at build time.
 
 ## What It Does
 
@@ -45,13 +45,11 @@ Installs the `yay` AUR helper, which enables the `aur:` package format in `charl
 ## Usage
 
 ```yaml
-# charly.yml — typically in a builder image (name-first; compose via a child node)
+# charly.yml — typically in a builder image (compose the candy inline)
 my-builder:
   candy:
     base: arch
-  my-builder-candy:
-    candy:
-      - yay
+    candy: [yay]
 ```
 
 Not used directly in end-user boxes. Instead, it's part of the builder image that compiles AUR packages during multi-stage builds.

@@ -21,11 +21,10 @@ RPM: `tmux` · PAC: `tmux` · DEB: `tmux` — full cross-distro parity.
 ## Usage
 
 ```yaml
-# box charly.yml — a box composes the candy through a <box>-candy child node
+# box charly.yml — a box composes the candy via an inline candy: list in its body
 my-box:
   candy:
     base: fedora
-  my-box-candy:
     candy:
       - tmux
 ```

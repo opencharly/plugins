@@ -34,18 +34,17 @@ mechanics and the priority ordering (`fedora:43` > `fedora` when both
 match).
 
 ```yaml
-# an id-named check step node under the sshd candy entity
-openssh-server-package:
-    check: the openssh-server package is installed (name resolved per distro via package_map)
-    id: openssh-server-package
-    package: openssh-server        # default
-    package_map:
-        arch: openssh
-        fedora: openssh-server
-        fedora:43: openssh-server
-        debian: openssh-server
-        ubuntu: openssh-server
-    installed: true
+# a plan step in the sshd candy's plan: list
+plan:
+    - check: the openssh-server package is installed (name resolved per distro via package_map)
+      id: openssh-server-package
+      package:
+          package: openssh-server
+          package_map:
+              arch: openssh
+              fedora: openssh-server
+              fedora:43: openssh-server
+          installed: true
 ```
 
 ### Cross-distro sudoers via `getent passwd 1000`
@@ -53,18 +52,18 @@ openssh-server-package:
 The sudoers drop-in at `/etc/sudoers.d/charly-user` targets the **actual uid-1000 account**, whatever it happens to be named on the running base image. The candy no longer hardcodes a literal `user` — instead it discovers the account name at build time via `getent passwd 1000`:
 
 ```yaml
-# a child step node under the sshd candy entity
-sshd-write-sudoers:
-    run: write the NOPASSWD sudoers drop-in for the uid-1000 account
-    command: |
-        account=$(getent passwd 1000 | cut -d: -f1)
-        if [ -z "$account" ]; then
-          echo "sshd layer: no uid-1000 account found — refusing to write sudoers" >&2
-          exit 1
-        fi
-        printf '%s ALL=(ALL) NOPASSWD: ALL\n' "$account" > /etc/sudoers.d/charly-user
-        chmod 0440 /etc/sudoers.d/charly-user
-    run_as: root
+# a plan step in the sshd candy's plan: list
+plan:
+    - run: write the NOPASSWD sudoers drop-in for the uid-1000 account
+      command: |
+          account=$(getent passwd 1000 | cut -d: -f1)
+          if [ -z "$account" ]; then
+            echo "sshd layer: no uid-1000 account found — refusing to write sudoers" >&2
+            exit 1
+          fi
+          printf '%s ALL=(ALL) NOPASSWD: ALL\n' "$account" > /etc/sudoers.d/charly-user
+          chmod 0440 /etc/sudoers.d/charly-user
+      run_as: root
 ```
 
 This works uniformly across both user-policy modes:
@@ -80,13 +79,11 @@ Why not `${USER}` substitution? The generator substitutes `${USER}` in plan-step
 
 ```yaml
 # charly.yml -- add the candy to any box that needs an in-container SSH server
-# composition is a child node, not a top-level list
+# compose the candy as an inline list in the box body
 my-image:
     candy:
         base: fedora
-    my-image-candy:
-        candy:
-            - sshd
+        candy: [sshd]
 ```
 
 ## Used In Boxes
@@ -109,19 +106,19 @@ my-image:
 `charly check box` runs with USER=1000 on container images but USER=0 on bootc images (bootc intentionally keeps USER=root because systemd manages user sessions via login). A naïve `sudo -n -l; contains: NOPASSWD` check fails on bootc — running as root prints root's Defaults block, which doesn't contain the literal string `NOPASSWD`. The candy's current test drops to `user` explicitly when running as root:
 
 ```yaml
-# an id-named check step node under the sshd candy entity
-sudoers-charly-user:
-    check: sudo -n -l lists the NOPASSWD rule (dropping to the uid-1000 user when run as root)
-    id: sudoers-charly-user
-    command: |
-        if [ "$(id -u)" = "0" ]; then
-          runuser -u user -- sudo -n -l
-        else
-          sudo -n -l
-        fi
-    exit_status: 0
-    stdout:
-        - contains: "NOPASSWD"
+# a plan step in the sshd candy's plan: list
+plan:
+    - check: sudo -n -l lists the NOPASSWD rule (dropping to the uid-1000 user when run as root)
+      id: sudoers-charly-user
+      exit_status: 0
+      stdout:
+          - contains: "NOPASSWD"
+      command: |
+          if [ "$(id -u)" = "0" ]; then
+            runuser -u user -- sudo -n -l
+          else
+            sudo -n -l
+          fi
 ```
 
 **Portability note:** use `runuser -u user -- <cmd>`, **not**
@@ -138,7 +135,7 @@ caught during `charly-arch` bring-up. See `/charly-check:check` Authoring Gotcha
 - `/charly-coder:ubuntu-coder` -- canonical adopt-mode example; sudoers correctly targets `ubuntu` via getent
 - `/charly-coder:debian-coder` -- canonical create-mode deb-family example; sudoers targets `user`
 - `/charly-distros:ubuntu` -- declares the `base_user:` block that makes ubuntu-coder run as `ubuntu`
-- `/charly-check:check` -- declarative testing framework (gotchas #10 and #11, `package_map:`, `exclude_distros:`)
+- `/charly-check:check` -- declarative testing framework (gotchas #10 and #11, `package_map:`, `exclude_distro:`)
 - `/charly-image:image` -- `user_policy:` field (create / adopt / auto) that drives which account this candy's sudoers targets
 - `/charly-image:layer` -- candy authoring (`${VAR}` substitution scope, command: vs write:)
 

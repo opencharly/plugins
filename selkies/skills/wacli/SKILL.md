@@ -24,13 +24,11 @@ description: |
 ## Usage
 
 ```yaml
-# a box composing this candy — the candy list is a child node
+# a box composing this candy — the candy list is inline
 my-box:
   candy:
     base: fedora
-  my-box-candy:
-    candy:
-      - wacli
+    candy: [wacli]
 ```
 
 ## Used In Boxes

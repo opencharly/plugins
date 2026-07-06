@@ -29,9 +29,7 @@ Validates that the `pac:` package format works correctly on Arch Linux boxes. In
 my-image:
   candy:
     base: arch
-  my-image-candy:
-    candy:
-      - arch-pac-test
+    candy: [arch-pac-test]
 ```
 
 Requires an Arch-based box with `build: [pac]` (or `[pac, aur]`).

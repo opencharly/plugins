@@ -16,27 +16,24 @@ Legacy `kind: host` projects migrate via `charly migrate`.
 
 ```yaml
 # Name-first: the entity flattens to a top-level <name>: key whose `local:`
-# block holds only scalars (description); every non-scalar field becomes a
-# child node, and every plan step becomes its own child step node.
+# block holds the FULL body — scalars, collections inline, and the plan as an
+# ordered `plan:` list of steps.
 dev-workstation:
   local:
     description: Standard developer workstation profile   # optional — plain string
-  dev-workstation-candy:        # required (use [] for a placeholder; see below)
-    candy:
+    candy:                       # required (use [] for a placeholder; see below)
       - ripgrep
       - direnv
       - uv
-  dev-workstation-install_opts:  # optional — defaults merged 3-tier (CLI > deploy > template)
-    install_opts:
+    install_opts:                # optional — defaults merged 3-tier (CLI > deploy > template)
       with_service: false
       allow_repo_changes: true
-  dev-workstation-env:           # optional
-    env:
-      - EDITOR=vim
-  dev-workstation-step-1:        # optional — one intent keyword + inline Op
-    check: ripgrep is installed after deploy
-    command: rg --version
-    context: [deploy]
+    env:                         # optional — a map
+      EDITOR: vim
+    plan:
+      - check: ripgrep is installed after deploy   # one intent keyword + inline Op
+        command: rg --version
+        context: [deploy]
 ```
 
 ## Inline form in charly.yml
@@ -47,30 +44,23 @@ version: 2026.144.1443
 dev-workstation:
   local:
     description: Dev workstation
-  dev-workstation-candy:
     candy: [ripgrep, direnv]
-  dev-workstation-install_opts:
     install_opts: {with_service: false, allow_repo_changes: true}
-  dev-workstation-env:
-    env: [EDITOR=vim]
+    env: {EDITOR: vim}
 
 ci-runner:
   local:
     description: CI runner profile
-  ci-runner-candy:
     candy: [ripgrep, pixi, cargo-toolchain]
-  ci-runner-install_opts:
     install_opts: {with_service: true, allow_root_tasks: true}
 
 charly-cachyos-app:
   local:
     description: CachyOS DX (placeholder)
-  # Empty placeholder — `candy: []` is a load-time WARNING (allowed
-  # for staged template name reservation); a missing candy child node
-  # is a hard error.
-  charly-cachyos-app-candy:
+    # Empty placeholder — `candy: []` is a load-time WARNING (allowed
+    # for staged template name reservation); a missing `candy:` field
+    # is a hard error.
     candy: []
-  charly-cachyos-app-install_opts:
     install_opts: {}
 ```
 
@@ -80,9 +70,9 @@ charly-cachyos-app:
 |---|---|---|
 | `layers` | Yes | Ordered candy stack. `[]` permitted as a placeholder (warning, not error). |
 | `install_opts` | No | Default install gates. Deployment overrides merge on top. |
-| `env` | No | Shell-profile env vars (`KEY=VALUE`). Deployment env wins on key collision. |
+| `env` | No | Shell-profile env vars as a `{KEY: value}` map. Deployment env wins on key collision. |
 | `description` | No | Plain string — the profile's purpose; first line = the summary. |
-| plan steps | No | Each step is its own child step node (`<name>-step-N`, or named by its `id:`) — one intent keyword: `run:` (state-change) / `check:` (deterministic probe) / `agent-run:` / `agent-check:` / `include:` — carrying prose plus, for `run:`/`check:`, an inline Op (verb + matchers + `context:`). Deploy-scope steps carry `context: [deploy]`. Merged with the deploy's step nodes. |
+| `plan` | No | An ordered list of steps inline in the kind value — each one intent keyword: `run:` (state-change) / `check:` (deterministic probe) / `agent-run:` / `agent-check:` / `include:` — carrying prose plus, for `run:`/`check:`, an inline Op (verb + matchers + `context:`), and an optional `id:`. Deploy-scope steps carry `context: [deploy]`. Merged with the deploy's plan. |
 
 There is **no** `status:` or `info:` field; `description` is the human-facing summary string.
 
@@ -134,13 +124,11 @@ A template with `candy: []` is permitted as a stub for staged name reservation:
 charly-cachyos-app:
   local:
     description: CachyOS DX (placeholder)
-  charly-cachyos-app-candy:
     candy: []
-  charly-cachyos-app-install_opts:
     install_opts: {}
 ```
 
-`charly box validate` emits a WARNING but does not error. A missing candy child node entirely IS an error — its presence is the signal that the author intended a template.
+`charly box validate` emits a WARNING but does not error. A missing `candy:` field entirely IS an error — its presence is the signal that the author intended a template.
 
 ## Cross-References
 

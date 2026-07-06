@@ -64,5 +64,5 @@ Use when the user asks about:
 
 ## Related
 
-- `/charly-image:layer` — candy authoring reference (`charly.yml` schema, task verbs, service declarations)
+- `/charly-image:layer` — candy authoring reference (`charly.yml` schema, plan steps, service declarations)
 - `/charly-check:check` — declarative testing (`check:` block, `charly check box`, `charly check live`)

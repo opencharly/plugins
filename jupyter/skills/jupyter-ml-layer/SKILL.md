@@ -17,14 +17,14 @@ description: |
 | Ports | 8888 |
 | Service | `jupyter-ml` (supervisord) |
 | Volume | `workspace` at `/workspace` |
-| Install files | `charly.yml`, `pixi.toml`, `task:` |
+| Install files | `charly.yml`, `pixi.toml`, `plan:` |
 
 ## Architecture: Environment-Owning Meta-Layer
 
 This is a **Tier 2 "environment owner"** candy that:
 1. Owns the pixi.toml with ALL Python dependencies (Jupyter + ML + vLLM runtime deps)
 2. Composes three Tier 1 sub-candies via `candy: [llama-cpp, unsloth, jupyter-mcp]`
-3. MCP extension installed by the `jupyter-mcp` sub-candy (not directly in tasks:)
+3. MCP extension installed by the `jupyter-mcp` sub-candy (not directly in this candy's `plan:`)
 
 Build order: pixi environment → llama-cpp (binaries) → unsloth (vllm wheel + unsloth pip + patch) → jupyter-mcp (MCP extension)
 
@@ -103,5 +103,5 @@ Use when the user asks about:
 
 ## Related
 
-- `/charly-image:layer` — candy authoring reference (`charly.yml` schema, task verbs, service declarations)
+- `/charly-image:layer` — candy authoring reference (`charly.yml` schema, plan steps, service declarations)
 - `/charly-check:check` — declarative testing (`check:` block, `charly check box`, `charly check live`)

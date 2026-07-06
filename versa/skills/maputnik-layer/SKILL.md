@@ -28,12 +28,14 @@ server (`/charly-versa:osm-tools-layer`).
 ## Service spec
 
 ```yaml
-maputnik-service:
-  service:
-    - name: maputnik
-      exec: /usr/bin/python3 -m http.server 8000 --directory /opt/maputnik/build
-      restart: always
-      working_directory: /opt/maputnik
+maputnik:
+  candy:
+    service:
+      - name: maputnik
+        exec: /usr/bin/python3 -m http.server 8000 --directory /opt/maputnik/build
+        restart: always
+        working_directory: /opt/maputnik
+        priority: 34
 ```
 
 Pure stdlib server — no marimo-pixi-env coupling. The system
@@ -52,31 +54,31 @@ Symptom (before fix): the maputnik UI loads at
 `http://127.0.0.1:28000/` showing a blank page; browser dev-tools
 shows asset 404s for `/maputnik/assets/index-*.js` etc.
 
-**Fix in the build cmd**:
+**Fix in the build cmd** — an ordered `plan:` step:
 
 ```yaml
-maputnik-step-build:
-  run: build maputnik from upstream source with the Vite --base=/ override
-  command: |
-    set -euo pipefail
-    git clone --depth 1 https://github.com/maplibre/maputnik /tmp/maputnik
-    cd /tmp/maputnik
-    npm ci --no-audit --no-fund
-    # Override Vite's default --base=/maputnik/ so asset URLs are
-    # root-relative and resolve against our serve path. The `--`
-    # forwards the flag through npm to vite.
-    npm run build -- --base=/
-    if [ -d dist ]; then
-      mkdir -p /opt/maputnik
-      cp -r dist /opt/maputnik/build
-    else
-      echo "maputnik build did not produce ./dist directory" >&2
-      ls -la
-      exit 1
-    fi
-    cd /
-    rm -rf /tmp/maputnik /root/.npm
-  run_as: root
+plan:
+  - run: build maputnik from upstream source with the Vite --base=/ override
+    command: |
+      set -euo pipefail
+      git clone --depth 1 https://github.com/maplibre/maputnik /tmp/maputnik
+      cd /tmp/maputnik
+      npm ci --no-audit --no-fund
+      # Override Vite's default --base=/maputnik/ so asset URLs are
+      # root-relative and resolve against our serve path. The `--`
+      # forwards the flag through npm to vite.
+      npm run build -- --base=/
+      if [ -d dist ]; then
+        mkdir -p /opt/maputnik
+        cp -r dist /opt/maputnik/build
+      else
+        echo "maputnik build did not produce ./dist directory" >&2
+        ls -la
+        exit 1
+      fi
+      cd /
+      rm -rf /tmp/maputnik /root/.npm
+    run_as: root
 ```
 
 ## Check lock-in
@@ -85,19 +87,19 @@ A deploy-context `check:` step greps the served HTML for the
 (forbidden) `/maputnik/` prefix and fails if present. It is a `check:`
 step, so it is a deterministic
 acceptance step that locks in the fix against a future revert to the
-Vite default. The step is a child step node of the candy, named by its
-`id:`:
+Vite default. The step is an ordered `plan:` entry; its former node name
+becomes the step's `id:`:
 
 ```yaml
-maputnik-asset-base-not-prefixed:
-  check: maputnik serves a root-relative SPA
-  id: maputnik-asset-base-not-prefixed
-  command: |
-    ! curl -fsS http://localhost:8000/ | grep -q '"/maputnik/'
-  in_container: true
-  exit_status: 0
-  context:
-    - deploy
+plan:
+  - check: maputnik serves a root-relative SPA
+    id: maputnik-asset-base-not-prefixed
+    exit_status: 0
+    context: [deploy]
+    command:
+      command: |
+        ! curl -fsS http://localhost:8000/ | grep -q '"/maputnik/'
+      in_container: true
 ```
 
 Plus the standard probe steps (also `context: [deploy]`):

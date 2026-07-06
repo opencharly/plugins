@@ -17,11 +17,10 @@ description: |
 ## Usage
 
 ```yaml
-# box or candy charly.yml — composition lives in a candy child node
+# box or candy charly.yml — composition is an inline candy: list in the body
 my-box:
   candy:
     base: fedora
-  my-box-candy:        # composition child node
     candy:
       - playwright
 ```

@@ -52,14 +52,13 @@ Key details:
 
 ### In a candy `charly.yml`
 
-Candy aliases require both `name` and `command`. In the unified node-form each entity is name-first, and `alias` is a child node of the candy:
+Candy aliases require both `name` and `command`. In the compact node-form the `alias:` list is inline in the candy's kind value:
 
 ```yaml
 ollama:
   candy:
     version: 2026.144.1531
     description: Ollama LLM runtime + CLI.
-  ollama-alias:
     alias:
       - name: ollama
         command: ollama
@@ -75,7 +74,6 @@ Box-level aliases default `command` to `name` if omitted. Box-level aliases over
 my-app:
   candy:
     base: fedora
-  my-app-alias:
     alias:
       - name: myapp          # command defaults to "myapp"
       - name: myctl

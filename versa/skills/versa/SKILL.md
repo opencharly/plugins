@@ -129,7 +129,6 @@ versa:
     image: versa
     disposable: true
     lifecycle: dev
-  versa-port:
     port:
       - auto    # auto-allocate one free host port per image-declared
                 # container port. The resolved expansion is persisted
@@ -156,15 +155,17 @@ bookmarks), replace `port: [auto]` with an explicit list — the
 chose, so the URL env vars stay correct either way:
 
 ```yaml
-versa-port:
-  port:
-    - "22718:2718"
-    - "28080:8080"
-    - "23000:3000"
-    - "28000:8000"
-    - "28001:8001"
-    - "28002:8002"
-    - "28090:8090"
+versa:
+  pod:
+    image: versa
+    port:
+      - "22718:2718"
+      - "28080:8080"
+      - "23000:3000"
+      - "28000:8000"
+      - "28001:8001"
+      - "28002:8002"
+      - "28090:8090"
 ```
 
 For cross-pod topologies (airflow in a separate pod on the shared
@@ -192,7 +193,6 @@ versa:
   pod:
     image: versa
     disposable: true
-  versa-port:
     port:
       - auto                   # auto-allocated host ports
 
@@ -200,12 +200,10 @@ versa/ecovoyage:
   pod:
     image: versa               # SAME image, explicit field required
     disposable: true
-  versa-ecovoyage-volume:
     volume:
       - name: workspace
         type: bind
         host: /home/user/projects/ecovoyage
-  versa-ecovoyage-port:
     port:
       - "32718:2718"           # explicit pinned ports for stable bookmarks
       - "38080:8080"
@@ -228,7 +226,6 @@ versa-pinned-2026.131.2134:
   pod:
     image: ghcr.io/opencharly/versa:2026.131.2134  # exact ref, never re-resolved
     disposable: true
-  versa-pinned-2026.131.2134-port:
     port:
       - auto
 ```

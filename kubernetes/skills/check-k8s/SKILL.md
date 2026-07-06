@@ -7,7 +7,7 @@ allowed-tools: Bash, Read
 MUST be invoked before any work involving: the declarative `kube:` check
 verb, cluster-readiness probes from a candy/box plan, ingress / storage
 class assertions, k3s default-addon health checks, or authoring `kube:`
-steps in a candy/box plan (the candy's child step nodes) in charly.yml.
+steps in a candy/box plan (the candy's `plan:` list) in charly.yml.
 
 **There is no host `charly check kube` command.** `kube` is a DECLARATIVE
 check verb only: it is authored as a `kube: <method>` inline Op in a candy/box
@@ -25,8 +25,10 @@ cross-ref).
 
 ## Method surface
 
-Every method below is the `kube:` value; the former CLI flags are sibling
-modifier fields on the same step. A `kube:` step is a `check:` step.
+Every method below is the `kube:` map's `method:` (or the scalar value for a bare
+method). The Modifiers column names the kube-exclusive fields that live INSIDE the
+`kube:` map — EXCEPT `timeout:`, which is a shared `#Op` sibling of the `kube:` key.
+A `kube:` step is a `check:` step.
 
 | `kube:` value | Modifiers | Output |
 |---|---|---|
@@ -44,10 +46,10 @@ modifier fields on the same step. A `kube:` step is a `check:` step.
 | `delete` | `manifest:` (path), `namespace:` | delete the resources named in the manifest |
 | `raw` | `kube_resource:` (plural), `kube_group:`, `kube_version:` (v1), `name:`, `namespace:` | GET an arbitrary resource as JSON |
 
-The full shared modifier set on a `kube:` step: `name:`, `namespace:`,
-`label:`, `cluster:`, `timeout:`, `kubeconfig:`, `kube_context:`,
-`kube_kind:`, `kube_count:`, `manifest:`, `kube_resource:`, `kube_group:`,
-`kube_version:`.
+The full kube-map field set: `name:`, `namespace:`, `label:`, `cluster:`,
+`kubeconfig:`, `kube_context:`, `kube_kind:`, `kube_count:`, `manifest:`,
+`kube_resource:`, `kube_group:`, `kube_version:`, `json:` (all inside the `kube:`
+map). The only shared `#Op` sibling a `kube:` step commonly carries is `timeout:`.
 
 ## Cluster selection
 
@@ -73,58 +75,62 @@ default kubeconfig under a context named after the deploy (the
 step can then address it with `cluster: k3s-srv`:
 
 ```yaml
-  some-check-step:
-    check: every node reports Ready
-    kube: nodes
+- check: every node reports Ready
+  kube:
+    method: nodes
     cluster: k3s-srv
-    stdout: {contains: "Ready"}
-    context: [deploy]
+  stdout: {contains: "Ready"}
+  context: [deploy]
 ```
 
 ## Declarative `kube:` steps in a candy's plan
 
 The verb is authored from a candy's plan steps via the `kube:`
-discriminator on a step's `Op`. In the unified node-form a plan is NOT a
-`plan:` list — each step is its own child step node (`<candy>-step-N:`, or
-named by its `id:`) nested under the candy. Every method above maps to a
-method name; the shared modifiers (`name:`, `namespace:`, `cluster:`,
-`timeout:`, `kubeconfig:`, `kube_kind:`, `kube_count:`, `manifest:`,
-`kube_resource:`, `kube_group:`, `kube_version:`) are available. A `kube:`
-step is a `check:` step.
+discriminator on a step's `Op`. In the unified node-form the plan IS a `plan:`
+list — each step is an ordered list item under the candy's `plan:` (named by its
+optional `id:`). Every method above maps to a method name; its kube-exclusive
+fields (`name:`, `namespace:`, `cluster:`, `kubeconfig:`, `kube_kind:`,
+`kube_count:`, `manifest:`, `kube_resource:`, `kube_group:`, `kube_version:`) go
+INSIDE the `kube:` map, while `timeout:` stays a sibling. A `kube:` step is a
+`check:` step.
 
 Example from `candy/k3s-server/charly.yml` — the k8s cluster-readiness steps as
-child step nodes nested under the `k3s-server:` candy:
+list items under the `k3s-server:` candy's `plan:`:
 
 ```yaml
 k3s-server:
-  candy: {version: …, description: …}     # candy scalars (elided)
-  # … require / distro / service / earlier build-context steps elided …
-  k3s-server-step-3:
-    check: the cluster reports at least one Ready node
-    kube: wait-nodes
-    cluster: "${DEPLOY_NAME}"
-    kube_count: 1
-    timeout: 180s
-    stdout: {contains: "Ready"}
-    context: [deploy]
-  # `addons` BLOCKS until Traefik + ServiceLB + local-path are all Ready, so it
-  # MUST precede any ingressclass/storageclass step — those resources are
-  # registered by the addon stack. Ordering matters: `ingressclass`/`storageclass`
-  # are one-shot list verbs with no internal wait, and they exit 0 on an EMPTY
-  # list, so a `contains` matcher run before the addons settle FAILS rather than
-  # waits. Gate first, assert second.
-  k3s-server-step-4:
-    check: Traefik, ServiceLB, and local-path addons are all Ready
-    kube: addons
-    cluster: "${DEPLOY_NAME}"
-    timeout: 240s
-    context: [deploy]
-  k3s-server-step-5:
-    check: Traefik is registered as the cluster's default ingress class
-    kube: ingressclass
-    cluster: "${DEPLOY_NAME}"
-    stdout: {contains: "traefik"}
-    context: [deploy]
+  candy:
+    version: …
+    description: …
+    # … require / distro / service elided …
+    plan:
+      # … earlier build-context steps elided …
+      - check: the cluster reports at least one Ready node
+        kube:
+          method: wait-nodes
+          cluster: "${DEPLOY_NAME}"
+          kube_count: 1
+        timeout: 180s
+        stdout: {contains: "Ready"}
+        context: [deploy]
+      # `addons` BLOCKS until Traefik + ServiceLB + local-path are all Ready, so it
+      # MUST precede any ingressclass/storageclass step — those resources are
+      # registered by the addon stack. Ordering matters: `ingressclass`/`storageclass`
+      # are one-shot list verbs with no internal wait, and they exit 0 on an EMPTY
+      # list, so a `contains` matcher run before the addons settle FAILS rather than
+      # waits. Gate first, assert second.
+      - check: Traefik, ServiceLB, and local-path addons are all Ready
+        kube:
+          method: addons
+          cluster: "${DEPLOY_NAME}"
+        timeout: 240s
+        context: [deploy]
+      - check: Traefik is registered as the cluster's default ingress class
+        kube:
+          method: ingressclass
+          cluster: "${DEPLOY_NAME}"
+        stdout: {contains: "traefik"}
+        context: [deploy]
 ```
 
 `cluster: "${DEPLOY_NAME}"` lets a candy's `context: [deploy]` step address its own
@@ -146,9 +152,9 @@ rejected by `charly box validate` in kube identifier fields.
   kind is a one-line addition, avoiding the RESTMapper discovery bloat.
   Documents without a namespace inherit `namespace:`.
 - **raw** — escape hatch for any resource not covered by the named
-  methods. `kube: raw` with `kube_resource: nodes` lists nodes;
-  `kube: raw` with `kube_resource: configmaps`, `namespace: kube-system`,
-  `name: foo` prints one ConfigMap as JSON.
+  methods. `kube: {method: raw, kube_resource: nodes}` lists nodes;
+  `kube: {method: raw, kube_resource: configmaps, namespace: kube-system,
+  name: foo}` prints one ConfigMap as JSON.
 - **addons** — assumes the stock k3s addon stack (Traefik, ServiceLB,
   local-path-provisioner) in `kube-system`. Explicit `disable:` in a
   k3s-server layer will cause this method to fail — the failure is
@@ -177,10 +183,11 @@ charly's core binary.
     folds a retrieved k3s kubeconfig into the default kubeconfig under a
     named context (so the `k8s.io/client-go/tools/clientcmd` dependency
     lives here too, not in core).
-  - `schema/kube.cue` — the plugin's served CUE schema. `kube` keeps its
-    `kube:` discriminator + every modifier on charly's CORE `#Op` (authoring
-    is unchanged: `kube: nodes`, not `plugin: kube`), so the served schema
-    carries no `plugin_input`.
+  - `schema/kube.cue` — the plugin's served CUE schema: the `#KubeInput` def
+    carries the method enum + every kube modifier, served over the Describe
+    channel and spliced onto the base for validation. Authoring is unchanged
+    (`kube: nodes`, not `plugin: kube`); the internal plugin/plugin_input wire
+    envelope the sugar desugars to is never authored.
 - `charly/k8s_plugin.go` — `invokeKubePlugin`: the core seam that builds a
   synthetic `kube:` `#Op` and dispatches it to the plugin through the
   registry. Used by the k3s deploy path to invoke `merge-kubeconfig`.

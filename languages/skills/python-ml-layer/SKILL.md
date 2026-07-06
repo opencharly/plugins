@@ -14,7 +14,7 @@ description: |
 |----------|-------|
 | Dependencies | `cuda` |
 | Sub-candies | `llama-cpp` |
-| Install files | `charly.yml`, `pixi.toml`, `task:` |
+| Install files | `charly.yml`, `pixi.toml`, `plan:` |
 
 ## Architecture: Tier 2 Environment-Owner Meta-Layer
 
@@ -38,7 +38,7 @@ Plus from `llama-cpp` sub-candy:
 
 **PyPI:** PyTorch >= 2.10.0 (CUDA 13.0), xformers, transformers, accelerate, safetensors, numpy, scipy, einops, pillow, kornia, spandrel, torchsde, vLLM runtime deps (blake3, flashinfer, numba, ray, xgrammar, etc.), gguf, pydantic, aiohttp
 
-## Post-pixi Installs (tasks:)
+## Post-pixi Installs (`plan:` run steps)
 
 - **vLLM 0.19 cu130 nightly wheel** (`pip install --no-deps`)
 
@@ -66,5 +66,5 @@ Use when the user asks about:
 
 ## Related
 
-- `/charly-image:layer` — candy authoring reference (`charly.yml` schema, task verbs, service declarations)
+- `/charly-image:layer` — candy authoring reference (`charly.yml` schema, plan steps, service declarations)
 - `/charly-check:check` — declarative testing (`check:` block, `charly check box`, `charly check live`)

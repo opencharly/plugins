@@ -57,22 +57,17 @@ Compose your own desktop+browser box — e.g. an `openclaw-desktop` entry in `ch
 openclaw-desktop:
   candy:
     base: fedora
-  openclaw-desktop-candy:
     candy:
       - agent-forwarding
       - openclaw-full
       - sway-desktop
       - dbus
       - charly
-  openclaw-desktop-port:
-    port:
-      - "18789:18789"
-      - "5900:5900"
-      - "9222:9222"
-      - "9224:9224"
 ```
 
-The resulting box exposes:
+A box declares no ports of its own — the composed candies publish them (openclaw
+18789, wayvnc 5900, chrome 9222/9224) and `charly config -p` remaps them at deploy
+time. The resulting box exposes:
 
 | Port | Service | Protocol |
 |------|---------|----------|

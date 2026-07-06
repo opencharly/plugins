@@ -11,9 +11,9 @@ description: |
 - **A deploy is name-first; the target is the SUBSTRATE KIND at the edge** — the deploy's first child key is exactly one of `pod:` / `vm:` / `k8s:` / `local:` / `android:` (or `group:` for a targetless group of members) and selects `local | vm | pod | k8s | android`. There is NO authored `target:` field. Inside that substrate node, `image:` names the box/OCI image a `pod:`/`k8s:`/`android:` runs and `from:` inherits a same-kind `vm`/`k8s`/`local`/`android` template by name.
 - **The substrate node at the edge** — `vm: {from: <entity>}` for a VM target, `pod: {image: <name>}` for a pod target, `k8s: {from: <name>}` for a cluster target, `local: {from: <template>}` for a local-deploy. Deploy-into nesting is **tree position** (a resource node placed under another resource), not a `nested:` field; sibling members (a resource node placed under the deploy) replace the old `peer:` field.
 - **`host:` is a FIELD on `local:`, never a deploy KIND (MUST).** A host/remote deploy MUST be authored as `local: {from: <template>, host: <user@machine>}` — the `host:` scalar on a `local:` (or `pod:`) deploy: `host: local` / absent = this machine, `host: <user@machine>` = SSH. There is NO standalone `host:` venue KIND; authoring a `host:` node is a hard load error. See `/charly-local:local-deploy`.
-- **`group:` is EXCLUSIVELY a targetless deploy group; a Calamares package group is `package-group:` (MUST).** A `group:` node carries only resource members (pod/vm/etc.) with no own workload — the targetless deploy group. A Calamares installer package group (the `#Group` schema — `name`/`package`/`subgroup`/`distro`/…) MUST use the separate `package-group:` kind, never `group:`. See `/charly-image:layer`.
+- **`group:` is EXCLUSIVELY a targetless deploy group.** A `group:` node carries only resource members (pod/vm/etc.) with no own workload — the targetless deploy group.
 - **Disposability is a deploy property** — `BundleNode.Disposable` (the `disposable:` scalar under the substrate node) is the sole source of truth.
-- **Resource arbitration is a deploy property** — a `<name>-preemptible` child node (holder; occupies exclusive host-resource token(s), may be gracefully stopped + restored) a `<name>-requires_exclusive` child node (claimant; needs SOLE use), and a `<name>-requires_shared` child node (claimant; REFCOUNTED shared use — many concurrent claimants; a GPU-token claim flips the whole IOMMU group vfio→nvidia+CDI at deploy, back at teardown when the LAST claimant releases) drive the arbiter (`charly preempt`). A fourth axis ORTHOGONAL to disposable/ephemeral/lifecycle. See "Preemptible resource arbitration" below + `/charly-internals:disposable`.
+- **Resource arbitration is a deploy property** — the `preemptible:` field (holder; occupies exclusive host-resource token(s), may be gracefully stopped + restored), the `requires_exclusive:` field (claimant; needs SOLE use), and the `requires_shared:` field (claimant; REFCOUNTED shared use — many concurrent claimants; a GPU-token claim flips the whole IOMMU group vfio→nvidia+CDI at deploy, back at teardown when the LAST claimant releases) — all inline in the substrate node — drive the arbiter (`charly preempt`). A fourth axis ORTHOGONAL to disposable/ephemeral/lifecycle. See "Preemptible resource arbitration" below + `/charly-internals:disposable`.
 - **Disposable R10 test beds are just `disposable: true` deploys** (run via `charly check run <bed>`) — there is NO separate bed kind. The main repo's beds (`check-pod`, `check-k3s-vm`, `check-sway-browser-vnc-pod`, …) AND every `box/<distro>` submodule's beds (the arch / cachyos / debian / ubuntu / fedora bootstrap-VM + pacstrap/debootstrap beds, in each submodule's `charly.yml`) are disposable deploys. The cachyos submodule's `charly-cachyos` operator workstation profile is a non-disposable deploy (a profile, not a test bed). Operator deployments otherwise live in the per-host `~/.config/charly/charly.yml`. See `/charly-check:check` "disposable check deploys".
 
 ## Overview
@@ -31,7 +31,7 @@ description: |
 
 The same `BundleNode` shape feeds every target (`pod`, `local`, `vm`, `k8s`, `android`) — authors describe *what the workload needs* (ports, volumes, env, security, tests); the generator per target decides *how K8s / quadlet / local apply / VM over SSH / Android apk-install* realizes it.
 
-A deploy's install timeline can include a `run: plugin: <verb>` step. When the verb is served by an EXTERNAL (out-of-process) plugin, that step EXECUTES at deploy on a `local:`/`vm:` target — the plugin runs its effect on the live venue over the executor reverse channel (`Invoke(OpExecute)`) and returns teardown `ReverseOp`s the target records to the ledger and replays at `charly bundle del`. A builtin `ProvisionActor` verb keeps its in-proc shell path; the two are placement-agnostic (same authored step, the runtime picks the path). Detail → `/charly-internals:install-plan` (the `ExternalPluginStep` IR kind) + `/charly-internals:plugin`.
+A deploy's install timeline can include a `run:` step carrying a plugin verb (the `<word>: <input>` sugar — see `/charly-image:layer` "Plugin verb steps"). When the verb is served by an EXTERNAL (out-of-process) plugin, that step EXECUTES at deploy on a `local:`/`vm:` target — the plugin runs its effect on the live venue over the executor reverse channel (`Invoke(OpExecute)`) and returns teardown `ReverseOp`s the target records to the ledger and replays at `charly bundle del`. A builtin `ProvisionActor` verb keeps its in-proc shell path; the two are placement-agnostic (same authored step, the runtime picks the path). Detail → `/charly-internals:install-plan` (the `ExternalPluginStep` IR kind) + `/charly-internals:plugin`.
 
 **An `android:` deploy** installs a deploy's `add_candy:` candies' `apk:` packages
 onto an `android` device entity (an in-pod emulator or a remote/physical adb
@@ -39,7 +39,7 @@ endpoint) via the EXTERNAL `deploy:android` substrate (F1 — served out-of-proc
 by candy/plugin-adb; the host preresolves the device endpoint + apk specs, the
 plugin installs) — the Android analogue of a `k8s:` deploy emitting workloads onto
 a cluster. The substrate node is `android: {from: <device>}`; apps
-ride in on the `add_candy:` child node (no apk-list field). A `pod → android` tree
+ride in on the deploy's inline `add_candy:` list (no apk-list field). A `pod → android` tree
 (the device placed under its emulator-pod node) mirrors `vm → k8s`; a pod's android
 children deploy AFTER `charly start` (use `--node-only` on the pod's deploy-add, then
 dotted-path `charly bundle add pod.device`). See `/charly-check:android`. K8s-specific choices (storage class, ingress class, cert issuer, secret backend) live in a **cluster profile** file (`~/.config/charly/clusters/<name>.yaml` or in-repo `clusters/<name>.yaml`), *not* in the deployment. This means one deployment spec targets dev/staging/prod clusters with zero schema changes — only the cluster profile differs.
@@ -132,35 +132,27 @@ charly bundle del vm:arch                        # reverse all applied layers (V
 
 ### `VmDeployState` schema in charly.yml
 
-When `charly bundle add vm:<name>` completes, a `vm_state` child node lands in the charly.yml deploy:
+When `charly bundle add vm:<name>` completes, a `vm_state:` block lands inline in the charly.yml deploy:
 
 ```yaml
 arch:                                          # the deploy name; addressable as vm:arch
   vm:
     from: arch                                 # inherit the vm template (implies the VM target)
-  arch-vm_source:
-    vm_source:                                 # persisted copy of VmSpec.Source for re-apply
-      kind: cloud_image
-      url: https://fastly.mirror.pkgbuild.com/...
-      base_user: arch
-  arch-add_candy:
     add_candy:
       - ripgrep
       - github.com/team/configs/candy/sshkeys
-  arch-install_opts:
     install_opts:
       verify: true
-  arch-vm_state:
     vm_state:
       instance_id: 7b3a8f42-...                # stable UUID across rebuilds
-      nvram_path: ""                           # empty for firmware=bios
-      last_build: 2026-04-22T10:14:27Z
-      last_deploy: 2026-04-22T10:18:55Z
-      applied_layers: [ripgrep, sshkeys]
-      base_image_sha256: a8c9e0f1...           # cloud_image integrity trace
+      disk_path: /home/user/.local/share/charly/vms/arch.qcow2
+      seed_iso: /home/user/.local/share/charly/vms/arch-seed.iso
+      ssh_port: 2222
+      ssh_user: arch
+      backend: libvirt
 ```
 
-`vm_state` is persisted so re-applies pick up `instance_id` (cloud-init uses it as a stable identifier) and so `charly bundle del vm:<name>` knows which NVRAM to use. SSH access uses the managed `charly-<vmname>` ssh-config alias written by `charly vm create`.
+`vm_state` is the persisted venue state: re-applies pick up `instance_id` (cloud-init uses it as a stable identifier) plus the disk/seed paths and SSH endpoint. SSH access uses the managed `charly-<vmname>` ssh-config alias written by `charly vm create`.
 
 ### Marking a deploy VM-targeted: the `vm:` substrate node
 
@@ -202,7 +194,7 @@ See `/charly-vm:vms-catalog` for vm-entity authoring, `/charly-vm:vm` for the li
 
 ### `add_candy:` overlay mechanism
 
-Both container and host targets accept extra candies at deploy time via `--add-candy <ref>` (repeatable) or the deploy's `add_candy:` child node. Semantics:
+Both container and host targets accept extra candies at deploy time via `--add-candy <ref>` (repeatable) or the deploy's inline `add_candy:` list. Semantics:
 
 - **Container target**: synthesizes an overlay Containerfile (`FROM <base-image>` + the extra candies' build steps) and builds a deterministic overlay image tagged `<deploy-name>-overlay:<short-hash>`. The deploy runs the overlay, not the base image. Re-running with different overlays rebuilds. `charly bundle del <name>` removes the overlay unless `--keep-image`.
 - **Host target**: the compiler merges the box's candies with `add_candy:`, topo-sorts the union, and compiles one `InstallPlan` covering the combined set. The ledger records which candies (base + overlay) were applied so teardown reverses everything.
@@ -230,19 +222,16 @@ versa:                             # base instance — name == image (just conve
 versa/ecovoyage:                   # `<base>/<instance>` deploy name
   pod:
     image: versa                   # SAME image; explicit (no inference)
-  versa-ecovoyage-volume:
     volume:
       - name: workspace
         type: bind
         host: /home/user/projects/ecovoyage
-  versa-ecovoyage-port:
     port:
       - "32718:2718"               # explicit pinned ports; other ports auto-allocate
 
 versa/another-tenant:              # second instance of versa
   pod:
     image: versa
-  versa-another-tenant-volume:
     volume:
       - name: workspace
         type: bind
@@ -326,7 +315,6 @@ when you need a fixed, predictable host port:
 jupyter:
   pod:
     image: jupyter
-  jupyter-port:
     port: ["8888:8888"]   # pin 8888 for a stable bookmark; other ports auto-allocate
 ```
 
@@ -358,7 +346,7 @@ added since. Requiring `image:` makes the inspected image deterministic.
 **Deploy a local image as a container:**
 ```bash
 charly bundle add my-dev fedora-coder
-# Uses the my-dev deploy's child nodes for volume/port/env/tunnel.
+# Uses the my-dev deploy's inline volume/port/env/tunnel config.
 charly bundle del my-dev
 ```
 
@@ -462,14 +450,14 @@ tunnel:
 
 ### Cloudflare Tunnel
 
-Routes traffic through Cloudflare's network. Requires `fqdn`. Prerequisite: `cloudflared tunnel login` (one-time auth).
+Routes traffic through Cloudflare's network. Requires the deploy's `dns:` hostname. Prerequisite: `cloudflared tunnel login` (one-time auth).
 
 ```yaml
 tunnel:
   provider: cloudflare
   port: 3001
   tunnel: my-tunnel    # optional, defaults to charly-<image>
-fqdn: "app.example.com"
+dns: "app.example.com"
 ```
 
 `charly config` handles the full tunnel lifecycle automatically:
@@ -557,14 +545,14 @@ Source: `charly/tunnel.go` (resolution + the shared `schemeTarget`/`tailscaleFla
 
 ### Legacy-schema rejection
 
-The per-host config is node-form: top-level name-first `<name>: {<substrate-kind>: …, <child-nodes>}` entries (the substrate-kind being `pod`/`vm`/`k8s`/`local`/`android`/`group`, projected internally into the `BundleConfig.Bundle` map), preceded by a `version:` stamp and an optional `provides:` directive. `LoadBundleConfig` reads it through the unified node-form loader (`LoadUnified` → `ProjectBundleConfig`). A host still on a legacy root shape — the obsolete `image:`/`images:` root key, or the legacy `deploy.yml` filename — is detected and fails loud, so a misparse can never silently drop a `volume:` entry with `type: encrypted` from `loadEncryptedVolumes` and quietly void the encryption guarantee; the failure points at `charly migrate`.
+The per-host config is compact node-form: top-level name-first `<name>: {<substrate-kind>: <full body>}` entries (the substrate-kind being `pod`/`vm`/`k8s`/`local`/`android`/`group`, its value carrying the deploy config INLINE, projected internally into the `BundleConfig.Bundle` map; the only named children are member sub-entities), preceded by a `version:` stamp and an optional `provides:` directive. `LoadBundleConfig` reads it through the unified node-form loader (`LoadUnified` → `ProjectBundleConfig`). A host still on a legacy root shape — the obsolete `image:`/`images:` root key, or the legacy `deploy.yml` filename — is detected and fails loud, so a misparse can never silently drop a `volume:` entry with `type: encrypted` from `loadEncryptedVolumes` and quietly void the encryption guarantee; the failure points at `charly migrate`.
 
 `charly status` surfaces this as a non-fatal warning (graceful degradation falls back to image-label-driven display); the strictly-charly.yml-driven verbs (`charly bundle show`, `charly config status`, `charly start`) hard-fail. Run `charly migrate` to convert in place — it backs the original up to `<file>.bak.<unix-ts>` and rewrites to the latest schema. See `/charly-build:migrate` "charly migrate".
 
 ### Structure
 
 ```yaml
-version: 2026.144.1443
+version: 2026.186.2323
 my-app:
   pod:
     image: my-app
@@ -572,11 +560,9 @@ my-app:
     env_file: "/home/user/project/.env"
     network: charly
     engine: podman
-  my-app-tunnel:
     tunnel:
       provider: cloudflare
       port: 2283
-  my-app-volume:
     volume:
       - name: data
         type: bind
@@ -587,19 +573,16 @@ my-app:
         path: /workspace
       - name: secrets
         type: encrypted
-  my-app-port:
     port:
       - "2283:2283"
-  my-app-env:
     env:
-      - "LOG_LEVEL=debug"
-  my-app-security:
+      LOG_LEVEL: debug
     security:
       devices:
         - /dev/dri/renderD128
 ```
 
-Per-deploy fields: the substrate node (`pod`/`vm`/`k8s`/`local`/`android`/`group`) holds scalars (`image:` for a pod, `from:` to inherit a same-kind template, `disposable`, `lifecycle`, `description`, `dns`, `fqdn`, `acme_email`, `env_file`, `network`, `engine`); every non-scalar collection becomes a `<name>-<key>` child node (`tunnel`, `volume`, `port`, `env`, `security`, `secret`, `add_candy`, `install_opts`).
+Per-deploy fields: the substrate node (`pod`/`vm`/`k8s`/`local`/`android`/`group`) holds the COMPLETE deploy body inline — the scalars (`image:` for a pod, `from:` to inherit a same-kind template, `disposable`, `lifecycle`, `description`, `dns`, `acme_email`, `env_file`, `network`, `engine`) AND every collection (`tunnel`, `volume`, `port`, `env` — a map, `security`, `secret`, `sidecar`, `add_candy`, `install_opts`). The only named children a deploy carries are member sub-entities (see "Sibling members" below).
 
 ### The substrate node, `add_candy:`, and `install_opts:` fields
 
@@ -607,21 +590,19 @@ The `charly bundle add`/`del` surface honors these per deploy, each only when re
 
 **The substrate node** — `pod:` (the default, carrying `image:`), `vm:`, `k8s:`, `local:`, or `android:` (carrying `from:`) selects the target; there is no `target:` field. A local deploy carries the Ansible-style `host:` scalar (`host: local`, the default, runs directly; `host: <user@machine>` runs over SSH) and applies its `add_candy:` candies to the host filesystem.
 
-**`add_candy:`** — a `<name>-add_candy` child node listing extra layer refs applied on top of the image's base layers. Each entry accepts the same 4 ref forms as the command-line `--add-candy` flag (local name / local YAML path / remote `github.com/.../candy/<n>[@ref]`). See "add_candy: overlay mechanism" above for pod vs local semantics.
+**`add_candy:`** — an inline list of extra layer refs applied on top of the image's base layers. Each entry accepts the same 4 ref forms as the command-line `--add-candy` flag (local name / local YAML path / remote `github.com/.../candy/<n>[@ref]`). See "add_candy: overlay mechanism" above for pod vs local semantics.
 
-**`install_opts:`** — a `<name>-install_opts` child node of local-target defaults that mirror the CLI flags on `charly bundle add`. CLI flags win on conflict; the deploy provides defaults so you don't have to repeat `--with-services --allow-repo-changes` on every invocation.
+**`install_opts:`** — an inline block of local-target defaults that mirror the CLI flags on `charly bundle add`. CLI flags win on conflict; the deploy provides defaults so you don't have to repeat `--with-services --allow-repo-changes` on every invocation.
 
 ```yaml
 my-host:
   local:
-    from: fedora-coder                                      # inherit the kind: local template
-    host: local                                             # present ⇒ local target
-  my-host-add_candy:
+    from: fedora-coder                                    # inherit the kind: local template
+    host: local                                           # present ⇒ local target
     add_candy:
       - my-team-vimrc                                     # local layer
-      - github.com/team-acme/configs/candy/sshkeys       # remote layer
+      - github.com/team-acme/configs/candy/sshkeys        # remote layer
       - ./private-overlay.yml                             # local file
-  my-host-install_opts:
     install_opts:
       with_service: true
       allow_repo_changes: true
@@ -629,7 +610,6 @@ my-host:
       skip_incompatible: false
       verify: true
       builder_image: fedora-builder:2026.04
-  my-host-env:
     env:
       OPENCHARLY_DEV: "true"
 ```
@@ -644,7 +624,6 @@ Cgroup memory and CPU limits are stored in the `security:` block of charly.yml a
 selkies-desktop:
   pod:
     image: selkies-desktop
-  selkies-desktop-security:
     security:
       shm_size: "1g"
       memory_max: "6g"
@@ -709,13 +688,15 @@ See `/charly-image:layer` for `env_provide`/`mcp_provide` field declarations and
 
 ### Secrets
 
-Per-deployment secret source overrides. Secrets declared in image labels (from `charly.yml`) are provisioned as Podman secrets at `charly config` time. A deploy's `secret:` child node can override where the value comes from:
+Per-deployment secret source overrides. Secrets declared in image labels (from `charly.yml`) are provisioned as Podman secrets at `charly config` time. A deploy's inline `secret:` list can override where the value comes from:
 
 ```yaml
-my-app-secret:
-  secret:
-    - name: api-key               # matches layer secret name
-      source: keyring              # "keyring" (default), "env:VAR", "file:/path"
+my-app:
+  pod:
+    image: my-app
+    secret:
+      - name: api-key             # matches layer secret name
+        source: keyring           # "keyring" (default), "env:VAR", "file:/path"
 ```
 
 If no source is specified, the credential resolution chain is used: env var > keyring > config file.
@@ -768,19 +749,16 @@ charly start selkies-desktop -i personal
 selkies-desktop:
   pod:
     image: selkies-desktop
-  selkies-desktop-port:
     port: ["3000:3000"]
 selkies-desktop/work:
   pod:
     image: selkies-desktop
-  selkies-desktop-work-port:
     port: ["3001:3000"]
-  selkies-desktop-work-env:
-    env: ["TS_HOSTNAME=work"]
+    env:
+      TS_HOSTNAME: work
 selkies-desktop/personal:
   pod:
     image: selkies-desktop
-  selkies-desktop-personal-port:
     port: ["3002:3000"]
 ```
 
@@ -818,18 +796,20 @@ CHARLY_VOLUMES_IMMICH="library:bind:/mnt/nas,import:bind" charly config immich -
 
 ### charly.yml Volume Config
 
-Volume backing choices are persisted in charly.yml as a `<name>-volume` child node:
+Volume backing choices are persisted in charly.yml as the deploy's inline `volume:` list:
 
 ```yaml
-immich-volume:
-  volume:
-    - name: library
-      type: bind
-      host: "/mnt/nas/photos"     # explicit host path
-    - name: import
-      type: bind                   # no host → auto path: <volumes_path>/<image>/import
-    - name: cache
-      type: encrypted              # gocryptfs managed
+immich:
+  pod:
+    image: immich
+    volume:
+      - name: library
+        type: bind
+        host: "/mnt/nas/photos"   # explicit host path
+      - name: import
+        type: bind                 # no host → auto path: <volumes_path>/<image>/import
+      - name: cache
+        type: encrypted            # gocryptfs managed
 ```
 
 **Fields:**
@@ -886,14 +866,11 @@ See `/charly-check:vnc` for full VNC authentication documentation.
 Some services (OpenClaw) bind only to loopback for security. The `port_relay` field in `charly.yml` creates a socat relay from the container's network interface to loopback, making the service accessible externally without weakening its security model.
 
 ```yaml
-# In charly.yml
+# candy/openclaw/charly.yml — port_relay is a CANDY field, inline in the candy body
 openclaw:
-  pod:
-    image: openclaw
-  openclaw-port:
+  candy:
     port:
       - 18789
-  openclaw-port_relay:
     port_relay:
       - 18789
 ```
@@ -961,7 +938,6 @@ Host `tunnel: tailscale` (ExecStartPost=tailscale serve) and the sidecar are **i
 selkies-desktop:
   pod:
     image: selkies-desktop
-  selkies-desktop-sidecar:
     sidecar:
       tailscale:
         env:
@@ -979,7 +955,6 @@ canonical case is a GPU passed through to a VM via VFIO. The resource arbiter
 gpu-workstation:                   # HOLDER — a long-running operator VM
   vm:
     from: gpu-workstation-vm
-  gpu-workstation-preemptible:
     preemptible:
       holds: [nvidia-gpu]          # exclusive-resource token(s) it occupies (shorthand: preemptible: [nvidia-gpu])
       stop: shutdown               # graceful shutdown (default & only) — frees a VFIO device
@@ -990,7 +965,6 @@ check-gpu-bed:
   vm:
     from: gpu-check-vm
     disposable: true
-  check-gpu-bed-requires_exclusive:
     requires_exclusive: [nvidia-gpu]
 ```
 

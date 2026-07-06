@@ -38,65 +38,67 @@ method.
 
 ## Authoring the `spice:` verb in a plan step
 
-The verb is one inline Op carried by a step node in the candy/box plan (a
-display/handshake probe is a `check:` step; an input action that changes guest
-state is a `run:` step). The method name becomes the verb's YAML value
-(`spice: <method>`); the former CLI positional args become sibling Op modifier
-fields:
+The verb is one inline Op carried by a step — an ordered list item under the
+candy/box `plan:` (a display/handshake probe is a `check:` step; an input action
+that changes guest state is a `run:` step). The method name is the scalar value for
+a bare-method step (`spice: status`), or the `method:` key of the `spice:` map when
+the step carries spice-exclusive fields — those live INSIDE the `spice:` map:
 
-| Method | Declarative form | Modifiers | Description |
+| Method | Declarative form | Map fields | Description |
 |---|---|---|---|
 | `status` | `spice: status` | — | handshake + channel enumeration (first line `SPICE:     ok`) |
-| `screenshot` | `spice: screenshot` + `artifact:` | `artifact:` | native SPICE display-channel decode → PNG |
-| `cursor` | `spice: cursor` + `artifact:` | `artifact:` | capture cursor bitmap + position → PNG |
-| `click` | `spice: click` + `x:`/`y:` | `x:`, `y:`, `button:` | mouse press/release via the inputs channel |
-| `mouse` | `spice: mouse` + `x:`/`y:` | `x:`, `y:` | pointer move (no click) |
-| `type` | `spice: type` + `text:` | `text:` | type text as PC-AT scancodes |
-| `key` | `spice: key` + `key:` | `key:` | press one named key (Return, Escape, F2, …) |
+| `screenshot` | `spice: {method: screenshot, artifact: …}` | `artifact:` | native SPICE display-channel decode → PNG |
+| `cursor` | `spice: {method: cursor, artifact: …}` | `artifact:` | capture cursor bitmap + position → PNG |
+| `click` | `spice: {method: click, x: …, y: …}` | `x:`, `y:`, `button:` | mouse press/release via the inputs channel |
+| `mouse` | `spice: {method: mouse, x: …, y: …}` | `x:`, `y:` | pointer move (no click) |
+| `type` | `spice: {method: type, text: …}` | `text:` | type text as PC-AT scancodes |
+| `key` | `spice: {method: key, key: …}` | `key:` | press one named key (Return, Escape, F2, …) |
 
-The shared matchers (`stdout:`, `stderr:`, `exit_status:`) and the artifact
-validators (`artifact_min_bytes:`, `artifact_min_dimensions:`,
-`artifact_not_uniform:`, …) work like every other verb. **`context: [deploy]`**
+The artifact validators (`artifact_min_bytes:`, `artifact_min_dimensions:`,
+`artifact_not_uniform:`) are spice-exclusive too, so they live inside the `spice:`
+map; only the shared matchers (`stdout:`, `stderr:`, `exit_status:`) and
+`context:`/`timeout:`/`id:` stay siblings of the `spice:` key. **`context: [deploy]`**
 — the verb needs a running VM; under `charly check box` (no running VM) it
 skips, and a SPICE-less deployment (e.g. a GPU desktop with no `<graphics
 type='spice'>` device) is reported N/A SKIP.
 
-The method-name vocabulary (`status`/`screenshot`/`cursor`/`click`/`mouse`/
-`type`/`key`) and every modifier stay on charly's core closed `#Op` — so
-authoring is UNCHANGED from a built-in verb (`spice: status`, not `plugin:
-spice`); the plugin advertises the verb with no plugin_input.
+The method-name enum (`status`/`screenshot`/`cursor`/`click`/`mouse`/`type`/`key`)
+and every spice modifier live in the plugin's OWN input schema
+(`candy/plugin-spice/schema/spice.cue`, `#SpiceInput`), served over the Describe
+channel and spliced onto the base for validation — so authoring is UNCHANGED from a
+built-in verb (`spice: status`, not `plugin: spice`); the internal
+plugin/plugin_input wire envelope the sugar desugars to is never authored.
 
-Example — each step is its own child node of the candy/box, named by its `id:`:
+Example — each step is an ordered list item under the candy/box `plan:`:
 
 ```yaml
-spice-handshake:
-    check: the SPICE server completes the handshake and enumerates channels
-    id: spice-handshake
-    spice: status
-    context: [deploy]
-    stdout:
-        - contains: ok
-        - contains: "inputs:    ready"
-desktop-rendered:
-    check: the SPICE display channel decodes a non-uniform framebuffer
-    id: desktop-rendered
-    spice: screenshot
+- check: the SPICE server completes the handshake and enumerates channels
+  id: spice-handshake
+  spice: status
+  context: [deploy]
+  stdout:
+    - contains: ok
+    - contains: "inputs:    ready"
+- check: the SPICE display channel decodes a non-uniform framebuffer
+  id: desktop-rendered
+  spice:
+    method: screenshot
     artifact: /tmp/spice-shot.png
-    context: [deploy]
     artifact_not_uniform: true
+  context: [deploy]
 ```
 
 Input injection is authored as `run:` steps (each one mutates guest state) — a
 console login sequence walks the form with `spice: key` / `spice: type` steps:
 
 ```yaml
-drive-login:
-    run: type the username and password at the console
-    id: drive-login
-    spice: key
+- run: type the username and password at the console
+  id: drive-login
+  spice:
+    method: key
     key: return
-    context: [deploy]
-# … followed by sibling `spice: type` (text: arch) and `spice: key` (key: tab)
+  context: [deploy]
+# … followed by `spice: {method: type, text: arch}` and `spice: {method: key, key: tab}`
 # steps to walk the login form.
 ```
 
@@ -173,9 +175,9 @@ charly's core (which carries no SPICE library and no opus/portaudio cgo deps).
   implementations.
 - `candy/plugin-spice/third_party/spice` — the vendored Shells-com/spice
   library, built without the audio tag (`ch-audio-stub.go`).
-- `candy/plugin-spice/schema/spice.cue` — the plugin's served CUE schema (the
-  verb keeps its discriminator + modifiers on core `#Op`, so the schema carries
-  no plugin_input).
+- `candy/plugin-spice/schema/spice.cue` — the plugin's served CUE schema: the
+  `#SpiceInput` def carries the method enum + every spice modifier, served over
+  the Describe channel and spliced onto the base for authored-input validation.
 
 Host side:
 

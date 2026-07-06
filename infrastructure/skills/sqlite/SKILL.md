@@ -21,11 +21,10 @@ RPM: `sqlite`
 ## Usage
 
 ```yaml
-# box charly.yml — a box composes the candy through a <box>-candy child node
+# box charly.yml — a box composes the candy via an inline candy: list in its body
 my-box:
   candy:
     base: fedora
-  my-box-candy:
     candy:
       - sqlite
 ```
@@ -51,5 +50,5 @@ Use when the user asks about:
 
 ## Related
 
-- `/charly-image:layer` — candy authoring reference (`charly.yml` schema, task verbs, service declarations)
+- `/charly-image:layer` — candy authoring reference (`charly.yml` schema, plan steps, service declarations)
 - `/charly-check:check` — declarative testing (`check:` block, `charly check box`, `charly check live`)

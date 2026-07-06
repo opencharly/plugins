@@ -29,36 +29,37 @@ and the portforward / passt / etc. layer handles the rest.
 
 ### Authoring the `adb:` verb in a plan step
 
-The verb is one inline Op carried by a `check:` step node in the candy/box
-plan (a probe is a `check:` step; an adb action that changes device state is a
-`run:` step). The method name becomes the verb's YAML value (`adb: <method>`);
-method-specific args are sibling fields (`apk:`, `property:`, `args:`,
-`artifact:`). Shared matchers (`stdout:`, `stderr:`, `exit_status:`,
-`artifact_min_bytes:`) work like other verbs.
+The verb is one inline Op carried by a step — an ordered list item under the
+candy/box `plan:` (a probe is a `check:` step; an adb action that changes device
+state is a `run:` step). The method name is the scalar value for a bare-method step
+(`adb: devices`), or the `method:` key of the `adb:` map when the step carries
+adb-exclusive fields (`arg:`, `apk:`, `property:`, `key:`, `query:`, `amount:`,
+`artifact:` and the artifact validators) — those live INSIDE the `adb:` map. Only
+the shared matchers (`stdout:`, `stderr:`, `exit_status:`) and `context:`/`id:`/
+`timeout:` stay siblings.
 **`context: [deploy]` only** — needs a running container with a
 host-mapped ADB server port; the validator rejects `context: [build]`
 use at `charly box validate` time.
 
-Example — each step is its own child node of the candy/box, named by its `id:`
-(there is no `plan:` list key; mirror `candy/redis/charly.yml`):
+Example — each step is an ordered list item under the candy/box `plan:` (mirror
+`candy/android-emulator-layer/charly.yml`):
 
 ```yaml
-emulator-is-up:
-    check: the emulator is attached to the adb server
-    id: emulator-is-up
-    adb: devices
-    context: [deploy]
-    stdout:
-        - contains: "emulator-5554"
-boot-done:
-    check: the emulator reports boot completed
-    id: boot-done
-    adb: getprop
+- check: the emulator is attached to the adb server
+  id: emulator-is-up
+  adb: devices
+  context: [deploy]
+  stdout:
+    - contains: "emulator-5554"
+- check: the emulator reports boot completed
+  id: boot-done
+  adb:
+    method: getprop
     property: sys.boot_completed
-    context: [deploy]
-    stdout:
-        - contains: "1"
-    timeout: 300s
+  context: [deploy]
+  stdout:
+    - contains: "1"
+  timeout: 300s
 ```
 
 See `/charly-check:check` for the full per-verb schema notes; this skill is the
@@ -67,22 +68,24 @@ adb-specific method reference.
 ## Quick Reference
 
 These are the `adb:` declarative-verb methods (NOT host CLI commands — there is
-no `charly check adb`). The method name is the `adb:` value; the modifiers
-below are sibling fields on the same `check:`/`run:` step node.
+no `charly check adb`). The method name is the scalar `adb:` value for a bare-method
+step; when a step carries modifiers those go INSIDE the `adb:` map (`adb: {method:
+shell, arg: […]}`), and only `stdout:`/`stderr:`/`exit_status:` and
+`context:`/`id:`/`timeout:` stay siblings.
 
-| Method | Declarative form | Required modifier | Description |
+| Method | Declarative form | Required map field | Description |
 |---|---|---|---|
 | `devices` | `adb: devices` | — | List devices/emulators with state |
-| `shell` | `adb: shell` + `args: [...]` | `args:` (list) | Run a shell command on the emulator |
-| `install` | `adb: install` + `apk:` | `apk:` | Install an APK from the host filesystem |
-| `uninstall` | `adb: uninstall` + `args: [pkgid]` | `args: [pkgid]` | Remove a package by id |
-| `getprop` | `adb: getprop` + `property:` | `property:` | Read a system property |
-| `screencap` | `adb: screencap` + `artifact:` | `artifact:` | Capture a PNG screenshot to a host file |
-| `logcat-tail` | `adb: logcat-tail` (+ `amount:` / `query:`) | — | Dump recent logcat lines (uses `logcat -d`) |
-| `wait-for-device` | `adb: wait-for-device` (+ `timeout:`) | — | Block until `sys.boot_completed=1` |
-| `wait-ui-settled` | `adb: wait-ui-settled` (+ `timeout:`) | — | Block until the foreground is not an ANR dialog (dismissing via HOME) |
+| `shell` | `adb: {method: shell, arg: [...]}` | `arg:` (list) | Run a shell command on the emulator |
+| `install` | `adb: {method: install, apk: …}` | `apk:` | Install an APK from the host filesystem |
+| `uninstall` | `adb: {method: uninstall, arg: [pkgid]}` | `arg: [pkgid]` | Remove a package by id |
+| `getprop` | `adb: {method: getprop, property: …}` | `property:` | Read a system property |
+| `screencap` | `adb: {method: screencap, artifact: …}` | `artifact:` | Capture a PNG screenshot to a host file |
+| `logcat-tail` | `adb: {method: logcat-tail, …}` (+ `amount:` / `query:`) | — | Dump recent logcat lines (uses `logcat -d`) |
+| `wait-for-device` | `adb: wait-for-device` (+ sibling `timeout:`) | — | Block until `sys.boot_completed=1` |
+| `wait-ui-settled` | `adb: wait-ui-settled` (+ sibling `timeout:`) | — | Block until the foreground is not an ANR dialog (dismissing via HOME) |
 | `current-focus` | `adb: current-focus` | — | Print the foreground window line (`mCurrentFocus`) |
-| `keyevent` | `adb: keyevent` + `key:` | `key:` (arg) | Send a key event (`input keyevent KEYCODE_…`) |
+| `keyevent` | `adb: {method: keyevent, key: …}` | `key:` | Send a key event (`input keyevent KEYCODE_…`) |
 
 `serial:` selects a specific device (default `emulator-5554`). For a
 `<base>/<instance>` pod deploy the instance is addressed by the enclosing bed
@@ -90,19 +93,19 @@ below are sibling fields on the same `check:`/`run:` step node.
 
 ## Method allowlist + required modifiers
 
-| Method | Required modifiers | Notes |
+| Method | Required map field | Notes |
 |---|---|---|
 | `devices` | — | Output is one line per device: `<serial>\t<state>` |
-| `shell` | `Args` | `Args[0]` is the program; `Args[1:]` are positional args. Prefix `--` is auto-added so flags don't leak into the outer Kong invocation. |
-| `install` | `Apk` | Pushes the APK via the sync protocol to `/data/local/tmp/`, then `pm install -r`. Best-effort cleanup of the staged file. Asserts `Success` in pm output. |
-| `uninstall` | `Args` | `Args[0]` = package id (e.g. `com.example.android.apis`). Same `Args:[0]` convention as `shell` to keep the modifier surface flat. |
-| `getprop` | `Property` | Property key like `sys.boot_completed`, `ro.build.version.release`. |
-| `screencap` | `Artifact` | Runs `screencap -p \| base64` on the device, decodes host-side, writes to `Artifact`. The `base64` round-trip is mandatory — raw binary stdout gets mangled by goadb's shell stream on some emulator builds. Pairs with `artifact_min_bytes:` for size assertion. |
+| `shell` | `arg:` | `arg[0]` is the program; `arg[1:]` are positional args. Prefix `--` is auto-added so flags don't leak into the outer Kong invocation. |
+| `install` | `apk:` | Pushes the APK via the sync protocol to `/data/local/tmp/`, then `pm install -r`. Best-effort cleanup of the staged file. Asserts `Success` in pm output. |
+| `uninstall` | `arg:` | `arg[0]` = package id (e.g. `com.example.android.apis`). Same `arg[0]` convention as `shell` to keep the modifier surface flat. |
+| `getprop` | `property:` | Property key like `sys.boot_completed`, `ro.build.version.release`. |
+| `screencap` | `artifact:` | Runs `screencap -p \| base64` on the device, decodes host-side, writes to `artifact:`. The `base64` round-trip is mandatory — raw binary stdout gets mangled by goadb's shell stream on some emulator builds. Pairs with `artifact_min_bytes:` for size assertion. |
 | `logcat-tail` | — | Uses `logcat -d` (dump-and-exit). `amount:` trims to the last N lines host-side; `query:` is the literal filter spec (e.g. `MyApp:I *:S`). |
-| `wait-for-device` | — | Polls `getprop sys.boot_completed` every 2s up to `Timeout` (default 60s). Lighter than the wire-protocol `wait-for-device` because that returns the moment the device ATTACHES (well before sys.boot_completed). |
-| `wait-ui-settled` | — | Polls `mCurrentFocus` (`dumpsys window`); while a system "Application Not Responding" dialog holds focus it dismisses it with `KEYCODE_HOME` and keeps polling, up to `Timeout`. Prints `settled` on success. **Set `timeout:` generously** (the android-emulator gate uses 600s) — the shared 30s default is too short for a churning emulator. Pure goadb — no in-container shell. |
+| `wait-for-device` | — | Polls `getprop sys.boot_completed` every 2s up to `timeout:` (default 60s). Lighter than the wire-protocol `wait-for-device` because that returns the moment the device ATTACHES (well before sys.boot_completed). |
+| `wait-ui-settled` | — | Polls `mCurrentFocus` (`dumpsys window`); while a system "Application Not Responding" dialog holds focus it dismisses it with `KEYCODE_HOME` and keeps polling, up to `timeout:`. Prints `settled` on success. **Set `timeout:` generously** (the android-emulator gate uses 600s) — the shared 30s default is too short for a churning emulator. Pure goadb — no in-container shell. |
 | `current-focus` | — | Prints the `mCurrentFocus` window line. Assert the foreground app (`stdout: contains: io.appium.android.apis`) or detect a stuck ANR dialog. |
-| `keyevent` | `KeyName` | `input keyevent <key>` via `key: KEYCODE_HOME` / `KEYCODE_BACK` / a numeric code. Generic input building block; `wait-ui-settled` uses the same call internally to dismiss dialogs. |
+| `keyevent` | `key:` | `input keyevent <key>` via `key: KEYCODE_HOME` / `KEYCODE_BACK` / a numeric code. Generic input building block; `wait-ui-settled` uses the same call internally to dismiss dialogs. |
 
 ## Authoring gotchas
 
@@ -114,23 +117,26 @@ a container-internal path. (Compare with `appium: install-app` where
 `apk:` is the in-container Appium server's view of the path because
 Appium reads the file itself.)
 
-### `args:` for shell commands; prefix `--` is automatic
+### `arg:` for shell commands; prefix `--` is automatic
 
-Always write shell args as a YAML list:
+Always write shell args as a YAML list inside the `adb:` map:
 
 ```yaml
-adb: shell
-args: [pm, list, packages, io.appium.android.apis]
+- run: list the apidemos packages
+  context: [deploy]
+  adb:
+    method: shell
+    arg: [pm, list, packages, io.appium.android.apis]
 ```
 
 The `--` prefix is automatic — you don't have to escape `-l` / `-p` /
 `-fsS` etc. flags. Don't reach for `command:` here; `command:` is a
 different verb.
 
-### `args: [pkgid]` for uninstall
+### `arg: [pkgid]` for uninstall
 
 Mirrors `shell`'s convention to avoid adding a dedicated `package:`
-field. The validator enforces `Args` non-empty at config time.
+field. The validator enforces `arg:` non-empty at config time.
 
 ### Host-side screencap needs `screencap -p | base64`
 
@@ -158,15 +164,14 @@ is immune to the stdin-heredoc hazard that breaks shell-based settle loops
 ```yaml
 # Order matters — wait-for-device (boot) BEFORE wait-ui-settled (UI),
 # wait-ui-settled BEFORE any UI-interacting step (appium / monkey).
-# A child step node of the candy/box plan, named by its id:
-emulator-ui-settled:
-    check: the emulator UI has settled past the ANR churn
-    id: emulator-ui-settled
-    adb: wait-ui-settled
-    context: [deploy]
-    timeout: 600s
-    stdout:
-        - contains: settled
+# An ordered list item under the candy/box plan:
+- check: the emulator UI has settled past the ANR churn
+  id: emulator-ui-settled
+  adb: wait-ui-settled
+  context: [deploy]
+  timeout: 600s
+  stdout:
+    - contains: settled
 ```
 
 `current-focus` and `keyevent` are the building blocks `wait-ui-settled`
@@ -186,17 +191,22 @@ shell-fields split handles separation.
 Common pattern:
 
 ```yaml
-adb: wait-for-device
-timeout: 120s
+- check: wait for the device to finish booting
+  adb: wait-for-device
+  timeout: 120s
+  context: [deploy]
 ```
 
 ## Implementation
 
 The `adb:` verb and its goadb ADB-wire client live in the out-of-tree
 `candy/plugin-adb` plugin module (an external-charly-verb plugin), NOT in
-charly's core (which carries no goadb dependency). The verb keeps its `adb:`
-discriminator + every modifier on charly's core closed `#Op`, so authoring is
-unchanged; at check time the host
+charly's core (which carries no goadb dependency). The verb's method enum + every
+adb modifier live in the plugin's OWN input schema
+(`candy/plugin-adb/schema/adb.cue`, `#AdbInput`), served over the Describe channel
+and spliced onto the base for validation — so authoring is unchanged (`adb: devices`,
+not `plugin: adb`); the internal plugin/plugin_input wire envelope the sugar desugars
+to is never authored. At check time the host
 dispatches it through the provider registry —
 `providerRegistry.ResolveVerb("adb")` → the out-of-process `grpcProvider` →
 `invokeVerbProvider`, which hands the plugin the full `#Op` as params.

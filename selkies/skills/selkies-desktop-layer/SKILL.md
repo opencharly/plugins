@@ -11,28 +11,29 @@ Metalayer composing a full Selkies Wayland streaming desktop with Chrome, Waybar
 
 ## Composition
 
-The metalayer's composition is the `selkies-desktop-candy` child node (name-first node-form — the `candy:` list is never a bare top-level key). The full streaming-desktop set (the shared `selkies-core` spine pulls Chrome, the `wl-*` tooling, fonts, a11y, terminal tools transitively):
+The metalayer composes the full streaming-desktop set as an inline `candy:` list inside its `candy:` kind value (the shared `selkies-core` spine pulls Chrome, the `wl-*` tooling, fonts, a11y, terminal tools transitively):
 
 ```yaml
-selkies-desktop-candy:
+selkies-desktop:
   candy:
-    - pipewire                # Audio (PulseAudio compat)
-    - chrome                  # Google Chrome with CDP on :9222, Chrome DevTools MCP on :9224
-    - labwc                   # Wayland compositor (nested in pixelflux)
-    - waybar-labwc            # Top status bar (Catppuccin Mocha, system monitors)
-    - desktop-fonts           # JetBrains Mono + Nerd Fonts
-    - swaync                  # SwayNotificationCenter (notification daemon)
-    - pavucontrol             # PulseAudio volume control GUI
-    - wl-tools                # Desktop automation (wtype, wlrctl, xdotool, wl-clipboard, wlr-randr)
-    - wl-screenshot-pixelflux # Screenshots via selkies capture bridge
-    - wl-overlay              # Fullscreen overlays via gtk4-layer-shell (for recordings)
-    - wl-record-pixelflux    # Desktop video recording via selkies capture bridge
-    - a11y-tools              # AT-SPI2 accessibility introspection (python3-pyatspi)
-    - xterm                   # X11 terminal for XWayland testing
-    - tmux                    # Terminal multiplexer (required by the record: check verb)
-    - asciinema               # Terminal session recording
-    - fastfetch               # System information display
-    - selkies                 # Streaming server (pixelflux + pcmflux + nginx)
+    candy:
+      - pipewire                # Audio (PulseAudio compat)
+      - chrome                  # Google Chrome with CDP on :9222, Chrome DevTools MCP on :9224
+      - labwc                   # Wayland compositor (nested in pixelflux)
+      - waybar-labwc            # Top status bar (Catppuccin Mocha, system monitors)
+      - desktop-fonts           # JetBrains Mono + Nerd Fonts
+      - swaync                  # SwayNotificationCenter (notification daemon)
+      - pavucontrol             # PulseAudio volume control GUI
+      - wl-tools                # Desktop automation (wtype, wlrctl, xdotool, wl-clipboard, wlr-randr)
+      - wl-screenshot-pixelflux # Screenshots via selkies capture bridge
+      - wl-overlay              # Fullscreen overlays via gtk4-layer-shell (for recordings)
+      - wl-record-pixelflux    # Desktop video recording via selkies capture bridge
+      - a11y-tools              # AT-SPI2 accessibility introspection (python3-pyatspi)
+      - xterm                   # X11 terminal for XWayland testing
+      - tmux                    # Terminal multiplexer (required by the record: check verb)
+      - asciinema               # Terminal session recording
+      - fastfetch               # System information display
+      - selkies                 # Streaming server (pixelflux + pcmflux + nginx)
 ```
 
 ## What You Get

@@ -12,12 +12,11 @@ Metalayer composing Hermes AI agent with a complete tool suite for standalone de
 ## Composition
 
 ```yaml
-# the hermes-full metalayer is a candy entity; its composition lives in a candy child node
+# the hermes-full metalayer is a candy entity; composition is an inline candy: list in the body
 hermes-full:
   candy:
     version: 2026.156.1921   # mandatory CalVer
-  hermes-full-candy:         # composition child node — the candies it pulls in
-    candy:
+    candy:                   # the candies it pulls in
       - hermes          # AI agent with browser tools, MCP, LLM auto-config
       - claude-code     # Anthropic Claude Code CLI
       - codex           # OpenAI Codex CLI
@@ -41,7 +40,6 @@ Without a browser provider, hermes browser tools fall back to local headless mod
 hermes:
   candy:
     base: fedora
-  hermes-candy:        # composition child node
     candy:
       - agent-forwarding
       - hermes-full

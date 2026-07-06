@@ -34,11 +34,11 @@ The completeness invariant: every exported field on `BoxMetadata`/`Capabilities`
 
 ## Deployment schema — target-agnostic fields
 
-A K8s deployment is a name-first `k8s:` deploy: the kind discriminator
-carries the scalars + the cross-refs (`image:` = the box to deploy, `from:` =
-the `kind: k8s` cluster template); every non-scalar field (resources / security
-/ expose / storage / probes / the `kubernetes:` deploy-knobs block) is a child
-node `<name>-<key>:` nested under the deploy.
+A K8s deployment is a name-first `k8s:` deploy: the `k8s:` value carries the
+scalars + the cross-refs (`image:` = the box to deploy, `from:` = the `kind: k8s`
+cluster template) AND every non-scalar field (resources / security / expose /
+storage / probes / the `kubernetes:` deploy-knobs block) — all inline in the `k8s:`
+value.
 
 ```yaml
 openclaw:
@@ -48,27 +48,21 @@ openclaw:
     kind: service                   # service | daemon | batch | scheduled | oneshot
     replica: 3
     restart: always                 # always | on-failure | never (honored on Pod/Job/CronJob)
-  openclaw-resources:
     resources:
       cpu_request: "500m"
       memory_request: 512Mi
-  openclaw-security:
     security:
       memory_max: 2Gi               # → resources.limits.memory
       cpus: "1.5"                   # → resources.limits.cpu
-  openclaw-expose:
     expose:
       host: openclaw.example.com
       path: /
       tls: true                     # → cert-manager annotation from the cluster template
-  openclaw-storage:
     storage:
       - {name: data, size: 20Gi, class_hint: fast, access: single-writer}
-  openclaw-probes:
     probes:
       liveness:  {http: {path: /healthz, port: 8080}}
       readiness: {http: {path: /ready,   port: 8080}}
-  openclaw-kubernetes:
     kubernetes:
       namespace: apps               # optional override of the cluster template default
       patches: []                   # escape hatch: strategic / JSON6902 patches
@@ -90,7 +84,7 @@ Explicit override: `kubernetes.workload: Deployment` (rare — prefer `kind:`).
 
 ## Cluster template (`kind: k8s`)
 
-One `kind: k8s` entity per cluster, declared name-first in `charly.yml` (or a discovered `k8s.yml`). The `k8s:` kind **absorbed the former `kind: cluster-profile` file** — `charly migrate` synthesizes a `kind: k8s` entry from any pre-existing `clusters/<name>.yaml`. It is the **only** place cluster-specific K8s knobs live; a deploy reaches it by name through its `from:` cross-ref. The kind discriminator carries the scalars (`box:` cross-ref, `kubeconfig_context:`, `admission_policy:`, `default_namespace:`); every non-scalar policy block (storage / ingress / secret / image_default / pod_default / defaults) is a child node `<name>-<key>:` nested under it.
+One `kind: k8s` entity per cluster, declared name-first in `charly.yml` (or a discovered `k8s.yml`). The `k8s:` kind **absorbed the former `kind: cluster-profile` file** — `charly migrate` synthesizes a `kind: k8s` entry from any pre-existing `clusters/<name>.yaml`. It is the **only** place cluster-specific K8s knobs live; a deploy reaches it by name through its `from:` cross-ref. The `k8s:` value carries the scalars (`box:` cross-ref, `kubeconfig_context:`, `admission_policy:`, `default_namespace:`) AND every non-scalar policy block (storage / ingress / secret / image_default / pod_default / defaults) — all inline in the `k8s:` value.
 
 ```yaml
 production:                          # a kind: k8s cluster template (name-first)
@@ -99,34 +93,28 @@ production:                          # a kind: k8s cluster template (name-first)
     kubeconfig_context: gke_prod_us-east1
     admission_policy: restricted     # restricted | baseline | privileged
     default_namespace: apps
-  production-storage:
     storage:
       class_default: fast-ssd-retain
       class_fast: fast-ssd
       class_cheap: hdd-delete
       class_encrypted: fast-ssd-luks
       access_mode_default: ReadWriteOnce
-  production-ingress:
     ingress:
       enabled: true
       class: nginx
       cert_issuer: letsencrypt-prod  # cert-manager ClusterIssuer
       path_type_default: Prefix
-  production-secret:
     secret:
       backend: external-secrets      # external-secrets | sealed-secrets | raw
       store: vault-prod
       prefix: prod/
-  production-image_default:
     image_default:
       pull_policy: IfNotPresent
       pull_secrets: [regcred-prod]
-  production-pod_default:
     pod_default:
       priority_class: standard
       tolerations: []
       node_selector: {}
-  production-defaults:
     defaults:
       labels: {managed-by: opencharly}
 ```

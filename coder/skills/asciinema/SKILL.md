@@ -29,13 +29,11 @@ RPM: `asciinema` · PAC: `asciinema` · DEB: `asciinema` — full parity.
 ## Usage
 
 ```yaml
-# box or candy charly.yml — composition is a child node, not a top-level list
+# box charly.yml — compose the candy as an inline list in the box body
 my-box:
     candy:
         base: fedora
-    my-box-candy:
-        candy:
-            - asciinema
+        candy: [asciinema]
 ```
 
 Used by the `record:` check verb (a `record: start` step with `record_mode: terminal`) for terminal recording sessions. Also available standalone via `asciinema rec`.
@@ -47,24 +45,25 @@ Author ordered `record:` plan steps (the declarative verb served out-of-process 
 with `charly check live <image> --filter record`:
 
 ```yaml
-term-start:
-    check: a terminal recording starts
-    record: start
-    context: [deploy]
-    record_name: demo
-    record_mode: terminal
-term-echo:
-    check: a command is sent into the recording
-    record: cmd
-    context: [deploy]
-    record_name: demo
-    text: echo hello
-term-stop:
-    check: the recording stops and is copied out
-    record: stop
-    context: [deploy]
-    record_name: demo
-    artifact: demo.cast
+plan:
+    - check: a terminal recording starts
+      record:
+          method: start
+          record_name: demo
+          record_mode: terminal
+      context: [deploy]
+    - check: a command is sent into the recording
+      record:
+          method: cmd
+          record_name: demo
+          text: echo hello
+      context: [deploy]
+    - check: the recording stops and is copied out
+      record:
+          method: stop
+          record_name: demo
+          artifact: demo.cast
+      context: [deploy]
 ```
 
 ```bash

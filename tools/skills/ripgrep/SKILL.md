@@ -21,13 +21,11 @@ RPM: `ripgrep`
 ## Usage
 
 ```yaml
-# box charly.yml — name-first: compose the candy via a child node
+# box charly.yml — compose the candy as an inline list in the box body
 my-box:
   candy:
     base: fedora
-  my-box-candy:
-    candy:
-      - ripgrep
+    candy: [ripgrep]
 ```
 
 ## Used In Boxes

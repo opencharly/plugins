@@ -31,23 +31,25 @@ built-in verb: you write `cdp: open`, never `plugin: cdp`.
 
 ### Authoring a `cdp:` step
 
-Each method is the declarative `cdp:` step you author: the method name is the verb's
-YAML value, modifiers are sibling fields (`tab:`, `expression:`, `url:`, `selector:`,
-`text:`, `artifact:`, `x:`, `y:`). Shared matchers (`stdout:`, `stderr:`,
-`exit_status:`, `artifact_min_bytes:`) work like every other verb. A query is a
-`check:` step; a navigation/click action is a `run:` step. All `cdp:` steps are
-**deploy-context only** (they need a running container), so author them with
-`context: [deploy]`. See `/charly-check:check` for the full method allowlist and
-YAML shape. Example:
+Each method is the declarative `cdp:` step you author — an ordered list item under
+the candy/box `plan:`. The method name is the scalar value for a bare-method step
+(`cdp: status`), or the `method:` key of the `cdp:` map when the step carries any
+cdp-exclusive field (`tab:`, `expression:`, `url:`, `selector:`, `text:`, `x:`, `y:`,
+`artifact:`, `artifact_min_bytes:`, …) — those fields live INSIDE the `cdp:` map. The
+shared matchers (`stdout:`, `stderr:`, `exit_status:`) and `context:`/`id:`/`timeout:`
+stay siblings of the `cdp:` key. A query is a `check:` step; a navigation/click action
+is a `run:` step. All `cdp:` steps are **deploy-context only** (they need a running
+container), so author them with `context: [deploy]`. See `/charly-check:check` for the
+full method allowlist and YAML shape. Example:
 
 ```yaml
-page-title:
-    check: the page title is Dashboard
-    cdp: eval
-    context: [deploy]
+- check: the page title is Dashboard
+  context: [deploy]
+  cdp:
+    method: eval
     tab: "1"
     expression: document.title
-    stdout: Dashboard
+  stdout: Dashboard
 ```
 
 ## Quick Reference
@@ -74,6 +76,10 @@ page-title:
 | SPA key-combo | `cdp: spa-key-combo` + `tab:` + `text:` | Send modifier combo via SPA (super+e, ctrl+t, alt+F4) |
 | SPA mouse | `cdp: spa-mouse` + `tab:` + `x:` + `y:` | Move pointer with SPA scale correction |
 | SPA status | `cdp: spa-status` + `tab:` | Show SPA state (canvas, overlay, decoders) |
+
+In the table, each `+ <field>:` entry is a key INSIDE the `cdp:` map
+(`cdp: {method: open, url: …}`); only `stdout:`/`stderr:`/`exit_status:` and
+`context:`/`id:`/`timeout:` are siblings of the `cdp:` key.
 
 Run a candy's baked `cdp:` steps against a live deployment with
 `charly check live <image> --filter cdp`. The `-i <instance>` flag on `charly check
@@ -104,10 +110,10 @@ effect). All steps are deploy-context only.
 ### Open a URL
 
 ```yaml
-open-example:
-    run: open example.com in a new tab
-    cdp: open
-    context: [deploy]
+- run: open example.com in a new tab
+  context: [deploy]
+  cdp:
+    method: open
     url: https://example.com
 ```
 
@@ -118,12 +124,11 @@ tab ID between steps; reference subsequent steps as `tab: "1"`).
 ### List Tabs
 
 ```yaml
-list-tabs:
-    check: a tab is open
-    cdp: list
-    context: [deploy]
-    stdout:
-        contains: example.com
+- check: a tab is open
+  context: [deploy]
+  cdp: list          # scalar sugar — bare method, no cdp-exclusive fields
+  stdout:
+    contains: example.com
 # Output: one line per tab — "ID  TITLE  URL"
 ```
 
@@ -132,10 +137,10 @@ Uses HTTP API: `GET /json/list`.
 ### Close a Tab
 
 ```yaml
-close-tab:
-    run: close the tab
-    cdp: close
-    context: [deploy]
+- run: close the tab
+  context: [deploy]
+  cdp:
+    method: close
     tab: "1"
 ```
 
@@ -144,13 +149,13 @@ Uses HTTP API: `GET /json/close/<id>`.
 ### Get Page Content
 
 ```yaml
-page-text:
-    check: the page text contains the marker
-    cdp: text          # plain text; cdp: html → HTML source; cdp: url → title and URL
-    context: [deploy]
+- check: the page text contains the marker
+  context: [deploy]
+  cdp:
+    method: text     # cdp: html → HTML source; cdp: url → title and URL
     tab: "1"
-    stdout:
-        contains: Example Domain
+  stdout:
+    contains: Example Domain
 ```
 
 Uses CDP WebSocket: `Runtime.evaluate` with `document.body.innerText` / `document.documentElement.outerHTML`, `Target.getTargetInfo`.
@@ -158,10 +163,10 @@ Uses CDP WebSocket: `Runtime.evaluate` with `document.body.innerText` / `documen
 ### Screenshot
 
 ```yaml
-page-screenshot:
-    check: a non-empty screenshot is captured
-    cdp: screenshot
-    context: [deploy]
+- check: a non-empty screenshot is captured
+  context: [deploy]
+  cdp:
+    method: screenshot
     tab: "1"
     artifact: /tmp/page.png
     artifact_min_bytes: 10000
@@ -174,16 +179,16 @@ the capture is real — see `/charly-check:check` "Artifact-validation modifiers
 ### Click and Type
 
 ```yaml
-submit-click:
-    run: click the submit button
-    cdp: click
-    context: [deploy]
+- run: click the submit button
+  context: [deploy]
+  cdp:
+    method: click
     tab: "1"
     selector: button[type="submit"]
-email-type:
-    run: type the email address
-    cdp: type
-    context: [deploy]
+- run: type the email address
+  context: [deploy]
+  cdp:
+    method: type
     tab: "1"
     selector: input[name="email"]
     text: user@example.com
@@ -202,10 +207,10 @@ CDP coordinates are **viewport-relative** (relative to Chrome's content area). V
 **`cdp: coords`** — Shows an element's coordinates in both systems:
 
 ```yaml
-sync-button-coords:
-    check: the sync button is located
-    cdp: coords
-    context: [deploy]
+- check: the sync button is located
+  context: [deploy]
+  cdp:
+    method: coords
     tab: "1"
     selector: "#sync-button"
 # Element:  #sync-button (108x36)
@@ -219,10 +224,10 @@ JS `.click()` are blocked on `chrome://` pages. Locate the element with `cdp: co
 then deliver the click through the surviving `vnc:` verb at the desktop center:
 
 ```yaml
-sync-button-vnc-click:
-    run: click the sync button via VNC pointer
-    vnc: click
-    context: [deploy]
+- run: click the sync button via VNC pointer
+  context: [deploy]
+  vnc:
+    method: click
     x: 1220
     y: 439
 ```
@@ -233,10 +238,10 @@ wlroots desktop without VNC. Read the desktop center from the `cdp: coords` step
 above, then author a `wl: click` step at those `x:`/`y:`:
 
 ```yaml
-sync-button-wl-click:
-    run: click the sync button via the wl pointer
-    wl: click
-    context: [deploy]
+- run: click the sync button via the wl pointer
+  context: [deploy]
+  wl:
+    method: click
     x: 1220
     y: 439
 ```
@@ -244,14 +249,14 @@ sync-button-wl-click:
 ### Evaluate JavaScript
 
 ```yaml
-read-title:
-    check: read the document title
-    cdp: eval
-    context: [deploy]
+- check: read the document title
+  context: [deploy]
+  cdp:
+    method: eval
     tab: "1"
     expression: document.title
-    stdout:
-        contains: Example
+  stdout:
+    contains: Example
 ```
 
 Uses CDP: `Runtime.evaluate`. Returns the result value (e.g.
@@ -260,13 +265,13 @@ Uses CDP: `Runtime.evaluate`. Returns the result value (e.g.
 ### Wait for Element
 
 ```yaml
-wait-loaded:
-    check: the heading appears
-    cdp: wait
-    context: [deploy]
+- check: the heading appears
+  context: [deploy]
+  cdp:
+    method: wait
     tab: "1"
     selector: h1
-    timeout: 60s        # default 30s
+  timeout: 60s        # default 30s — shared #Op modifier, sibling of cdp:
 ```
 
 Polls with CDP until the CSS selector matches an element.
@@ -274,15 +279,18 @@ Polls with CDP until the CSS selector matches an element.
 ### Raw CDP Command
 
 ```yaml
-raw-navigate:
-    run: navigate via a raw CDP method
-    cdp: raw
-    context: [deploy]
+- run: navigate via a raw CDP method
+  context: [deploy]
+  cdp:
+    method: raw
     tab: "1"
-    expression: Page.navigate {"url":"https://example.com"}
+    http_method: Page.navigate           # the raw CDP protocol method
+    params: '{"url":"https://example.com"}'   # its JSON params blob
 ```
 
-Sends an arbitrary CDP method with optional JSON params. Returns the raw CDP response.
+Sends an arbitrary CDP method with optional JSON params — `http_method:` names the
+CDP protocol method (the input's `method:` is always the verb method `raw`), `params:`
+carries the JSON args. Returns the raw CDP response.
 
 ## CDP Connection Diagnostics
 
@@ -324,24 +332,25 @@ charly tmux capture $IMG -s oauth | grep -o 'https://auth.openai.com/[^ ]*'
 ```
 
 ```yaml
-# candy/<name>/charly.yml — the browser leg as ordered cdp:/vnc: steps
-oauth-open:
-    run: open the OAuth URL captured from the TUI
-    cdp: open
-    context: [deploy]
-    url: "${ENV_OAUTH_URL}"          # threaded in via the deploy env
-oauth-continue-google:
-    run: click "Continue with Google" (VNC-visible)
-    cdp: coords                       # locate, then deliver the pointer via vnc:
-    context: [deploy]
-    tab: "1"
-    selector: button._buttonStyleFix_wvuha_65
-oauth-consent:
-    run: click "Continue" on the Codex consent page (VNC-visible)
-    cdp: coords
-    context: [deploy]
-    tab: "1"
-    selector: button._primary_3rdp0_107
+# candy/<name>/charly.yml — the browser leg as ordered cdp:/vnc: plan steps
+plan:
+    - run: open the OAuth URL captured from the TUI
+      context: [deploy]
+      cdp:
+        method: open
+        url: "${ENV_OAUTH_URL}"      # threaded in via the deploy env
+    - run: click "Continue with Google" (VNC-visible)
+      context: [deploy]
+      cdp:                            # locate, then deliver the pointer via vnc:
+        method: coords
+        tab: "1"
+        selector: button._buttonStyleFix_wvuha_65
+    - run: click "Continue" on the Codex consent page (VNC-visible)
+      context: [deploy]
+      cdp:
+        method: coords
+        tab: "1"
+        selector: button._primary_3rdp0_107
 ```
 
 ```bash
@@ -389,15 +398,15 @@ verbs; text is entered with the `vnc:` verb's real keysym events.
 On a fresh profile, Chrome opens a first-run dialog ("Make Google Chrome the default browser") as a **separate window** that CDP cannot see (no debuggable tabs). It tiles alongside any CDP-opened tabs in sway, breaking coordinate translation. Focus and dismiss it with `wl:` steps (sway IPC + a key press):
 
 ```yaml
-firstrun-focus:
-    run: focus the first-run dialog (typically the left window)
-    wl: sway-msg
-    context: [deploy]
-    text: focus left
-firstrun-dismiss:
-    run: press OK to dismiss the dialog
-    wl: key
-    context: [deploy]
+- run: focus the first-run dialog (typically the left window)
+  context: [deploy]
+  wl:
+    method: sway-msg
+    command: focus left      # sway-msg's argv rides wl's `command:` field
+- run: press OK to dismiss the dialog
+  context: [deploy]
+  wl:
+    method: key
     key: Return
 ```
 
@@ -410,10 +419,10 @@ After dismissal, Chrome shows `chrome://intro/` — "Sign in to Chrome" with sha
 then deliver the click via the `vnc:` verb at the reported desktop center:
 
 ```yaml
-intro-locate:
-    check: the sign-in button is located
-    cdp: coords
-    context: [deploy]
+- check: the sign-in button is located
+  context: [deploy]
+  cdp:
+    method: coords
     tab: "1"
     selector: "#acceptSignInButton"
 ```
@@ -424,17 +433,17 @@ ID survives Google's same-tab navigations (email → password → result).
 ### Step 2: Enter Email (locate via CDP, deliver via VNC)
 
 ```yaml
-email-wait:
-    check: the email field appears
-    cdp: wait
-    context: [deploy]
+- check: the email field appears
+  context: [deploy]
+  cdp:
+    method: wait
     tab: "1"
     selector: "#identifierId"
-    timeout: 30s
-email-locate:
-    check: the email field is located (focus via vnc: at these coords)
-    cdp: coords
-    context: [deploy]
+  timeout: 30s
+- check: the email field is located (focus via vnc: at these coords)
+  context: [deploy]
+  cdp:
+    method: coords
     tab: "1"
     selector: "#identifierId"
 ```
@@ -450,17 +459,17 @@ Click `#identifierNext` (locate via `cdp: coords`, deliver via `vnc:`), then ver
 transition:
 
 ```yaml
-pwd-page-reached:
-    check: the password challenge page is reached
-    cdp: url
-    context: [deploy]
+- check: the password challenge page is reached
+  context: [deploy]
+  cdp:
+    method: url
     tab: "1"
-    stdout:
-        contains: challenge/pwd
-pwd-checkpoint:
-    check: a verification screenshot is captured
-    cdp: screenshot
-    context: [deploy]
+  stdout:
+    contains: challenge/pwd
+- check: a verification screenshot is captured
+  context: [deploy]
+  cdp:
+    method: screenshot
     tab: "1"
     artifact: /tmp/step3.png
     artifact_min_bytes: 5000
@@ -469,17 +478,17 @@ pwd-checkpoint:
 ### Step 4: Enter Password
 
 ```yaml
-pwd-wait:
-    check: the password field appears
-    cdp: wait
-    context: [deploy]
+- check: the password field appears
+  context: [deploy]
+  cdp:
+    method: wait
     tab: "1"
     selector: input[type="password"]
-    timeout: 15s
-pwd-locate:
-    check: the password field is located (focus via vnc:, then vnc: type "$GMAIL_PASSWORD")
-    cdp: coords
-    context: [deploy]
+  timeout: 15s
+- check: the password field is located (focus via vnc:, then vnc: type "$GMAIL_PASSWORD")
+  context: [deploy]
+  cdp:
+    method: coords
     tab: "1"
     selector: input[type="password"]
 ```
@@ -528,34 +537,34 @@ The `cdp: spa-*` methods provide first-class support for interacting with Selkie
 ### Usage Example
 
 ```yaml
-spa-check-state:
-    check: the SPA is in a healthy state
-    cdp: spa-status
-    context: [deploy]
+- check: the SPA is in a healthy state
+  context: [deploy]
+  cdp:
+    method: spa-status
     tab: "1"
-spa-click-target:
-    run: click at canvas coordinates (where elements appear in CDP screenshots)
-    cdp: spa-click
-    context: [deploy]
+- run: click at canvas coordinates (where elements appear in CDP screenshots)
+  context: [deploy]
+  cdp:
+    method: spa-click
     tab: "1"
     x: 990
     y: 375
-spa-type-text:
-    run: type text (bypasses local compositor — no double-char issue)
-    cdp: spa-type
-    context: [deploy]
+- run: type text (bypasses local compositor — no double-char issue)
+  context: [deploy]
+  cdp:
+    method: spa-type
     tab: "1"
     text: hello world
-spa-open-terminal:
-    run: send super+e to open a foot terminal in labwc
-    cdp: spa-key-combo
-    context: [deploy]
+- run: send super+e to open a foot terminal in labwc
+  context: [deploy]
+  cdp:
+    method: spa-key-combo
     tab: "1"
     text: super+e          # also: ctrl+t (new tab in REMOTE Chrome), alt+f4 (close window)
-spa-press-return:
-    run: send a special key
-    cdp: spa-key
-    context: [deploy]
+- run: send a special key
+  context: [deploy]
+  cdp:
+    method: spa-key
     tab: "1"
     text: return           # also: escape, F1-F12, etc.
 ```
@@ -587,25 +596,24 @@ Author `cdp: status` → `cdp: open` → `cdp: eval` steps to verify proxy conne
 on an instance, then run `charly check live <image> -i <instance> --filter cdp`:
 
 ```yaml
-cdp-available:
-    check: CDP is available on port 9222
-    cdp: status
-    context: [deploy]
-    stdout:
-        equals: ok
-proxy-ip-open:
-    run: open a test page
-    cdp: open
-    context: [deploy]
+- check: CDP is available on port 9222
+  context: [deploy]
+  cdp: status
+  stdout:
+    equals: ok
+- run: open a test page
+  context: [deploy]
+  cdp:
+    method: open
     url: https://ip.me
-proxy-ip-detected:
-    check: the proxy IP is reflected by the page
-    cdp: eval
-    context: [deploy]
+- check: the proxy IP is reflected by the page
+  context: [deploy]
+  cdp:
+    method: eval
     tab: "1"
     expression: document.querySelector('#ip-lookup').value
-    stdout:
-        contains: 198.145.102.110
+  stdout:
+    contains: 198.145.102.110
 ```
 
 This pattern works for any page content extraction via JS — the `cdp: eval` step returns the expression's result directly.

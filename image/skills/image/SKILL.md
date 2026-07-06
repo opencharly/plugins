@@ -132,7 +132,7 @@ Each verb below is also auto-exposed as an MCP tool (`box.new.project`, `box.new
 | Action | Command |
 |--------|---------|
 | Scaffold a fresh project | `charly box new project <dir>` |
-| Add a box entry | `charly box new box <name> --base <ref> --layers <a,b,c>` |
+| Add a box entry | `charly box new box <name> --base <ref> --candy <a,b,c>` |
 | Add a candy dir (stub `charly.yml`) | `charly box new candy <name>` |
 | Edit a value in `charly.yml` | `charly box set <dotpath> <yaml-value>` |
 | Append a candy to a box | `charly box add-candy <image> <layer>` |
@@ -146,7 +146,7 @@ Each verb below is also auto-exposed as an MCP tool (`box.new.project`, `box.new
 
 **Comment preservation**: every YAML edit (`set`, `add-layer`, `rm-layer`, `add-rpm`, etc.) goes through the `yaml.v3` *node* API rather than the value API, so human-authored comments and key order are preserved across edits. Tested in `sdk/kit/yaml_test.go` and `charly/scaffold_project_test.go`.
 
-**Project scaffold contents**: `charly box new project` writes a minimal `charly.yml` with `discover: [box, candy]` + empty `box/`/`candy/` dirs. The default distro/builder/init/resource build vocabulary (and the default sidecar templates) are EMBEDDED in the `charly` binary (`charly/charly.yml`, `//go:embed` — the single embedded default config, plain node-form YAML parsed by the same unified loader as any project `charly.yml`), so a new project is immediately usable with no build vocabulary to copy; declare `distro:`/`builder:`/`init:`/`resource:`/`sidecar:` (inline in `charly.yml` or an imported vocab file) only to extend or override the embedded default.
+**Project scaffold contents**: `charly box new project` writes a minimal `charly.yml` with `discover: [box, candy]` + empty `box/`/`candy/` dirs. The default distro/builder/init/resource build vocabulary (and the default sidecar templates) are EMBEDDED in the `charly` binary (`charly/charly.yml`, `//go:embed` — the single embedded default config, plain compact-node-form YAML parsed by the same unified loader as any project `charly.yml`), so a new project is immediately usable with no build vocabulary to copy; declare `distro:`/`builder:`/`init:`/`resource:`/`sidecar:` (inline in `charly.yml` or an imported vocab file) only to extend or override the embedded default.
 
 ## charly.yml Structure
 
@@ -154,7 +154,7 @@ Each verb below is also auto-exposed as an MCP tool (`box.new.project`, `box.new
 defaults:
   registry: ghcr.io/opencharly
   tag: auto                    # CalVer: YYYY.DDD.HHMM
-  platforms:
+  platform:
     - linux/amd64
     - linux/arm64
   build: [rpm]
@@ -166,21 +166,20 @@ defaults:
     auto: false
     max_mb: 128
 
-# Every image is a name-first node: the `candy:` discriminator (an image carries `base:`/`from:`) holds the scalar +
-# build-vocabulary fields (base / version / builder / builds / platforms /
-# build / description); every non-scalar collection (distro identity tags,
-# candy composition, env, security) becomes its own `<box>-<key>:` child node.
+# Every image is a compact name-first node: the single `candy:` kind key (an
+# image carries `base:`/`from:`) holds the COMPLETE body — scalars, the
+# build-vocabulary fields (base / version / builder / produce / platform /
+# build / description), AND every collection (distro identity tags, candy
+# composition, env, security) inline.
 fedora:
   candy:
     base: "quay.io/fedora/fedora:43"
-  fedora-distro:
     distro: ["fedora:43", fedora]
 
 fedora-builder:
   candy:
     base: fedora
-    builds: [pixi, npm, cargo]  # declares what this builder can build
-  fedora-builder-candy:
+    produce: [pixi, npm, cargo]  # declares what this builder can build
     candy:
       - pixi
       - nodejs
@@ -190,15 +189,12 @@ my-app:
   candy:
     base: fedora
     env_file: "~/.config/my-app/.env"
-  my-app-candy:
     candy:
       - supervisord
       - traefik
       - my-service          # published ports are inherited from the candies (no box `port:`)
-  my-app-env:
     env:
-      - MY_VAR=value
-  my-app-security:
+      MY_VAR: value
     security:
       cap_add: [SYS_PTRACE]
 ```
@@ -211,25 +207,23 @@ Every setting resolves through: **image -> defaults -> hardcoded fallback** (fir
 |-------|---------|-------------|
 | `enabled` | `true` | Set `false` to disable (skipped by generate, validate, list) |
 | `version` | `""` | OPTIONAL dedicated CalVer (`YYYY.DDD.HHMM`). When set it IS the image's `ai.opencharly.version` label; when unset the label is derived as the highest layer version across the chain (`EffectiveVersion`, `charly/effective_version.go`). Layered images leave it unset (they derive — keeps the label content-stable); a layerless bare base on an EXTERNAL registry base needs it (else the label can't be derived) — `charly migrate` backfills those |
-| `status` | `""` (= `testing`) | `working`, `testing`, or `broken`. Effective status = worst of image + all layers |
-| `info` | `""` | Free-form description. Aggregated with layer-level info in OCI labels |
 | `base` | `quay.io/fedora/fedora:43` | External OCI image or name of another box |
 | `bootc` | `false` | Adds `bootc container lint`, enables disk image builds |
-| `platforms` | `["linux/amd64", "linux/arm64"]` | Target architectures |
+| `platform` | `["linux/amd64", "linux/arm64"]` | Target architectures |
 | `tag` | `"auto"` | Image tag. `"auto"` for CalVer |
 | `registry` | `""` | Container registry prefix |
 | `distro` | `[]` | Distro identity tags in priority order: `["fedora:43", fedora]`. For packages: first matching section wins (override). For plan steps: additive. Inherited from base image |
 | `build` | `["rpm"]` | Package formats tied to builder definitions: `[rpm]` or `[pac, aur]`. ALL formats installed in order. Valid: rpm, deb, pac, aur. Inherited from base image |
-| `layers` | (required) | Layer list (image-specific, not inherited) |
+| `candy` | `[]` | Candy composition list (image-specific, not inherited) |
 | `user` | `"user"` | Username for non-root operations. See `user_policy:` — may be overridden at resolve time when adopt mode fires |
 | `uid` | `1000` | User ID (may be overridden by `base_user:` under adopt) |
 | `gid` | `1000` | Group ID (may be overridden by `base_user:` under adopt) |
 | `user_policy` | `"auto"` | How to reconcile `user:` against the base image's pre-existing uid-1000 account. Values: `auto` / `adopt` / `create`. See "user_policy" section below |
 | `merge` | `null` | Layer merge settings |
-| `aliases` | `[]` | Command aliases |
+| `alias` | `[]` | Command aliases |
 | `builder` | `{}` | Build type → builder image map (inherited from base image + defaults). Keys match the embedded `builder:` vocabulary — e.g., `builder.pixi` selects which image to use as the pixi builder |
-| `builds` | `[]` | What this builder image can build: `pixi`, `npm`, `cargo`, `aur` (not inherited) |
-| `env` | `[]` | Runtime env vars (`KEY=VALUE`). Not inherited from defaults |
+| `produce` | `[]` | What this builder image can build: `pixi`, `npm`, `cargo`, `aur` (not inherited) |
+| `env` | `{}` | Runtime env vars — a MAP (`env: {KEY: value}`). Not inherited from defaults |
 | `env_file` | `""` | Path to `.env` file for runtime injection. Not inherited |
 | `security` | `null` | Container security options. Overrides layer-level security |
 | `network` | `string` | Container network mode (default: shared `charly` network; set `host` for host networking) |
@@ -255,8 +249,7 @@ defaults:
 fedora-builder:
   candy:
     base: fedora
-    builds: [pixi, npm, cargo]
-  fedora-builder-candy:
+    produce: [pixi, npm, cargo]
     candy: [pixi, nodejs, build-toolchain]
 
 arch:
@@ -268,21 +261,18 @@ arch:
       npm: arch-builder
       cargo: arch-builder
       aur: arch-builder
-  arch-distro:
     distro: [arch]
 
 arch-builder:
   candy:
     base: arch              # inherits build: [pac] AND builder: from arch
-    builds: [pixi, npm, cargo, aur]
-  arch-builder-candy:
+    produce: [pixi, npm, cargo, aur]
     candy: [pixi, nodejs, build-toolchain, yay]
 
 arch-test:
   candy:
     base: arch              # inherits builder: from arch
-    build: [pac, aur]            # override to add aur format
-  arch-test-candy:
+    build: [pac, aur]       # override to add aur format
     candy: [arch-pac-test, arch-aur-test]
 ```
 
@@ -306,7 +296,6 @@ fedora:
 my-app:
   candy:
     base: fedora        # References fedora image above
-  my-app-candy:
     candy: [my-layer]
 ```
 
@@ -372,26 +361,23 @@ See also `/charly-distros:ubuntu` (canonical adopt consumer), `/charly-build:bui
 When `base` is a URL string (not the name of another image in `charly.yml`), the generator treats it as **external** and does not inherit distro tags or build formats. This is the canonical gotcha for bootc images, which typically use `quay.io/fedora/fedora-bootc:43`:
 
 ```yaml
-# ❌ BROKEN — no `<box>-distro:` child node → Distro resolves to null, no RPM installs emitted
+# ❌ BROKEN — no `distro:` list → Distro resolves to null, no RPM installs emitted
 my-bootc-image:
   candy:
     base: "quay.io/fedora/fedora-bootc:43"
     bootc: true
-  my-bootc-image-candy:
     candy: [sshd, qemu-guest-agent, ffmpeg]
 
-# ✓ CORRECT — explicit distro: tags matching the base, in a `<box>-distro:` child node
+# ✓ CORRECT — explicit distro: tags matching the base, inline in the image body
 my-bootc-image:
   candy:
     base: "quay.io/fedora/fedora-bootc:43"
     bootc: true
-  my-bootc-image-distro:
     distro: ["fedora:43", fedora]
-  my-bootc-image-candy:
     candy: [sshd, qemu-guest-agent, ffmpeg]
 ```
 
-Symptom without `distro:`: `charly box inspect <image>` shows `"Distro": null`. The generator's install_template Phase-2 branch short-circuits on `img.DistroDef == nil`, so **no layer `rpm:` install RUN steps are emitted**. The image builds cleanly but is missing every package from every layer that uses declarative `rpm:` sections. Explicit `command: dnf install …` steps still run; the bug affects only declarative `rpm:`/`deb:`/`pac:` sections.
+Symptom without `distro:`: `charly box inspect <image>` shows `"Distro": null`. The generator's install_template Phase-2 branch short-circuits on `img.DistroDef == nil`, so **no declarative package-install RUN steps are emitted**. The image builds cleanly but is missing every package from every layer that uses the declarative `distro:` package sections. Explicit `command: dnf install …` steps still run; the bug affects only the declarative package surface.
 
 Internal bases (`base: fedora`) inherit `distro:` and `build:` from the parent image automatically — you only need explicit tags on images whose `base:` is a URL. The `quay.io/fedora/fedora-bootc:43` example above is the canonical pattern: an external bootc base must declare its own `distro:` tags, or the generator sees `Distro: null` and emits no rpm-install RUN steps.
 
@@ -438,10 +424,9 @@ The `env` and `env_file` fields inject environment variables into containers at 
 my-app:
   candy:
     env_file: "~/.config/my-app/.env"
-  my-app-env:
-    env:
-      - DB_HOST=localhost
-      - LOG_LEVEL=info
+    env:                    # a MAP — the KEY=VALUE list form is gone
+      DB_HOST: localhost
+      LOG_LEVEL: info
 ```
 
 These are the lowest priority in the env resolution chain. CLI flags (`-e`, `--env-file`) and workspace `.env` take precedence. See `/charly-core:charly-config` and `/charly-core:start` for the full priority chain at config-time and run-time respectively.
@@ -456,7 +441,6 @@ Box-level `security:` overrides candy-level security settings:
 my-app:
   candy:
     base: fedora
-  my-app-security:
     security:
       privileged: true
       cap_add: [SYS_ADMIN]
@@ -479,10 +463,9 @@ my-bootc-vm:
     source:
       kind: bootc
       box: my-bootc-image        # `box:` source field → the `candy:` image node above (must have bootc: true)
-    disk_size: 10 GiB
+    disk_size: 10G
     ram: 4G
-    cpus: 2
-  my-bootc-vm-libvirt:
+    cpu: 2
     libvirt:
       devices:
         filesystems: [{type: mount, source: ..., target: ...}]
@@ -492,7 +475,7 @@ See `/charly-vm:vms-catalog` for the full VmSpec schema, `/charly-vm:vm` for the
 
 ## Ports — inherited from candies, auto-allocated at deploy
 
-**Boxes do NOT declare ports.** A box's published ports are inherited from EVERY candy in its base chain — the candy that runs a service declares the container port (the candy's `<name>-port:` child node), and `CollectBoxPorts` (`charly/ports.go`, over the shared `boxCandyChain` walk) collects the full set. The same set feeds both the `ai.opencharly.port` OCI label and the Containerfile `EXPOSE` directives, so they can never diverge. A residual box-level `port:` is a hard load error pointing at `charly migrate`.
+**Boxes do NOT declare ports.** A box's published ports are inherited from EVERY candy in its base chain — the candy that runs a service declares the container port (the candy body's `port:` list), and `CollectBoxPorts` (`charly/ports.go`, over the shared `boxCandyChain` walk) collects the full set. The same set feeds both the `ai.opencharly.port` OCI label and the Containerfile `EXPOSE` directives, so they can never diverge. A residual box-level `port:` is a hard load error pointing at `charly migrate`.
 
 ```bash
 charly box inspect android-emulator --format ports
@@ -539,7 +522,7 @@ All of the above round-trip via `charly config`: the label is read from the imag
 
 ### Add a New Image
 
-Add an entry to `charly.yml` with `base` and `layers`, then build:
+Add an entry to `charly.yml` with `base` and `candy`, then build:
 
 ```bash
 # Edit charly.yml
@@ -555,14 +538,12 @@ Set `base` to another image name:
 nvidia:
   candy:
     base: fedora
-    platforms: [linux/amd64]
-  nvidia-candy:
+    platform: [linux/amd64]
     candy: [cuda]
 
 ml-workstation:
   candy:
     base: nvidia
-  ml-workstation-candy:
     candy: [python-ml, jupyter]
 ```
 
@@ -573,7 +554,6 @@ experimental:
   candy:
     enabled: false
     base: fedora
-  experimental-candy:
     candy: [experimental-layer]
 ```
 

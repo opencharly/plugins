@@ -27,13 +27,11 @@ Native Wayland screen recorder for wlroots-based compositors (sway, labwc, etc.)
 ## Usage
 
 ```yaml
-# a box composing this candy — the candy list is a child node
+# a box composing this candy — the candy list is inline
 my-box:
   candy:
     base: fedora
-  my-box-candy:
-    candy:
-      - wf-recorder
+    candy: [wf-recorder]
 ```
 
 ## CLI Usage
@@ -56,19 +54,20 @@ Author `record:` plan steps (the declarative verb served out-of-process by
 copies the `.mp4` out:
 
 ```yaml
-sway-rec-start:
-    check: a desktop recording starts
-    record: start
+plan:
+  - check: a desktop recording starts
+    record:
+      method: start
+      record_name: demo
+      record_mode: desktop
     context: [deploy]
-    record_name: demo
-    record_mode: desktop
-sway-rec-stop:
-    check: the desktop recording is captured
-    record: stop
+  - check: the desktop recording is captured
+    record:
+      method: stop
+      record_name: demo
+      artifact: demo.mp4
+      artifact_min_bytes: 10000
     context: [deploy]
-    record_name: demo
-    artifact: demo.mp4
-    artifact_not_uniform: true
 ```
 
 ## Included In

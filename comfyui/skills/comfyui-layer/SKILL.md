@@ -15,7 +15,7 @@ description: |
 | Ports | 8188 |
 | Volumes | `comfyui` -> `~/ComfyUI` |
 | Service | `comfyui` (supervisord) |
-| Install files | `task:`, `pixi.toml` |
+| Install files | `plan:`, `pixi.toml` |
 
 ## Packages
 
@@ -36,10 +36,12 @@ Arch repos (same package names).
 ## Usage
 
 ```yaml
-# charly.yml
+# charly.yml — the comfyui box composes the comfyui candy via an inline candy: list
 comfyui:
   candy:
-    - comfyui
+    base: nvidia
+    candy:
+      - comfyui
 ```
 
 ## Used In Boxes
@@ -63,5 +65,5 @@ Use when the user asks about:
 
 ## Related
 
-- `/charly-image:layer` — candy authoring reference (`charly.yml` schema, task verbs, service declarations)
+- `/charly-image:layer` — candy authoring reference (`charly.yml` schema, plan steps, service declarations)
 - `/charly-check:check` — declarative testing (`check:` block, `charly check box`, `charly check live`)

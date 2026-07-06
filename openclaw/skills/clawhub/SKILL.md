@@ -17,11 +17,10 @@ description: |
 ## Usage
 
 ```yaml
-# box charly.yml — composition is a child node, not a top-level list
+# box charly.yml — composition is an inline candy: list in the body
 my-box:
     candy:
         base: fedora
-    my-box-candy:
         candy:
             - clawhub
 ```
@@ -48,5 +47,5 @@ Use when the user asks about:
 
 ## Related
 
-- `/charly-image:layer` — candy authoring reference (`charly.yml` schema, task verbs, service declarations)
+- `/charly-image:layer` — candy authoring reference (`charly.yml` schema, plan steps, service declarations)
 - `/charly-check:check` — declarative testing (`check:` block, `charly check box`, `charly check live`)

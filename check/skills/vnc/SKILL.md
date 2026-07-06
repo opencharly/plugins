@@ -33,18 +33,22 @@ verb: you write `vnc: screenshot`, never `plugin: vnc`.
 
 ### Authoring a `vnc:` step
 
-Each method is the declarative `vnc:` step you author: the method name
-(status/screenshot/click/mouse/type/key/rfb/passwd) is the verb's YAML value, and
-method-specific fields (`x`, `y`, `text`, `key`, `artifact`, `artifact_min_bytes`)
-are siblings of the verb line. All `vnc:` steps are **deploy-context only** (they
-need a running deployment), so author them with `context: [deploy]`. See
-`/charly-check:check` for the full YAML shape. Example:
+Each method is the declarative `vnc:` step you author — an ordered list item under
+the candy/box `plan:`. The method name
+(status/screenshot/click/mouse/type/key/rfb/passwd) is the scalar value for a
+bare-method step (`vnc: status`), or the `method:` key of the `vnc:` map when the step
+carries vnc-exclusive fields (`x:`, `y:`, `button:`, `text:`, `key:`, `artifact:`,
+`artifact_min_bytes:`, …) — those live INSIDE the `vnc:` map. Only the shared matchers
+(`stdout:`, `stderr:`, `exit_status:`) and `context:`/`id:`/`timeout:` stay siblings.
+All `vnc:` steps are **deploy-context only** (they need a running deployment), so
+author them with `context: [deploy]`. See `/charly-check:check` for the full YAML
+shape. Example:
 
 ```yaml
-desktop-captured:
-    check: a non-empty VNC framebuffer is captured
-    vnc: screenshot
-    context: [deploy]
+- check: a non-empty VNC framebuffer is captured
+  context: [deploy]
+  vnc:
+    method: screenshot
     artifact: /tmp/vnc.png
     artifact_min_bytes: 5000
 ```
@@ -61,6 +65,9 @@ desktop-captured:
 | Status | `vnc: status` | Check VNC server, show resolution and desktop name |
 | Set password | `vnc: passwd` | Set VNC auth password for deployment |
 | Raw RFB | `vnc: rfb` | Send raw RFB protocol message |
+
+The `+ <field>:` entries are keys INSIDE the `vnc:` map (`vnc: {method: click, x: …, y: …}`);
+only `stdout:`/`stderr:`/`exit_status:` and `context:`/`id:`/`timeout:` are siblings.
 
 Run a candy's baked `vnc:` steps against a live deployment with
 `charly check live <image> --filter vnc` (add `-i <instance>` for multi-instance).
@@ -97,20 +104,20 @@ candy's baked steps with `charly check live <image> --filter vnc` (add
 
 ### Screenshot
 ```yaml
-vnc-screenshot:
-    check: a non-empty VNC framebuffer is captured
-    vnc: screenshot
-    context: [deploy]
+- check: a non-empty VNC framebuffer is captured
+  context: [deploy]
+  vnc:
+    method: screenshot
     artifact: /tmp/desktop.png        # host path for the captured PNG
     artifact_min_bytes: 5000
 ```
 
 ### Click
 ```yaml
-vnc-click-center:
-    run: left-click the desktop center (1920x1080)
-    vnc: click
-    context: [deploy]
+- run: left-click the desktop center (1920x1080)
+  context: [deploy]
+  vnc:
+    method: click
     x: 960
     y: 540
 ```
@@ -124,20 +131,20 @@ desktop without VNC.
 
 ### Type
 ```yaml
-vnc-type:
-    run: type each character as key events
-    vnc: type
-    context: [deploy]
+- run: type each character as key events
+  context: [deploy]
+  vnc:
+    method: type
     text: hello world
 ```
 Only supports ASCII/Latin-1 characters. For special keys, use the `vnc: key` method.
 
 ### Key
 ```yaml
-vnc-key:
-    run: press a special key
-    vnc: key
-    context: [deploy]
+- run: press a special key
+  context: [deploy]
+  vnc:
+    method: key
     key: Return            # also Escape, Tab, F5, Control_L, ...
 ```
 
@@ -145,32 +152,30 @@ Valid key names: Return, Escape, Tab, BackSpace, Delete, Home, End, Page_Up, Pag
 
 ### Mouse
 ```yaml
-vnc-mouse:
-    run: move the mouse without clicking
-    vnc: mouse
-    context: [deploy]
+- run: move the mouse without clicking
+  context: [deploy]
+  vnc:
+    method: mouse
     x: 500
     y: 300
 ```
 
 ### Status
 ```yaml
-vnc-status:
-    check: the VNC server reports its desktop and resolution
-    vnc: status
-    context: [deploy]
-    stdout:
-        contains: "1920x1080"
+- check: the VNC server reports its desktop and resolution
+  context: [deploy]
+  vnc: status
+  stdout:
+    contains: "1920x1080"
 # Output: Desktop: sway / Resolution: 1920x1080
 ```
 
 ### Password (`vnc: passwd`)
 
 ```yaml
-vnc-passwd:
-    run: provision VNC auth (VeNCrypt/TLS) for the deployment
-    vnc: passwd
-    context: [deploy]
+- run: provision VNC auth (VeNCrypt/TLS) for the deployment
+  context: [deploy]
+  vnc: passwd
 ```
 
 The `vnc: passwd` method sets up VNC authentication (VeNCrypt/TLS):
@@ -210,9 +215,10 @@ Requires `openssl` inside the venue for TLS cert and RSA key generation.
 
 A `vnc: rfb` step sends a raw RFB protocol message (raw key/pointer/cut-text
 events, framebuffer-update requests) for cases the typed methods above don't
-cover — the message kind and its JSON payload are the step's modifiers. Prefer the
-typed `vnc: click`/`type`/`key` methods; reach for `vnc: rfb` only for low-level
-protocol work.
+cover — the RFB sub-method rides the `http_method:` field and its JSON payload rides
+`params:`, both inside the `vnc:` map (the input's `method:` is always the verb method
+`rfb`). Prefer the typed `vnc: click`/`type`/`key` methods; reach for `vnc: rfb` only
+for low-level protocol work.
 
 ## Differences from CDP Commands
 
@@ -237,24 +243,24 @@ Some websites (notably Google sign-in) detect and block CDP-based input. VNC pro
 
 ```yaml
 # 1. Locate via cdp: coords — reports both viewport and desktop coords for '#identifierId'
-email-locate:
-    check: the email field is located
-    cdp: coords
-    context: [deploy]
+- check: the email field is located
+  context: [deploy]
+  cdp:
+    method: coords
     tab: "1"
     selector: "#identifierId"
 # 2. Deliver the click via VNC at the reported desktop coords
-email-vnc-click:
-    run: focus the email field via the VNC pointer
-    vnc: click
-    context: [deploy]
+- run: focus the email field via the VNC pointer
+  context: [deploy]
+  vnc:
+    method: click
     x: 1166
     y: 421
 # 3. Type real key events through the compositor
-email-vnc-type:
-    run: type the email address
-    vnc: type
-    context: [deploy]
+- run: type the email address
+  context: [deploy]
+  vnc:
+    method: type
     text: "${ENV_GMAIL_USER}"
 ```
 
@@ -279,18 +285,18 @@ and desktop (via the sway tree) — so you author the `vnc: click` with the repo
 desktop `x:`/`y:`:
 
 ```yaml
-sync-button-coords:
-    check: the sync button is located
-    cdp: coords
-    context: [deploy]
+- check: the sync button is located
+  context: [deploy]
+  cdp:
+    method: coords
     tab: "1"
     selector: "#sync-button"
 # Viewport: x=1166 y=310  center=(1220, 328)
 # Desktop:  x=1166 y=421  center=(1220, 439)   ← use these for vnc: click
-sync-button-vnc-click:
-    run: click the sync button via the VNC pointer
-    vnc: click
-    context: [deploy]
+- run: click the sync button via the VNC pointer
+  context: [deploy]
+  vnc:
+    method: click
     x: 1220
     y: 439
 ```
@@ -308,16 +314,16 @@ VNC screenshots work correctly on NVIDIA headless for images using `sway-desktop
 
 Both the `vnc: screenshot` step and the `wl: screenshot` step (grim, always works) work on NVIDIA headless:
 ```yaml
-nvidia-vnc-screenshot:
-    check: a non-empty VNC framebuffer is captured (works with pixman + DPMS fix)
-    vnc: screenshot
-    context: [deploy]
+- check: a non-empty VNC framebuffer is captured (works with pixman + DPMS fix)
+  context: [deploy]
+  vnc:
+    method: screenshot
     artifact: /tmp/out.png
     artifact_min_bytes: 5000
-nvidia-wl-screenshot:
-    check: a non-empty Wayland screenshot is captured (grim)
-    wl: screenshot
-    context: [deploy]
+- check: a non-empty Wayland screenshot is captured (grim)
+  context: [deploy]
+  wl:
+    method: screenshot
     artifact: /tmp/wl-out.png
     artifact_min_bytes: 5000
 ```

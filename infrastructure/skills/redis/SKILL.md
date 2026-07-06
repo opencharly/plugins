@@ -14,7 +14,7 @@ description: |
 | Dependencies | none |
 | Ports | 6379 |
 | Service | `redis` (supervisord, priority 20) |
-| Install files | `task:` |
+| Install files | `plan:` |
 
 ## Environment Variables
 
@@ -49,10 +49,11 @@ The candy is multi-distro:
 ## Usage
 
 ```yaml
-# charly.yml -- typically used as dependency of immich
+# charly.yml — a box composes redis via an inline candy: list in its body
 my-image:
   candy:
-    - redis
+    base: fedora
+    candy: [redis]
 ```
 
 ## Used In Boxes

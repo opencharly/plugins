@@ -346,8 +346,8 @@ podman, ports on guest localhost, the guest `charly` (installed by
 The guest reads the SAME baked checks from the cp-box'd pod image, so the check
 set is identical; the host propagates the guest's report + exit code. A
 pod-in-pod or vm-in-vm leaf (no host↔guest container boundary) still uses the
-multi-hop chain above. See the per-step `pod:` field below for the symmetric
-authoring surface in a bed's plan.
+multi-hop chain above. See "Cross-deployment probing" below for the symmetric
+authoring surface in a bed's plan (venue-from-position members).
 
 ### Specific anti-patterns observed and banned
 
@@ -368,10 +368,10 @@ If the container needs state that's only available in deploy (volumes, env, tunn
 
 `charly` ships a goss-inspired declarative testing framework built into the
 CLI. Plan steps — each one intent keyword (`run:`/`check:`/`agent-run:`/
-`agent-check:`/`include:`) carrying prose, plus an inline Op for `run:`/`check:` —
-are authored as child step nodes (each named by its `id:`, else
-`<entity>-step-N`) under a `candy:` entity (layer or image) in `charly.yml`; there is no `plan:`
-list key. They are **baked into the `ai.opencharly.description` OCI label**
+`agent-check:`/`include:`) carrying prose, plus at most one verb-position key for
+`run:`/`check:` — are authored as an ordered UNNAMED list under `plan:` inside a
+`candy:` entity (layer or image) in `charly.yml`; an optional `id:` names a step.
+They are **baked into the `ai.opencharly.description` OCI label**
 (`LabelDescriptionSet`, which carries the collected plan steps with
 `candy:`/`box:`/`deploy` origin annotations) so any pulled image is self-testable
 without its source repo. A local `charly.yml` overlay can add steps or override
@@ -422,7 +422,8 @@ process exit code in `main()` via `errors.As`.
 When `charly check run --on-host <name>` (or any `iterate:` entity whose
 sandbox resolves to `TargetKindHost`) dispatches the runner, an image
 preflight runs FIRST: walk the bed's plan, collect every
-distinct step `pod:` plus the bed's target image, deduplicate, and
+distinct step venue's image (per-step `Op.venue`, loader-derived from tree
+position) plus the bed's target image, deduplicate, and
 ensure each image is present in local podman storage BEFORE handing
 off to the host runner.
 
@@ -520,7 +521,7 @@ steps to the agent grader.
 
 | Stage | Who | Command | What |
 |---|---|---|---|
-| **Specify** | you / an agent | hand-edit the candy's plan steps (or `charly box set candy.<name>.plan ...`) | Author the `description:` string + plan steps (child step nodes) on the CANDY that provides the behaviour (it bakes into every box that composes the candy — R3). |
+| **Specify** | you / an agent | hand-edit the candy's `plan:` list (or `charly box set candy.<name>.plan ...`) | Author the `description:` string + `plan:` steps on the CANDY that provides the behaviour (it bakes into every box that composes the candy — R3). |
 | **Bind** | author (implicit) | `charly feature pending <entity>` lists the agent-graded steps | Use a `check:` step (inline verb) → deterministic; use an `agent-check:` step (prose) → agent-graded. |
 | **Run** | you / CI | `charly box feature run <image>` / `charly check feature run <deployment>` | Execute the plan; per-step pass/fail + grader evidence. |
 | **Iterate** | you / an agent | edit + re-run, OR `charly check run <bed>` (an `iterate:` bed) | Drive red→green by hand, or let the plateau-bounded AI loop write the code until the `check:` steps pass. |
@@ -530,17 +531,18 @@ steps to the agent grader.
 ### The BIND contract — a step binds to its verifier BY SHAPE
 
 ```yaml
-# candy/<name>/charly.yml — description: is a scalar under candy:; each plan step
-# is its own named child node (the ONE flat operational sequence), no plan: list key
+# candy/<name>/charly.yml — description: + the ordered plan: list, all inline
+# in the candy body (the ONE flat operational sequence)
 dashboard:
     candy:
         description: Dashboard          # the candy's purpose; first line = summary
-    dashboard-title:
-        check: the page title is Dashboard   # inline verb → DETERMINISTIC
-        cdp: eval
-        expression: document.title
-    dashboard-chart-populated:
-        agent-check: the chart looks populated, not empty   # PROSE-ONLY → agent-graded
+        plan:
+            - check: the page title is Dashboard   # inline verb → DETERMINISTIC
+              id: dashboard-title
+              cdp:
+                  method: eval
+                  expression: document.title
+            - agent-check: the chart looks populated, not empty   # PROSE-ONLY → agent-graded
 ```
 
 A `check:` step carries an embedded probe verb (`file`/`http`/`command`/`cdp`/
@@ -633,57 +635,55 @@ Because no live-container verb is a host subcommand any more, an image's name ca
 never collide with one — `charly check live <name>` resolves the image
 unambiguously.
 
-## Authoring: the plan (child step nodes)
+## Authoring: the plan (the ordered `plan:` list)
 
-Every step is its own named child node under the entity — ONE intent keyword
+Every step is an entry in the entity's ordered `plan:` list — ONE intent keyword
 (`run:`/`check:`/`agent-run:`/`agent-check:`/`include:`) carrying prose, plus —
-for `run:`/`check:` — an inline Op (a single verb discriminator + shared
-modifiers + verb-specific attributes). There is no `plan:` list key: each step is
-a node named by its `id:` (else `<entity>-step-N`), mirroring
-`candy/redis/charly.yml`. `run:` steps ARE the install timeline (they replace the
-old `task:` list); `check:` steps are the deterministic idempotent probes
-`charly check`/`charly check live` run.
+for `run:`/`check:` — at most one verb-position key (a builtin install verb, or
+the plugin-verb sugar `<word>: <input>`: a map is the verb's input verbatim,
+holding the verb-specific attributes; a scalar is the verb's primary-field
+shorthand) and the shared step modifiers as siblings. An optional `id:` names a
+step (reports + overlay merging), mirroring `candy/redis/charly.yml`. `run:`
+steps ARE the install timeline; `check:` steps are the deterministic idempotent
+probes `charly check`/`charly check live` run.
 
 ### Gold-standard pattern (redis candy)
 
 ```yaml
-# candy/redis/charly.yml — each step is a child node of the redis candy (named by
-# its id:), NOT a plan: list. The candy: discriminator holds only scalars.
+# candy/redis/charly.yml — the ordered plan: list inline in the candy body.
 redis:
     candy:
         version: 2026.144.1531
         description: A Redis-compatible key-value server supervised on 127.0.0.1:6379
-    # Build-context check: — run inside the built image via `podman run --rm`.
-    redis-binary:
-        check: the redis-server binary is installed
-        id: redis-binary
-        file: /usr/bin/redis-server
-        exists: true
-    redis-cli-binary:
-        check: the redis-cli binary is installed
-        id: redis-cli-binary
-        file: /usr/bin/redis-cli
-        exists: true
-    redis-package:
-        check: the redis package is installed
-        id: redis-package
-        package: valkey-compat-redis     # see "Authoring Gotchas" on Fedora 43 renames
-        installed: true
-    # Deploy-context check: — HOST_PORT:N resolves to the effective port mapping, so
-    # the same step works whether the deploy publishes 6379:6379 or 16379:6379.
-    redis-responds:
-        check: redis answers ping over the published port
-        id: redis-responds
-        context: [deploy]
-        command: redis-cli -h 127.0.0.1 -p ${HOST_PORT:6379} ping
-        stdout: PONG
-        in_container: false    # run redis-cli from the host
-    redis-port-open:
-        check: the redis port is reachable from the host
-        id: redis-port-open
-        context: [deploy]
-        addr: 127.0.0.1:${HOST_PORT:6379}
-        reachable: true
+        plan:
+            # Build-context check: — run inside the built image via `podman run --rm`.
+            - check: the redis-server binary is installed
+              file:
+                  file: /usr/bin/redis-server
+                  exists: true
+            - check: the redis-cli binary is installed
+              file:
+                  file: /usr/bin/redis-cli
+                  exists: true
+            - check: the providing package is installed
+              package:
+                  package: valkey-compat-redis   # see "Authoring Gotchas" on renames
+                  package_map:
+                      arch: valkey
+                  installed: true
+            # Runtime check: — HOST_PORT:N resolves to the effective port mapping, so
+            # the same step works whether the deploy publishes 6379:6379 or 16379:6379.
+            - check: redis answers ping over the published port
+              id: redis-responds
+              context: [runtime]
+              stdout: PONG                       # shared matcher — a step-level sibling
+              command:
+                  command: redis-cli -h 127.0.0.1 -p 6379 ping
+                  in_container: true
+            - check: the redis port is reachable from the host
+              id: redis-port-open
+              context: [runtime]
+              addr: 127.0.0.1:${HOST_PORT:6379}  # scalar sugar: addr's primary field
 ```
 
 The five `check:` steps cover: binary existence, package identity, a functional
@@ -702,16 +702,18 @@ fallback. Source: `charly/checkrun_verbs.go:resolvePackageName` + the
 points.
 
 ```yaml
-# candy/sshd/charly.yml — cross-distro authoring (a child step node)
-openssh-server-package:
-    check: the openssh-server package is installed
-    id: openssh-server-package
-    package: openssh-server              # Fedora / Debian default
-    package_map:
-        arch: openssh                 # Arch ships the metapackage as 'openssh'
-        fedora: openssh-server
-        fedora:43: openssh-server          # explicit version tag — matches before 'fedora'
-    installed: true
+# candy/sshd/charly.yml — cross-distro authoring (a plan: step; the package-verb
+# fields, package_map included, live INSIDE the package input map)
+plan:
+    - check: the openssh-server package is installed
+      id: openssh-server-package
+      package:
+          package: openssh-server          # Fedora / Debian default
+          package_map:
+              arch: openssh                # Arch ships the metapackage as 'openssh'
+              fedora: openssh-server
+              fedora:43: openssh-server    # explicit version tag — matches before 'fedora'
+          installed: true
 ```
 
 Tag priority: entries in `distro:` are in priority order (e.g.
@@ -722,30 +724,36 @@ naturally. An empty-string map value falls through to the next tag
 
 ### Verb catalog (goss-parity feature set)
 
-| Verb | Typical attributes | Notes |
-|------|---------------------|-------|
-| `file` | `exists`, `mode`, `owner`, `group_of`, `filetype`, `contains`, `sha256` | `group_of` (not `group`) — `group` is a reserved kind word, so the owning-group attribute is spelled `group_of` (the getent-group probe verb is `unix_group`) |
-| `package` | `installed`, `versions` | Tries rpm / dpkg / pacman — exact match on installed name (see gotchas) |
-| `service` | `running`, `enabled` | Supervisord first, then systemd |
-| `port` | `listening`, `ip`, `reachable` | **`listening` needs `ss`/`netstat` inside the container** — absent from minimal images |
-| `process` | `running` | **Needs `pgrep`** — absent from minimal images |
-| `command` | `exit_status`, `stdout`, `stderr`, `in_container` | Default runs via `podman exec`; set `in_container: false` to run from host |
-| `http` | `status` (int, single value), `body`, `headers`, `method`, `request_body`, `allow_insecure`, `no_follow_redirects`, `ca_file`, `timeout` | Host-side under `charly check live`; curl-in-container under `charly check box` |
-| `dns` | `resolvable`, `addrs`, `server` | Host resolver for `charly check live`; `getent hosts` for `charly check box` |
-| `user` | `uid`, `gid`, `home`, `shell` | `getent passwd` |
-| `unix_group` | `gid`, `groups` | `getent group` |
-| `interface` | `mtu`, `addrs` | `ip -o addr show` |
-| `kernel-param` | `value` (scalar or matcher) | `sysctl -n` |
-| `mount` | `mount_source`, `filesystem`, `opts` | `findmnt` |
-| `addr` | `reachable`, `timeout` | Pure Go-native `net.DialTimeout` for `charly check live`; `nc` for `charly check box` |
-| `matching` | `contains` | Pure in-process value matching — no target probe |
-| `cdp` | Method name (status/list/eval/text/html/url/axtree/screenshot/open/click/type/raw/wait/coords + spa-*) + method-specific modifiers (`tab`, `expression`, `url`, `selector`, `text`, `artifact`, `x`, `y`) + shared `stdout`/`stderr`/`exit_status`/`artifact_min_bytes` | **Deploy-context only.** Dispatches out-of-process via `candy/plugin-cdp` (no host subcommand). See Live-container verb catalog below. |
-| `wl` | Method name (screenshot/status/click/type/key/key-combo/mouse/scroll/drag/clipboard/toplevel/windows/focus/close/geometry/xprop/atspi/exec/resolution + overlay-*/sway-*) + method-specific modifiers (`x`, `y`, `text`, `key`, `combo`, `target`, `action`, `artifact`) + shared matchers | **Deploy-context only.** Dispatches out-of-process via `candy/plugin-wl` (no host subcommand; includes the `sway-*` and `overlay-*` nested methods). See Live-container verb catalog below. |
-| `dbus` | Method name (list/call/introspect/notify) + method-specific modifiers (`dest`, `path`, `method`, `args`, `text`, `description`) + shared matchers | **Deploy-context only.** Dispatches out-of-process via `candy/plugin-dbus` (no host subcommand); EXEC-based, driving the venue's session bus with `gdbus`. |
-| `vnc` | Method name (status/screenshot/click/mouse/type/key/rfb/passwd) + method-specific modifiers (`x`, `y`, `text`, `key`, `artifact`) + shared matchers | **Deploy-context only.** Dispatches out-of-process via `candy/plugin-vnc` (no host subcommand); the host pre-resolves the RFB endpoint for pod AND vm targets. See Live-container verb catalog below. |
-| `mcp` | Method name (ping/servers/list-tools/list-resources/list-prompts/call/read) + method-specific modifiers (`tool`, `uri`, `input`, `mcp_name`) + shared matchers | **Deploy-context only.** Speaks `github.com/modelcontextprotocol/go-sdk` to any `mcp_provide` endpoint. See "Method allowlist — mcp" below. |
+Every verb-exclusive attribute below lives INSIDE the verb's input map
+(`file: {file: /x, exists: true}`), validated by the plugin's OWN served CUE
+schema; a scalar value is the verb's primary-field shorthand (`file: /x`,
+`command: id`, `cdp: status`, …). The shared step modifiers and the
+`stdout`/`stderr`/`exit_status` matchers stay step-level siblings.
 
-> **STRICT RULE — a step verb (or Op modifier) MUST NEVER be spelled like a reserved KIND word.** Kinds (`candy`, `pod`, `vm`, `k8s`, `local`, `android`, `group`, `target`, …) live ONLY at a config EDGE — the opening discriminator of a top-level node or a tree-child node — never as a key in the middle of a step. A new probe verb that would collide with a kind word MUST pick a non-colliding spelling (the `k8s`/`group` probe verbs were renamed to `kube`/`unix_group` for exactly this reason). This is machine-enforced by `sdk/spec` `TestNoKindWordAsStepVerb` + `TestNoKindWordAsOpModifier` — adding a colliding verb fails the build.
+| Verb | Input attributes (inside the verb map) | Notes |
+|------|---------------------|-------|
+| `file` | `file` (primary), `exists`, `mode`, `owner`, `group_of`, `filetype`, `contains`, `sha256` | `group_of` (not `group`) — `group` is a reserved kind word, so the owning-group attribute is spelled `group_of` (the getent-group probe verb is `unix_group`) |
+| `package` | `package` (primary), `installed`, `version`, `package_map` | Tries rpm / dpkg / pacman — exact match on installed name (see gotchas) |
+| `service` | `service` (primary), `running`, `enabled` | Supervisord first, then systemd |
+| `port` | `port` (primary), `listening`, `ip`, `reachable` | **`listening` needs `ss`/`netstat` inside the container** — absent from minimal images |
+| `process` | `process` (primary), `running` | **Needs `pgrep`** — absent from minimal images |
+| `command` | `command` (primary), `in_container` | Default runs via `podman exec`; set `in_container: false` to run from host. Assert via the shared `exit_status`/`stdout`/`stderr` step matchers |
+| `http` | `http` (primary URL), `status` (int, single value), `body`, `headers`, `method`, `request_body`, `allow_insecure`, `no_follow_redirects`, `ca_file`, `timeout` | Host-side under `charly check live`; curl-in-container under `charly check box` |
+| `dns` | `dns` (primary), `resolvable`, `addrs`, `server` | Host resolver for `charly check live`; `getent hosts` for `charly check box` |
+| `user` | `user` (primary), `uid`, `gid`, `home`, `shell` | `getent passwd` |
+| `unix_group` | `unix_group` (primary), `gid`, `groups` | `getent group` |
+| `interface` | `interface` (primary), `mtu`, `addrs` | `ip -o addr show` |
+| `kernel-param` | `kernel-param` (primary), `value` (scalar or matcher) | `sysctl -n` |
+| `mount` | `mount` (primary), `mount_source`, `filesystem`, `opts` | `findmnt` |
+| `addr` | `addr` (primary), `reachable`, `timeout` | Pure Go-native `net.DialTimeout` for `charly check live`; `nc` for `charly check box` |
+| `matching` | `matching` (primary), `contains` | Pure in-process value matching — no target probe |
+| `cdp` | `method` (primary: status/list/eval/text/html/url/axtree/screenshot/open/click/type/raw/wait/coords + spa-*) + method-specific fields (`tab`, `expression`, `url`, `selector`, `text`, `artifact`, `x`, `y`, `http_method` for `raw`) + `artifact_min_bytes` | **Deploy-context only.** Dispatches out-of-process via `candy/plugin-cdp` (no host subcommand). See Live-container verb catalog below. |
+| `wl` | `method` (primary: screenshot/status/click/type/key/key-combo/mouse/scroll/drag/clipboard/toplevel/windows/focus/close/geometry/xprop/atspi/exec/resolution + overlay-*/sway-*) + method-specific fields (`x`, `y`, `text`, `key`, `combo`, `target`, `action`, `command`, `artifact`) | **Deploy-context only.** Dispatches out-of-process via `candy/plugin-wl` (no host subcommand; includes the `sway-*` and `overlay-*` nested methods). See Live-container verb catalog below. |
+| `dbus` | `method` (primary: list/call/introspect/notify) + method-specific fields (`dest`, `path`, `member` — the fully-qualified interface.Method a `call` invokes, `arg`, `text`) | **Deploy-context only.** Dispatches out-of-process via `candy/plugin-dbus` (no host subcommand); EXEC-based, driving the venue's session bus with `gdbus`. |
+| `vnc` | `method` (primary: status/screenshot/click/mouse/type/key/rfb/passwd) + method-specific fields (`x`, `y`, `text`, `key`, `artifact`) | **Deploy-context only.** Dispatches out-of-process via `candy/plugin-vnc` (no host subcommand); the host pre-resolves the RFB endpoint for pod AND vm targets. See Live-container verb catalog below. |
+| `mcp` | `method` (primary: ping/servers/list-tools/list-resources/list-prompts/call/read) + method-specific fields (`tool`, `uri`, `input`, `mcp_name`) | **Deploy-context only.** Speaks `github.com/modelcontextprotocol/go-sdk` to any `mcp_provide` endpoint. See "Method allowlist — mcp" below. |
+
+> **STRICT RULE — a step verb (or Op modifier) MUST NEVER be spelled like a reserved KIND word.** Kinds (`candy`, `pod`, `vm`, `k8s`, `local`, `android`, `group`, …) live ONLY at a config EDGE — the opening discriminator of a top-level node or a tree-child node — never as a key in the middle of a step. A new probe verb that would collide with a kind word MUST pick a non-colliding spelling (the `k8s`/`group` probe verbs were renamed to `kube`/`unix_group` for exactly this reason). This is machine-enforced by `sdk/spec` `TestNoKindWordAsStepVerb` + `TestNoKindWordAsOpModifier` — adding a colliding verb fails the build.
 
 ### Shared modifiers
 
@@ -754,25 +762,26 @@ naturally. An empty-string map value falls through to the next tag
 | `id` | Optional stable identifier. Enables `charly.yml` to override by `id`. Unique per section per image. |
 | `description` | Human-readable label for reports. |
 | `skip: true` | Always skip this check (reported but doesn't fail the run). |
-| `exclude_distros: [<tag>, ...]` | Skip the check when any of the image's `distro:` tags matches an entry. Use for probes that only apply on some distros (e.g. `file: /usr/bin/fastfetch` is valid on Fedora/Arch/Debian but fastfetch is dropped from Ubuntu 24.04's noble main). Matched against the image's full distro list (`["ubuntu:24.04", "ubuntu", "debian"]`), so either `ubuntu:24.04` or `ubuntu` matches. See `charly/checkspec.go:Op.ExcludeDistros` and `charly/checkrun.go:runOne`. |
+| `exclude_distro: [<tag>, ...]` | Skip the check when any of the image's `distro:` tags matches an entry. Use for probes that only apply on some distros (e.g. `file: /usr/bin/fastfetch` is valid on Fedora/Arch/Debian but fastfetch is dropped from Ubuntu 24.04's noble main). Matched against the image's full distro list (`["ubuntu:24.04", "ubuntu", "debian"]`), so either `ubuntu:24.04` or `ubuntu` matches. See `charly/checkspec.go:Op.ExcludeDistros` and `charly/checkrun.go:runOne`. |
 | `timeout: "5s"` | Per-check timeout (http, addr). |
 | `context: [build\|deploy\|runtime]` | Which contexts the step runs in (a list). Build steps run in `charly check box`; deploy/runtime steps need a live deployment. |
 
-#### `exclude_distros:` worked example
+#### `exclude_distro:` worked example
 
 ```yaml
-fastfetch-binary:
-    check: the fastfetch binary is installed (skipped on Ubuntu 24.04)
-    id: fastfetch-binary
-    file: /usr/bin/fastfetch
-    exists: true
-    exclude_distros:
-        - ubuntu:24.04
+plan:
+    - check: the fastfetch binary is installed (skipped on Ubuntu)
+      id: fastfetch-binary
+      exclude_distro:
+          - ubuntu
+      file:
+          file: /usr/bin/fastfetch
+          exists: true
 ```
 
-On `ghcr.io/opencharly/ubuntu-coder:latest` this reports `skipped (excluded on distro "ubuntu:24.04")` instead of `failed`. On any other image it runs normally. Prefer this over dropping the test entirely — it keeps the guard in place for Fedora/Arch/Debian and documents why Ubuntu is special.
+On `ghcr.io/opencharly/ubuntu-coder:latest` this reports `skipped (excluded on distro "ubuntu")` instead of `failed`. On any other image it runs normally. Prefer this over dropping the test entirely — it keeps the guard in place for Fedora/Arch/Debian and documents why Ubuntu is special.
 
-**Compared to `package_map:`** — `package_map:` changes what the test *probes for* per distro (same semantic, different package name). `exclude_distros:` skips the check entirely — use it when the functionality genuinely doesn't exist on a given distro.
+**Compared to `package_map:`** — `package_map:` changes what the test *probes for* per distro (same semantic, different package name). `exclude_distro:` skips the check entirely — use it when the functionality genuinely doesn't exist on a given distro.
 
 ### Matcher forms
 
@@ -820,11 +829,10 @@ feeds the output through the existing matcher pipeline. Queries
 Side-effect actions (click/type/open/close/…) pass when they exit 0 — follow them
 with a query check to verify the effect.
 
-**No state chaining (Phase 1):** there's no framework-managed variable to
+**No state chaining:** there's no framework-managed variable to
 carry a tab ID or window handle from one check to the next. Authors rely
-on conventions (new tabs are usually ID 1) and capture state manually via
-follow-up `cdp: list` checks if needed. Phase 2 (deferred) will add
-`capture:` + `${CAPTURED:name}` for stateful flows.
+on conventions (new tabs are usually ID 1) and inspect state via
+follow-up `cdp: list` checks if needed.
 
 #### Method allowlist — `cdp` (15 methods + 6 SPA-nested)
 
@@ -836,28 +844,28 @@ SPA-nested (selkies coordinate-scaling / passthrough input):
 `spa-mouse`.
 
 ```yaml
-cdp-up:
-    check: the CDP endpoint is reachable
-    id: cdp-up
-    cdp: status
-    stdout:
-        equals: ok
+plan:
+    - check: the CDP endpoint is reachable
+      id: cdp-up
+      cdp: status                   # scalar sugar == {method: status}
+      stdout:
+          equals: ok
 
-cdp-page-title:
-    check: the page title is Dashboard
-    id: cdp-page-title
-    cdp: eval
-    tab: "1"
-    expression: "document.title"
-    stdout: "Dashboard"
+    - check: the page title is Dashboard
+      id: cdp-page-title
+      cdp:
+          method: eval
+          tab: "1"
+          expression: "document.title"
+      stdout: "Dashboard"
 
-cdp-screenshot-valid:
-    check: a non-empty CDP screenshot is captured
-    id: cdp-screenshot-valid
-    cdp: screenshot
-    tab: "1"
-    artifact: /tmp/cdp.png
-    artifact_min_bytes: 10000       # PNG must be non-empty
+    - check: a non-empty CDP screenshot is captured
+      id: cdp-screenshot-valid
+      cdp:
+          method: screenshot
+          tab: "1"
+          artifact: /tmp/cdp.png
+          artifact_min_bytes: 10000   # PNG must be non-empty
 ```
 
 #### Method allowlist — `wl` (22 top-level + 4 overlay + 12 sway)
@@ -874,26 +882,25 @@ Sway-nested: `sway-tree`, `sway-workspaces`, `sway-outputs`, `sway-msg`,
 `sway-layout`, `sway-workspace`, `sway-reload`.
 
 ```yaml
-wl-desktop-captured:
-    check: a non-empty desktop screenshot is captured
-    id: wl-desktop-captured
-    wl: screenshot
-    artifact: /tmp/wl.png
-    artifact_min_bytes: 10000
+plan:
+    - check: a non-empty desktop screenshot is captured
+      id: wl-desktop-captured
+      wl:
+          method: screenshot
+          artifact: /tmp/wl.png
+          artifact_min_bytes: 10000
 
-wl-has-windows:
-    check: at least one toplevel window is present
-    id: wl-has-windows
-    wl: toplevel
-    stdout:
-        matches: "."        # at least one line of output
+    - check: at least one toplevel window is present
+      id: wl-has-windows
+      wl: toplevel
+      stdout:
+          matches: "."      # at least one line of output
 
-wl-sway-has-workspace-1:
-    check: sway reports workspace "1"
-    id: wl-sway-has-workspace-1
-    wl: sway-workspaces
-    stdout:
-        contains: '"name":"1"'
+    - check: sway reports workspace "1"
+      id: wl-sway-has-workspace-1
+      wl: sway-workspaces
+      stdout:
+          contains: '"name":"1"'
 ```
 
 #### Method allowlist — `dbus` (4 methods)
@@ -902,23 +909,22 @@ Queries: `list`, `call`, `introspect`.
 Actions: `notify`.
 
 ```yaml
-dbus-notifications-registered:
-    check: the Notifications service is registered on the bus
-    id: dbus-notifications-registered
-    dbus: list
-    stdout:
-        contains: "org.freedesktop.Notifications"
+plan:
+    - check: the Notifications service is registered on the bus
+      id: dbus-notifications-registered
+      dbus: list
+      stdout:
+          contains: "org.freedesktop.Notifications"
 
-dbus-get-capabilities:
-    check: the Notifications service answers GetCapabilities
-    id: dbus-get-capabilities
-    dbus: call
-    dest: org.freedesktop.Notifications
-    path: /org/freedesktop/Notifications
-    method: org.freedesktop.Notifications.GetCapabilities
-    args: []
-    stdout:
-        contains: body
+    - check: the Notifications service answers GetCapabilities
+      id: dbus-get-capabilities
+      dbus:
+          method: call
+          dest: org.freedesktop.Notifications
+          path: /org/freedesktop/Notifications
+          member: org.freedesktop.Notifications.GetCapabilities
+      stdout:
+          contains: body
 ```
 
 #### Method allowlist — `vnc` (8 methods)
@@ -927,19 +933,19 @@ Queries: `status`, `screenshot`, `rfb`.
 Actions: `click`, `mouse`, `type`, `key`, `passwd`.
 
 ```yaml
-vnc-up:
-    check: the VNC endpoint is reachable
-    id: vnc-up
-    vnc: status
-    stdout:
-        equals: ok
+plan:
+    - check: the VNC endpoint is reachable
+      id: vnc-up
+      vnc: status
+      stdout:
+          equals: ok
 
-vnc-framebuffer-captured:
-    check: a non-empty VNC framebuffer is captured
-    id: vnc-framebuffer-captured
-    vnc: screenshot
-    artifact: /tmp/vnc.png
-    artifact_min_bytes: 5000
+    - check: a non-empty VNC framebuffer is captured
+      id: vnc-framebuffer-captured
+      vnc:
+          method: screenshot
+          artifact: /tmp/vnc.png
+          artifact_min_bytes: 5000
 ```
 
 #### Method allowlist — `mcp` (7 methods)
@@ -964,39 +970,38 @@ add `mcp_name: <server>` on the check; otherwise the single entry
 auto-picks.
 
 ```yaml
-mcp-ping:
-    check: the MCP server answers a ping
-    id: mcp-ping
-    context: [deploy]
-    mcp: ping
-    timeout: 10s                # optional; default 30s
+plan:
+    - check: the MCP server answers a ping
+      id: mcp-ping
+      context: [deploy]
+      mcp: ping
+      timeout: 10s              # optional; default 30s
 
-mcp-list-tools:
-    check: the MCP server lists its notebook tools
-    id: mcp-list-tools
-    context: [deploy]
-    mcp: list-tools
-    stdout:
-        - contains: insert_cell   # plaintext "name\tdescription" per line
-        - contains: execute_cell
+    - check: the MCP server lists its notebook tools
+      id: mcp-list-tools
+      context: [deploy]
+      mcp: list-tools
+      stdout:
+          - contains: insert_cell   # plaintext "name\tdescription" per line
+          - contains: execute_cell
 
-mcp-call-tool:
-    check: calling list_notebooks succeeds (no IsError)
-    id: mcp-call-tool
-    context: [deploy]
-    mcp: call
-    tool: list_notebooks        # required
-    input: "{}"                 # optional JSON arg blob
-    exit_status: 0              # assert no IsError
+    - check: calling list_notebooks succeeds (no IsError)
+      id: mcp-call-tool
+      context: [deploy]
+      mcp:
+          method: call
+          tool: list_notebooks  # required
+          input: "{}"           # optional JSON arg blob
+      exit_status: 0            # assert no IsError
 
-mcp-read-resource:
-    check: reading a resource returns a non-empty body
-    id: mcp-read-resource
-    context: [deploy]
-    mcp: read
-    uri: file:///tmp/example.txt
-    stdout:
-        - matches: "."            # non-empty body
+    - check: reading a resource returns a non-empty body
+      id: mcp-read-resource
+      context: [deploy]
+      mcp:
+          method: read
+          uri: file:///tmp/example.txt
+      stdout:
+          - matches: "."        # non-empty body
 ```
 
 There is **no** host `charly check` subcommand for `mcp`: it is a
@@ -1042,25 +1047,26 @@ artifact's correctness post-run.
   captured nothing because nothing was typed".
 
 ```yaml
-# Combined screenshot validity assertion — bytes + dimensions + content.
-cdp-screenshot-real:
-    check: the CDP screenshot is a real, non-uniform image
-    id: cdp-screenshot-real
-    cdp: screenshot
-    tab: "1"
-    artifact: /tmp/cdp.png
-    artifact_min_bytes: 5000
-    artifact_min_dimensions: 800x600
-    artifact_not_uniform: true
+plan:
+    # Combined screenshot validity assertion — bytes + dimensions + content.
+    - check: the CDP screenshot is a real, non-uniform image
+      id: cdp-screenshot-real
+      cdp:
+          method: screenshot
+          tab: "1"
+          artifact: /tmp/cdp.png
+          artifact_min_bytes: 5000
+          artifact_min_dimensions: 800x600
+          artifact_not_uniform: true
 
-# Recording validity — bytes + event count.
-record-cast-has-events:
-    check: the terminal recording captured real events
-    id: record-cast-has-events
-    record: stop
-    artifact: /tmp/session.cast
-    artifact_min_bytes: 200
-    artifact_min_cast_events: 5
+    # Recording validity — bytes + event count.
+    - check: the terminal recording captured real events
+      id: record-cast-has-events
+      record:
+          method: stop
+          artifact: /tmp/session.cast
+          artifact_min_bytes: 200
+          artifact_min_cast_events: 5
 ```
 
 The four modifiers are independent — set just the one you need or
@@ -1145,13 +1151,13 @@ in_container: true
 `candy/charly/charly.yml` test asserts a `stdout:` matcher.
 
 ```yaml
-charly-version:
-    check: charly version prints a CalVer to stdout
-    id: charly-version
-    command: /usr/local/bin/charly version
-    exit_status: 0
-    stdout:
-        - matches: "[0-9]{4}\\.[0-9]+"
+plan:
+    - check: charly version prints a CalVer to stdout
+      id: charly-version
+      command: /usr/local/bin/charly version
+      exit_status: 0
+      stdout:
+          - matches: "[0-9]{4}\\.[0-9]+"
 ```
 
 **But other tools genuinely write to stderr** — `ssh -V`, `openssl version`,
@@ -1212,19 +1218,19 @@ them fails in `charly check box` because the mount isn't attached.
 
 ```yaml
 # ❌ Fails under `charly check box` — workspace isn't mounted
-workspace-dir:
-    check: the workspace directory exists
-    id: workspace-dir
-    file: /workspace
-    filetype: directory
+- check: the workspace directory exists
+  id: workspace-dir
+  file:
+      file: /workspace
+      filetype: directory
 
 # ✓ context: [deploy] so it runs only against live containers
-workspace-dir:
-    check: the workspace directory exists
-    id: workspace-dir
-    context: [deploy]
-    file: /workspace
-    filetype: directory
+- check: the workspace directory exists
+  id: workspace-dir
+  context: [deploy]
+  file:
+      file: /workspace
+      filetype: directory
 ```
 
 ### 10. Disposable tests run as the image's default USER — not root
@@ -1236,20 +1242,19 @@ the user can't traverse the parent directory.
 
 ```yaml
 # ❌ Reports "exists=false" even though the file IS there (0750 dir)
-sudoers-charly-user:
-    check: the charly-user sudoers drop-in exists
-    id: sudoers-charly-user
-    file: /etc/sudoers.d/charly-user
-    exists: true
+- check: the charly-user sudoers drop-in exists
+  id: sudoers-charly-user
+  file:
+      file: /etc/sudoers.d/charly-user
+      exists: true
 
 # ✓ Verify the semantic (can I sudo?) instead of the file bit
-sudoers-charly-user:
-    check: the user can sudo without a password
-    id: sudoers-charly-user
-    command: sudo -n -l
-    exit_status: 0
-    stdout:
-        - contains: "NOPASSWD"
+- check: the user can sudo without a password
+  id: sudoers-charly-user
+  command: sudo -n -l
+  exit_status: 0
+  stdout:
+      - contains: "NOPASSWD"
 ```
 
 ### 11. **Bootc images keep USER=root** — tests must cover both modes
@@ -1262,18 +1267,17 @@ The fix: drop into `user` explicitly when running as root, stay as-is otherwise.
 
 ```yaml
 # Dual-mode: container (USER=1000) AND bootc (USER=root) both pass
-sudoers-charly-user:
-    check: the user can sudo without a password (container AND bootc)
-    id: sudoers-charly-user
-    command: |
-        if [ "$(id -u)" = "0" ]; then
-          runuser -u user -- sudo -n -l
-        else
-          sudo -n -l
-        fi
-    exit_status: 0
-    stdout:
-        - contains: "NOPASSWD"
+- check: the user can sudo without a password (container AND bootc)
+  id: sudoers-charly-user
+  command: |
+      if [ "$(id -u)" = "0" ]; then
+        runuser -u user -- sudo -n -l
+      else
+        sudo -n -l
+      fi
+  exit_status: 0
+  stdout:
+      - contains: "NOPASSWD"
 ```
 
 **Don't use `runuser -l user -s /bin/bash -c '…'`.** On Arch's util-linux
@@ -1308,9 +1312,9 @@ This is different from `charly box inspect`, `charly box build`, and `charly che
 
 | Section | Authored in | When it runs |
 |---------|-------------|--------------|
-| `candy` | step nodes under the candy in `candy/<name>/charly.yml` (build context) | `charly check box` + `charly check live` |
-| `box` | step nodes under the box in `charly.yml` (build context) | `charly check box` + `charly check live` |
-| `deploy` | a step node with `context: [deploy]`, or a local `charly.yml` step-node overlay | `charly check live <name>` only (deploy-context steps need a running deployment with port mappings, volumes, and resolved runtime variables) |
+| `candy` | `plan:` steps in the candy body, `candy/<name>/charly.yml` (build context) | `charly check box` + `charly check live` |
+| `box` | `plan:` steps in the box body, `charly.yml` (build context) | `charly check box` + `charly check live` |
+| `deploy` | a `plan:` step with `context: [deploy]`, or a local `charly.yml` overlay step | `charly check live <name>` only (deploy-context steps need a running deployment with port mappings, volumes, and resolved runtime variables) |
 
 The `ai.opencharly.description` label carries the collected plan steps from all three
 sections with `origin:` annotations (`candy:<name>`, `box:<name>`, `deploy-default`,
@@ -1394,8 +1398,8 @@ Two pieces compose it:
   the shared `charly` network (see `/charly-core:deploy` "Sibling members"). A deploy
   declares each as a MEMBER NODE — a resource node on a substrate kind (`pod: {image: …}` / `vm: {from: …}` / `local: {from: …}`)
   placed directly under the deploy — and a plan step's EXECUTION VENUE is its TREE
-  POSITION: a step node nested under member `M` runs ON `M` (bare name), a step under
-  a nested child `C` of parent path `P` runs on `P.C` (dotted). There is no authored
+  POSITION: a step in the `plan:` of member `M` runs ON `M` (bare name), a step in the
+  `plan:` of a nested child `C` of parent path `P` runs on `P.C` (dotted). There is no authored
   `on:`/`pod:` step field — both are RETIRED; tree position is the sole source of
   venue (`flattenBundleVenues` stamps it at load time). A `cdp:`/`vnc:`/`mcp:` step
   placed under a driver member connects to that member's CDP/VNC/MCP endpoint; a
@@ -1425,7 +1429,7 @@ Two pieces compose it:
   port, VM ssh-forward refused) — **FAILS** the referencing check, never SKIPs it.
   A skip on an unreachable dependency is a fake pass: it would let a bed go green
   even though the cross-deployment probe never reached its target. (Legitimate
-  skips — `skip: true`, `exclude_distros`, a deploy-only var under build context —
+  skips — `skip: true`, `exclude_distro`, a deploy-only var under build context —
   are unaffected; only an unresolved mandatory `${HOST:...}` is treated as a failure.)
 
 ### Worked example — a Chrome pod CDP-probes a web-server pod (pod→pod)
@@ -1433,7 +1437,7 @@ Two pieces compose it:
 ```yaml
 # charly.yml — a disposable GROUP deploy (no workload root): a web SUBJECT member +
 # a chrome DRIVER member. Each is a resource node placed UNDER the deploy; each
-# carries its own plan-step nodes (venue = the member's name). Mirror
+# carries its own plan: list (venue = the member's name). Mirror
 # box/fedora/charly.yml's check-cross-pod-cdp.
 check-cross-pod-cdp:
     group:
@@ -1441,36 +1445,40 @@ check-cross-pod-cdp:
     web:                             # the SUBJECT member (nginx fixture on :8080)
         pod:
             image: web
-        # No port: — every inherited container port auto-allocates a free 127.0.0.1
-        # host port (conflict-free across concurrent beds). Pin with a port: child
-        # (["H:C"]) only when a fixed host port is needed.
-        web-fixture-up:              # step node UNDER web → venue=web
-            check: the web subject serves its marker
-            id: web-fixture-up
-            context: [deploy]
-            http: http://127.0.0.1:${HOST_PORT:8080}/
-            status: 200
-            body: [{contains: charly-fixture-web-content-marker}]
+            # No port: — every inherited container port auto-allocates a free
+            # 127.0.0.1 host port (conflict-free across concurrent beds). Pin with
+            # a port: entry (["H:C"]) only when a fixed host port is needed.
+            plan:
+                - check: the web subject serves its marker
+                  id: web-fixture-up
+                  context: [runtime]
+                  http:
+                      http: http://127.0.0.1:${HOST_PORT:8080}/
+                      status: 200
+                      body:
+                          - contains: charly-fixture-web-content-marker
     chrome:                          # the DRIVER member (headless Chrome + cdp-proxy, publishes 9222)
         pod:
             image: chrome-headless
-        cdp-open-web-subject:        # step node UNDER chrome → venue=chrome (DRIVE; passes on exit 0)
-            check: chrome navigates to the subject over the charly net
-            id: cdp-open-web-subject
-            context: [deploy]
-            cdp: open
-            url: http://${HOST:web}:8080
-            eventually: 45s
-            retry_interval: 3s
-        cdp-web-fixture-rendered:    # also venue=chrome (ASSERT)
-            check: the rendered page carries the marker
-            id: cdp-web-fixture-rendered
-            context: [deploy]
-            cdp: text
-            tab: "1"                 # the first page (cdp `open` lands on tab 1)
-            eventually: 30s
-            retry_interval: 3s
-            stdout: [{contains: charly-fixture-web-content-marker}]
+            plan:
+                - check: chrome navigates to the subject over the charly net
+                  id: cdp-open-web-subject        # venue=chrome (DRIVE; passes on exit 0)
+                  context: [runtime]
+                  cdp:
+                      method: open
+                      url: http://${HOST:web}:8080
+                  eventually: 45s
+                  retry_interval: 3s
+                - check: the rendered page carries the marker
+                  id: cdp-web-fixture-rendered    # also venue=chrome (ASSERT)
+                  context: [runtime]
+                  cdp:
+                      method: text
+                      tab: "1"       # the first page (cdp `open` lands on tab 1)
+                  eventually: 30s
+                  retry_interval: 3s
+                  stdout:
+                      - contains: charly-fixture-web-content-marker
 ```
 
 `bringUpMembers` config+starts the chrome member alongside the web member; the
@@ -1506,7 +1514,7 @@ pod→pod address and does NOT reach a VM.)
 
 ## charly.yml overlay rules
 
-A local `charly.yml` can contribute its own step nodes per image.
+A local `charly.yml` can contribute its own `plan:` steps per deploy.
 Merge rules applied by `charly check live`:
 
 1. Local entries with an `id:` matching a baked entry replace that entry.
@@ -1514,24 +1522,25 @@ Merge rules applied by `charly check live`:
 3. To disable a baked check, reference it with `id:` and `skip: true`.
 
 ```yaml
-# ~/.config/charly/charly.yml — name-first: the redis-ml box, then overlay step nodes
+# ~/.config/charly/charly.yml — name-first: the redis-ml deploy with overlay plan: steps
 redis-ml:
-    candy: {}
-    redis-responds:
-        check: redis answers ping               # overrides image's baked step (by id)
-        id: redis-responds
-        command: redis-cli -h 127.0.0.1 -p 16379 ping
-        stdout: PONG
-        in_container: false
-    external-tunnel:
-        check: the external tunnel is healthy   # appended (no baked match)
-        id: external-tunnel
-        http: https://redis.tailnet.ts.net/health
-        status: 200
-    old-probe:
-        check: a legacy baked step              # disable a legacy baked step
-        id: old-probe
-        skip: true
+    pod:
+        image: redis-ml
+        plan:
+            - check: redis answers ping             # overrides image's baked step (by id)
+              id: redis-responds
+              stdout: PONG
+              command:
+                  command: redis-cli -h 127.0.0.1 -p 16379 ping
+                  in_container: false
+            - check: the external tunnel is healthy # appended (no baked match)
+              id: external-tunnel
+              http:
+                  http: https://redis.tailnet.ts.net/health
+                  status: 200
+            - check: a legacy baked step            # disable a legacy baked step
+              id: old-probe
+              skip: true
 ```
 
 ## Typical workflow
@@ -1554,7 +1563,7 @@ charly start redis-ml
 charly check live redis-ml
 
 # 6. Override a baked deploy check via local charly.yml, re-test.
-$EDITOR ~/.config/charly/charly.yml    # add a check step node with matching id
+$EDITOR ~/.config/charly/charly.yml    # add an overlay plan: step with matching id
 charly check live redis-ml
 ```
 
@@ -1636,7 +1645,7 @@ deliberately.
 ## Related skills
 
 - **Live-container probe verbs — ALL out-of-process** — the `wl:` Wayland verb (`/charly-check:wl`), the `cdp:` Chrome-DevTools verb (`/charly-check:cdp`), the `vnc:` VNC-framebuffer verb (`/charly-check:vnc`), the `dbus:` D-Bus verb (`/charly-check:dbus`), the `mcp:` MCP-protocol verb (`/charly-build:charly-mcp-cmd`), the `record:` recording verb (`/charly-check:record`), the `kube:` cluster-probe verb (`/charly-kubernetes:check-k8s`), the `adb:` ADB verb (`/charly-check:adb`), the `appium:` Android-UI verb (`/charly-check:appium`), the `spice:` SPICE-wire verb (`/charly-check:spice`), and the `libvirt:` VM-probe verb (`/charly-check:libvirt`) are NOT host `charly check` subcommands — each is a declarative check verb served out-of-process by its plugin (`candy/plugin-wl`, `candy/plugin-cdp`, `candy/plugin-vnc`, `candy/plugin-dbus`, `candy/plugin-mcp`, `candy/plugin-record`, `candy/plugin-kube`, `candy/plugin-adb`, `candy/plugin-appium`, `candy/plugin-spice`, `candy/plugin-vm`). See the Live-container verbs section above.
-- `/charly-image:layer` — layer authoring; plan steps (child step nodes) are part of every `charly.yml`.
+- `/charly-image:layer` — layer authoring; the ordered `plan:` step list is part of every `charly.yml`.
 - `/charly-image:image` — image-level plan steps at composition time.
 - `/charly-core:deploy` — local `charly.yml` overlay rules and the plan-step merge.
 - `/charly-build:validate` — static schema + cross-scope variable checks; the first
@@ -1645,7 +1654,7 @@ deliberately.
   time; LABELs-at-end cache behavior.
 - `/charly-build:inspect` — view the merged plan / description structure as JSON.
 - `/charly-build:migrate` — `charly migrate` brings legacy configs up to the
-  current schema (collapsing the old `task`/`scenario`/`do`/recipe/score formats into one flat plan of child step nodes).
+  current schema (one flat ordered `plan:` list per entity).
 - `/charly-internals:go` — implementation map: `checkspec.go`, `checkvars.go`,
   `checkrun.go`, `checkrun_verbs.go`, `checkrun_charly_verbs.go`,
   `description_collect.go`, `check_cmd.go`, `check_runner_cmd.go`, `check_loop.go`,
@@ -1660,9 +1669,10 @@ deliberately.
   `deploy-verifier`) and dynamic workflows (`/verify-beds`,
   `/audit-deploy-configs`) that DRIVE these beds, and the R10/disposable/
   paste-proof rules that bind any agent or workflow running `charly check run`.
-- `/charly-internals:plugin` — the `check: { plugin: <verb> }` step dispatches to a
-  plugin-provided verb (built-in or out-of-tree), with its `plugin_input` validated
-  at runtime against the plugin's served CUE schema before `runPluginVerb` invokes it.
+- `/charly-internals:plugin` — a `check:` step's `<word>: <input>` verb sugar dispatches
+  to a plugin-provided verb (built-in or out-of-tree); the desugared internal input is
+  validated at runtime against the plugin's served CUE schema before `runPluginVerb`
+  invokes it.
 
 ## When to Use This Skill
 

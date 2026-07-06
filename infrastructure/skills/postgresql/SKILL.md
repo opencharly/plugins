@@ -16,7 +16,7 @@ description: |
 | Ports | 5432 |
 | Volumes | `pgdata` -> `~/.postgresql/data` |
 | Service | `postgresql` (supervisord, priority 10) |
-| Install files | `task:` |
+| Install files | `plan:` |
 
 ## Environment Variables
 
@@ -52,10 +52,11 @@ The candy is multi-distro:
 ## Usage
 
 ```yaml
-# charly.yml -- typically used as dependency of immich
+# charly.yml — a box composes postgresql via an inline candy: list in its body
 my-image:
   candy:
-    - postgresql
+    base: fedora
+    candy: [postgresql]
 ```
 
 ## Used In Boxes

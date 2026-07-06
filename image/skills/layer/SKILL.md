@@ -8,9 +8,9 @@ description: |
 
 ## Overview
 
-A **candy** is a directory under `candy/<name>/` that installs a single concern. Candies are the building blocks of container images in opencharly. Each candy is a **name-first node**: the top-level key is the candy NAME, under it a single `candy:` discriminator holds the **scalar** fields (`version`, `description`, `directory`, …), every collection (`package`, `env`, `service`, `volume`, …) is its own child node `<name>-<key>: {<key>: <value>}`, and every operational step is its own child node — all in a single `charly.yml` file.
+A **candy** is a directory under `candy/<name>/` that installs a single concern. Candies are the building blocks of container images in opencharly. Each candy is a **compact name-first node**: the top-level key is the candy NAME, under it a single `candy:` kind key holds the **FULL body** — the scalar fields (`version`, `description`, `directory`, …), every collection (`package`, `env`, `service`, `volume`, …) inline, and the operational steps as an ordered list under `plan:` — all in a single `charly.yml` file.
 
-There is **one YAML file per candy** for install logic — no separate Taskfiles. Everything an author needs to install flows through the `run:` step child nodes and auto-detected package manifests (`pixi.toml`, `package.json`, `Cargo.toml`).
+There is **one YAML file per candy** for install logic — no separate Taskfiles. Everything an author needs to install flows through the `run:` steps in the `plan:` list and auto-detected package manifests (`pixi.toml`, `package.json`, `Cargo.toml`).
 
 **Layer vs image — ONE `candy:` kind (MUST).** There is exactly one entity kind,
 `candy:`; there is **no `box:` KIND**. A `candy:` node carrying neither `base:`
@@ -33,13 +33,14 @@ Use `directory:` to keep charly.yml and its supporting config files in separate 
 # candy/my-app/charly.yml
 my-app:
   candy:
-    directory: ../../configs/my-app    # scalar — resolves relative to charly.yml's dir
-  my-app-package:
+    version: 2026.100.0000
+    description: ...
+    directory: ../../configs/my-app    # resolves relative to charly.yml's dir
     package: [foo]
-  my-app-step-0:
-    run: install the access-policy file
-    copy: policies.json                # found at configs/my-app/policies.json
-    to: /etc/my-app/policies.json
+    plan:
+      - run: install the access-policy file
+        copy: policies.json            # found at configs/my-app/policies.json
+        to: /etc/my-app/policies.json
 ```
 
 Resolution rule:
@@ -49,24 +50,25 @@ Resolution rule:
 
 `charly box validate` fails when `directory:` points at a path that doesn't exist.
 
-## Node-form (name-first, child nodes)
+## The compact node form (name-first, one kind key)
 
-Every charly.yml is self-describing. A candy flattens to a top-level `<name>:` key (the entity NAME); under it a single `candy:` discriminator holds ONLY the scalar fields, every collection becomes a child node `<name>-<key>: {<key>: <value>}`, and every operational step becomes its own child node (keyed by its `id:`, else auto-keyed `<name>-step-<N>`). This name-first shape is globally addressable, so candy files stay bundle-mergeable — stack the top-level keys (or concatenate with `---` separators) to form a single file containing many candies.
+Every charly.yml is self-describing. A candy flattens to a top-level `<name>:` key (the entity NAME) with EXACTLY ONE kind key — `candy:` — whose value is the COMPLETE body: scalars, every collection (`package`, `env`, `service`, `volume`, …) inline, and the operational steps as an ordered UNNAMED list under `plan:`. A step that needs a stable name for reports/overlays carries an `id:` field. This name-first shape is globally addressable, so candy files stay bundle-mergeable — stack the top-level keys (or concatenate with `---` separators) to form a single file containing many candies. (The only other children an entity may carry are sub-ENTITY members, and only under a deployable kind — see `/charly-core:deploy`; a candy nests no members.)
 
 ```yaml
 # candy/chrome/charly.yml
 chrome:
   candy:
+    version: 2026.100.0000
+    description: ...
     directory: .
-  chrome-package:
     package: [chromium]
-  chrome-step-0:
-    run: install the chrome managed-policy file
-    copy: policies.json
-    to: /etc/chromium/policies/managed/policy.json
+    plan:
+      - run: install the chrome managed-policy file
+        copy: policies.json
+        to: /etc/chromium/policies/managed/policy.json
 ```
 
-The runtime parser accepts only this node-form. `charly migrate` converts any legacy candy file — the old kind-keyed `candy: {name, …}` wrapper and its inline `plan:` list — to the canonical shape in a single idempotent pass.
+The runtime parser accepts only this compact form. `charly migrate` converts any legacy candy file — including the former named data/step child-node shape (`<name>-<key>:` collection nodes and per-step child nodes) — to the canonical shape in a single idempotent pass; a former meaningful step-node name becomes that step's `id:`.
 
 The candy + plan-step schema the parser validates against is **CUE-single-source**: the `@go()`-annotated `sdk/schema/*.cue` defs (`#Candy`, `#Op`, …) are the sole source for both the Go param structs (generated into `sdk/spec` by `task cue:gen`) and load-time validation, so adding or changing a candy field is a CUE edit → `task cue:gen` → see the `/charly-internals:go` recipe "How to change the charly.yml schema (CUE is the single source of truth)".
 
@@ -77,7 +79,7 @@ The candy + plan-step schema the parser validates against is **CUE-single-source
 | Scaffold new candy | `charly box new candy <name>` | Create candy directory with starter `charly.yml` (see `/charly-build:new`) |
 | Edit a candy field | `charly candy set <name> <dotpath> <value>` | Comment-preserving YAML edit by dot-path |
 | Append rpm/deb/pac/aur packages | `charly candy add-rpm <name> <pkg…>` (plus `add-deb`, `add-pac`, `add-aur`) | Idempotent append; auto-upgrades scaffold's null `package:` to a sequence |
-| Add a plan step (`run:` / `check:` / agent step) | hand-edit a step child node in `charly.yml`, or `charly candy set <name> <dotpath> <value>` | No dedicated convenience command — author step child nodes by hand or via the comment-preserving dot-path setter (and `charly box write` for free-form files). See `/charly-check:check` "Agent Driven Evaluation" |
+| Add a plan step (`run:` / `check:` / agent step) | hand-edit the `plan:` list in `charly.yml`, or `charly candy set <name> <dotpath> <value>` | No dedicated convenience command — append plan steps by hand or via the comment-preserving dot-path setter (and `charly box write` for free-form files). See `/charly-check:check` "Agent Driven Evaluation" |
 | Write a free-form file (`pixi.toml`, `root.yml`, …) | `charly box write <rel-path> --content X` | Escape hatch for files the schema setters don't cover; guarded against `..` traversal |
 | List all candies | `charly box list candies` | Show available candies from filesystem |
 | List services | `charly box list services` | Candies with `service` in charly.yml |
@@ -119,7 +121,7 @@ A candy directory can contain any combination of these:
 | Artifact | Runs as | Purpose |
 |---|---|---|
 | `charly.yml` `distro:` map (+ top-level `package:` base) | root | System packages declared declaratively (see Package Surface below) |
-| `charly.yml` `run:` step child nodes | per-step `run_as:` | Ordered install operations — the primary extension point (see catalog below) |
+| `charly.yml` `plan:` `run:` steps | per-step `run_as:` | Ordered install operations — the primary extension point (see catalog below) |
 | `pixi.toml` / `pyproject.toml` / `environment.yml` | user (builder stage) | Python/conda packages. Multi-stage build. Only one per candy |
 | `package.json` | user (builder stage) | npm packages — installed globally via `npm install -g` |
 | `Cargo.toml` + `src/` | user (builder stage) | Rust crate — built via `cargo install --path` |
@@ -133,7 +135,7 @@ A candy directory can contain any combination of these:
 
 ## Plan Step Verb Catalog
 
-Every state-change step is a `run:` **child node**: a YAML map keyed by the step's `id:` (else auto-keyed `<name>-step-<N>`) carrying `run: <prose>` plus **exactly one verb key** (the discriminator) and optional sibling modifiers. The verb's value is the primary argument. `charly box validate` rejects `run:` steps with zero verbs or multiple verbs. (A candy's step child nodes also hold `check:` probe steps and `agent-run:` / `agent-check:` agent steps — see `/charly-check:check` for their verb surface.)
+Every state-change step is an entry in the candy's ordered `plan:` list carrying `run: <prose>` plus **at most one verb-position key** and optional sibling modifiers. The verb key is either one of the builtin install verbs below or the generic plugin-verb sugar `<word>: <input>` (see "Plugin verb steps"). The verb's value is the primary argument (scalar shorthand) or the verb's full input map. An optional `id:` names the step for reports and overlay merging. `charly box validate` rejects `run:` steps with zero verbs or multiple verbs. (A candy's `plan:` also holds `check:` probe steps and `agent-run:` / `agent-check:` agent steps — see `/charly-check:check` for their verb surface.)
 
 | Verb | Value | Required modifiers | Optional modifiers | Purpose |
 |---|---|---|---|---|
@@ -162,9 +164,9 @@ Every state-change step is a `run:` **child node**: a YAML map keyed by the step
 | `cache` | `command`, `download` | — | List of absolute BuildKit cache-mount paths for this step's RUN. Ownership follows `run_as:` (root → shared/locked, non-root → uid/gid-owned). Persists heavy downloads/build artifacts across builds the SAME way package caches do — surviving an upstream layer cache-miss. The cache-USE logic (sentinel guards, copy-into-place) lives in the step body; charly only mounts the cache. See "Caching downloads" below. |
 | `comment` | all | — | Emitted as a Containerfile comment above the step |
 
-### Plugin verb steps (`plugin:`)
+### Plugin verb steps (`<word>: <input>` sugar)
 
-A `run:` step can carry `plugin: <word>` + `plugin_input: {…}` instead of a built-in verb — it dispatches to the reserved word's `Provider`. In the BUILD context the step EXECUTES at image-build time to emit its Containerfile fragment, served PLACEMENT-AGNOSTICALLY: the SAME plugin works whether it is compiled into `charly` (a builtin) OR loaded from an out-of-tree candy (an EXTERNAL plugin, host-built + connected during generation). A builtin renders an act shell `RUN` in-proc; an external returns a Containerfile fragment over go-plugin gRPC, spliced verbatim (egress-validated). See `/charly-internals:plugin` (placement) + `/charly-build:generate` (the build-time emit).
+A `run:` step can carry `<word>: <input>` for ANY plugin verb instead of a built-in install verb — it dispatches to the reserved word's `Provider`. A map value is the plugin's input verbatim; a scalar value is shorthand for `{<primary>: value}` (each verb declares its primary field — `file`→`file`, `command`→`command`, `http`→`http`, the live probe verbs→`method`). The parse-time desugar rewrites the sugar into the internal `plugin`/`plugin_input` pair — authoring `plugin:` or `plugin_input:` directly in a step is a HARD LOAD ERROR (`run: charly migrate`); they exist only on the wire/label form. In the BUILD context the step EXECUTES at image-build time to emit its Containerfile fragment, served PLACEMENT-AGNOSTICALLY: the SAME plugin works whether it is compiled into `charly` (a builtin) OR loaded from an out-of-tree candy (an EXTERNAL plugin, host-built + connected during generation). A builtin renders an act shell `RUN` in-proc; an external returns a Containerfile fragment over go-plugin gRPC, spliced verbatim (egress-validated). See `/charly-internals:plugin` (placement) + `/charly-build:generate` (the build-time emit).
 
 ### External multi-stage builder (`external_builder:`)
 
@@ -185,19 +187,20 @@ the tool's downloads into it. Canonical worked example — caching the Android S
 so an upstream base cache-miss doesn't re-download ~1.5GB from Google's CDN:
 
 ```yaml
-android-sdk-cache:                                  # step child node, keyed by id
-  run: cache and install the android sdk
-  command: |
-    SDK_CACHE=/var/cache/charly-android-sdk
-    if [ ! -f "${SDK_CACHE}/.charly-sdk-complete" ]; then
-      rm -rf "${SDK_CACHE}"; mkdir -p "${SDK_CACHE}"
-      sdkmanager --sdk_root="${SDK_CACHE}" "platform-tools" "emulator" "system-images;…"
-      touch "${SDK_CACHE}/.charly-sdk-complete"   # sentinel: only after full success
-    fi
-    cp -a "${SDK_CACHE}/." /opt/android-sdk/   # materialize into the image
-  run_as: user
-  cache:
-    - /var/cache/charly-android-sdk                 # owned (uid) because run_as: user
+plan:
+  - run: cache and install the android sdk
+    id: android-sdk-cache
+    command: |
+      SDK_CACHE=/var/cache/charly-android-sdk
+      if [ ! -f "${SDK_CACHE}/.charly-sdk-complete" ]; then
+        rm -rf "${SDK_CACHE}"; mkdir -p "${SDK_CACHE}"
+        sdkmanager --sdk_root="${SDK_CACHE}" "platform-tools" "emulator" "system-images;…"
+        touch "${SDK_CACHE}/.charly-sdk-complete"   # sentinel: only after full success
+      fi
+      cp -a "${SDK_CACHE}/." /opt/android-sdk/   # materialize into the image
+    run_as: user
+    cache:
+      - /var/cache/charly-android-sdk               # owned (uid) because run_as: user
 ```
 
 The sentinel (`.charly-sdk-complete`, written only after a fully-successful install)
@@ -208,100 +211,86 @@ entries for makepkg `SRCDEST` + yay's clone cache) — see `/charly-build:build`
 ### Verb examples
 
 ```yaml
-# Each step is its own child node, keyed by `id:` (here a descriptive name).
+plan:
+  # Arbitrary shell
+  - run: install google chrome from the upstream rpm
+    command: dnf install -y https://dl.google.com/linux/direct/google-chrome-stable_current_x86_64.rpm
+    run_as: root
 
-# Arbitrary shell
-chrome-install:
-  run: install google chrome from the upstream rpm
-  command: dnf install -y https://dl.google.com/linux/direct/google-chrome-stable_current_x86_64.rpm
-  run_as: root
+  # Multi-line shell (shared shell — cd persists)
+  - run: build and install bar from source
+    command: |
+      git clone --depth 1 https://github.com/foo/bar /tmp/src
+      cd /tmp/src
+      cargo build --release
+      install -m 755 target/release/bar /usr/local/bin/bar
+      rm -rf /tmp/src
+    run_as: root
 
-# Multi-line shell (shared shell — cd persists)
-bar-from-source:
-  run: build and install bar from source
-  command: |
-    git clone --depth 1 https://github.com/foo/bar /tmp/src
-    cd /tmp/src
-    cargo build --release
-    install -m 755 target/release/bar /usr/local/bin/bar
-    rm -rf /tmp/src
-  run_as: root
+  # Make directory
+  - run: create the traefik dynamic-config directory
+    mkdir: /etc/traefik/dynamic
+    run_as: root
+    mode: "0755"
 
-# Make directory
-traefik-dynamic-dir:
-  run: create the traefik dynamic-config directory
-  mkdir: /etc/traefik/dynamic
-  run_as: root
-  mode: "0755"
+  - run: create the user's sway config directory
+    mkdir: "${HOME}/.config/sway"
+    run_as: "${USER}"
 
-sway-config-dir:
-  run: create the user's sway config directory
-  mkdir: "${HOME}/.config/sway"
-  run_as: "${USER}"
+  # Copy existing file from layer dir to container (no RUN, pure COPY)
+  - run: install the traefik static config
+    copy: traefik.yml
+    to: /etc/traefik/traefik.yml
+    mode: "0644"
+    run_as: root
 
-# Copy existing file from layer dir to container (no RUN, pure COPY)
-traefik-static-config:
-  run: install the traefik static config
-  copy: traefik.yml
-  to: /etc/traefik/traefik.yml
-  mode: "0644"
-  run_as: root
+  # Write new file from inline YAML content (no shell heredoc!)
+  - run: write the X11 server-flags config
+    write: /etc/X11/xorg.conf
+    mode: "0644"
+    run_as: root
+    content: |
+      Section "ServerFlags"
+        Option "DontVTSwitch" "true"
+      EndSection
 
-# Write new file from inline YAML content (no shell heredoc!)
-xorg-serverflags:
-  run: write the X11 server-flags config
-  write: /etc/X11/xorg.conf
-  mode: "0644"
-  run_as: root
-  content: |
-    Section "ServerFlags"
-      Option "DontVTSwitch" "true"
-    EndSection
+  # Create symlink
+  - run: point node at node-24
+    link: /usr/local/bin/node
+    target: /usr/bin/node-24
+    run_as: root
 
-# Create symlink
-node-symlink:
-  run: point node at node-24
-  link: /usr/local/bin/node
-  target: /usr/bin/node-24
-  run_as: root
+  # Download + extract
+  - run: install the traefik release binary
+    download: "https://github.com/traefik/traefik/releases/download/${TRAEFIK_VERSION}/traefik_${TRAEFIK_VERSION}_linux_${ARCH}.tar.gz"
+    extract: tar.gz
+    to: /usr/local/bin
+    extract_include: [traefik]
+    run_as: root
 
-# Download + extract
-traefik-binary:
-  run: install the traefik release binary
-  download: "https://github.com/traefik/traefik/releases/download/${TRAEFIK_VERSION}/traefik_${TRAEFIK_VERSION}_linux_${ARCH}.tar.gz"
-  extract: tar.gz
-  to: /usr/local/bin
-  extract_include: [traefik]
-  run_as: root
+  # Install script piped into shell
+  - run: install uv via the upstream installer
+    download: "https://astral.sh/uv/install.sh"
+    extract: sh
+    env:
+      UV_INSTALL_DIR: /usr/local/bin
+    run_as: root
 
-# Install script piped into shell
-uv-installer:
-  run: install uv via the upstream installer
-  download: "https://astral.sh/uv/install.sh"
-  extract: sh
-  env:
-    UV_INSTALL_DIR: /usr/local/bin
-  run_as: root
+  # File capabilities
+  - run: strip capabilities from sway
+    setcap: /usr/bin/sway      # no caps → strip (setcap -r)
 
-# File capabilities
-sway-setcap-strip:
-  run: strip capabilities from sway
-  setcap: /usr/bin/sway        # no caps → strip (setcap -r)
+  - run: grant the setuid capability to newuidmap
+    setcap: /usr/bin/newuidmap
+    caps: "cap_setuid=ep"
 
-newuidmap-setcap:
-  run: grant the setuid capability to newuidmap
-  setcap: /usr/bin/newuidmap
-  caps: "cap_setuid=ep"
-
-# Explicit builder placement (lets you run steps AFTER pixi/npm/cargo)
-run-builders:
-  run: run the auto-detected builders here
-  build: all
-  run_as: "${USER}"
-vllm-nightly-wheel:
-  run: install the vllm nightly wheel
-  command: pip install --no-deps ./vllm-nightly.whl
-  run_as: "${USER}"
+  # Explicit builder placement (lets you run steps AFTER pixi/npm/cargo)
+  - run: run the auto-detected builders here
+    build: all
+    run_as: "${USER}"
+  - run: install the vllm nightly wheel
+    command: pip install --no-deps ./vllm-nightly.whl
+    run_as: "${USER}"
 ```
 
 ### `copy:` vs `write:` — never conflate
@@ -325,17 +314,17 @@ They happen to emit `COPY` directives under the hood, but they have entirely dis
 `var:` is a candy-local `map[string]string`. Values are emitted as `ENV` before the candy's `run:`/`check:` steps, so every subsequent directive in the candy (including `COPY --chmod=` paths) sees them as shell-resolvable `${VAR}` references.
 
 ```yaml
-traefik-var:
-  var:
-    TRAEFIK_VERSION: v3.4.0
-
-traefik-binary:
-  run: install the traefik release binary
-  download: "https://github.com/traefik/traefik/releases/download/${TRAEFIK_VERSION}/traefik_${TRAEFIK_VERSION}_linux_${ARCH}.tar.gz"
-  extract: tar.gz
-  to: /usr/local/bin
-  extract_include: [traefik]
-  run_as: root
+traefik:
+  candy:
+    var:
+      TRAEFIK_VERSION: v3.4.0
+    plan:
+      - run: install the traefik release binary
+        download: "https://github.com/traefik/traefik/releases/download/${TRAEFIK_VERSION}/traefik_${TRAEFIK_VERSION}_linux_${ARCH}.tar.gz"
+        extract: tar.gz
+        to: /usr/local/bin
+        extract_include: [traefik]
+        run_as: root
 ```
 
 ### Auto-exports
@@ -377,30 +366,27 @@ Everything else (paths, URLs, modes, `to`, `target`, `user`, etc.) resolves via 
 Every `run:` step — root or user — must be written out in full. Do **not** use YAML anchors (`&name`, `<<: *name`) to share `run_as:` / `mode:` across steps. `gopkg.in/yaml.v3` parses anchors correctly, but the repo convention is that every `charly.yml` plan step reads end-to-end without indirection.
 
 ```yaml
-# Style across the repo — root and user step nodes look identical in shape:
-traefik-config-dir:
-  run: create the traefik config directory
-  mkdir: /etc/traefik
-  run_as: root
-  mode: "0755"
+# Style across the repo — root and user steps look identical in shape:
+plan:
+  - run: create the traefik config directory
+    mkdir: /etc/traefik
+    run_as: root
+    mode: "0755"
 
-local-bin-dir:
-  run: create the user's local bin directory
-  mkdir: "${HOME}/.local/bin"
-  run_as: "${USER}"
+  - run: create the user's local bin directory
+    mkdir: "${HOME}/.local/bin"
+    run_as: "${USER}"
 
-chrome-wrapper-install:
-  run: install the chrome wrapper
-  copy: chrome-wrapper
-  to: "${HOME}/.local/bin/chrome-wrapper"
-  mode: "0755"
-  run_as: "${USER}"
-chrome-restart-install:
-  run: install the chrome restart helper
-  copy: chrome-restart
-  to: "${HOME}/.local/bin/chrome-restart"
-  mode: "0755"
-  run_as: "${USER}"
+  - run: install the chrome wrapper
+    copy: chrome-wrapper
+    to: "${HOME}/.local/bin/chrome-wrapper"
+    mode: "0755"
+    run_as: "${USER}"
+  - run: install the chrome restart helper
+    copy: chrome-restart
+    to: "${HOME}/.local/bin/chrome-restart"
+    mode: "0755"
+    run_as: "${USER}"
 ```
 
 Why: anchor merges always override the verb (the interesting field), so the DRY saving is 1–2 trivial fields per step at the cost of forcing readers to jump to the anchor definition to understand each step. Adjacent-coalescing in the generator already collapses identical consecutive operations into one Containerfile directive — there is no build-time cost to explicit repetition.
@@ -459,19 +445,18 @@ The `run_as:` field accepts:
 **User creation is explicit.** If you reference a literal username, an earlier `command:` step (as root) must `useradd` them. The generator does not auto-create users. Example:
 
 ```yaml
-immich-user:
-  run: create the immich service user
-  command: |
-    useradd -r -u 1010 -g root -s /sbin/nologin immich
-    mkdir -p /srv/immich && chown -R immich:root /srv/immich
-  run_as: root
-immich-build:
-  run: build immich as that user
-  command: |
-    cd /srv/immich
-    pnpm install --frozen-lockfile
-    pnpm build
-  run_as: immich
+plan:
+  - run: create the immich service user
+    command: |
+      useradd -r -u 1010 -g root -s /sbin/nologin immich
+      mkdir -p /srv/immich && chown -R immich:root /srv/immich
+    run_as: root
+  - run: build immich as that user
+    command: |
+      cd /srv/immich
+      pnpm install --frozen-lockfile
+      pnpm build
+    run_as: immich
 ```
 
 ---
@@ -482,25 +467,24 @@ immich-build:
 |-------|------|---------|
 | `version` | `string` | **MANDATORY** CalVer (`YYYY.DDD.HHMM`) of this candy definition — the candy kind requires it (`charly box validate` hard-errors when absent; `charly migrate` backfills it). The authoritative per-entity identity: it drives cross-repo layer resolution (`pickCandyVersion`) and, as the highest layer version, the consuming image's content-stable `ai.opencharly.version` label. Bump it when the candy's content changes. |
 | `status` | `string` | `working`, `testing`, or `broken`. Default: `testing`. |
-| `info` | `string` | Free-form description of what works / doesn't. Recommended for `testing` / `broken`. |
+| `engine` | `string` | Optional container-engine requirement: `docker` or `podman`. |
 | `require` | `[]string` | Candy dependencies. Resolved transitively, topologically sorted. |
-| `layer` | `[]string` | Compose other candies into this one (splicing). |
+| `candy` | `[]string` | Compose other candies into this one (splicing). |
 | `env` | `map[string]string` | Container-runtime environment variables. Merged across candies. |
 | `path_append` | `[]string` | Paths appended to `$PATH`. Deduplicated. |
 | `var` | `map[string]string` | **Build-time** candy-local variables for `${VAR}` substitution. Emitted as `ENV` before plan steps. |
-| step nodes | `Step` each | The **ordered** operational plan, expressed as step CHILD NODES — each keyed by its `id:` (else auto-keyed `<name>-step-<N>`), carrying ONE intent keyword `run:` (state-change) / `check:` / `agent-run:` / `agent-check:` (probes) / `include: <kind>:<name>` (splice another entity's plan) plus an inline Op. Steps run in authored order. Every candy MUST ship ≥1 `check:` step (the ADE gate; `charly box validate` hard-errors otherwise). See Plan Step Verb Catalog above. |
+| `plan` | `[]Step` | The **ordered** operational plan — an UNNAMED list of steps, each carrying ONE intent keyword `run:` (state-change) / `check:` / `agent-run:` / `agent-check:` (probes) / `include: <kind>:<name>` (splice another entity's plan) plus at most one verb-position key and optional modifiers (`id:` names a step). Steps run in authored order. Every candy MUST ship ≥1 `check:` step (the ADE gate; `charly box validate` hard-errors otherwise). See Plan Step Verb Catalog above. |
 | `port` | `[]int \| []PortSpec` | The candy's **container** ports (1-65535) — the SINGLE source of truth for published ports. Every box composing this candy inherits them (`CollectBoxPorts`); boxes declare no `port:`. Host mappings are auto-allocated on `127.0.0.1` at deploy. Protocol-annotated form: `tcp:5900`, `https+insecure:3000`, etc. (the backend scheme rides into `ai.opencharly.port_proto`). |
 | `route` | `{host, port}` | Traefik reverse proxy route. |
-| `service` | multiline string | Supervisord `[program:<name>]` fragment. |
 | `package` / `distro` | list / map | The package surface: top-level `package:` base + per-distro/version `distro:` map (bare / versioned / compound keys). Resolved via the most-specific-first cascade (see Package Surface). |
 | `apk` | `[]ApkPackageSpec` | **Android app-install package format** — apps installed onto a `kind: android` device by a `target: android` deploy (NOT into the image). Each entry is `package:` (apkeep download by id, with `source`/`arch`/`version`) XOR `apk:` (committed local APK). Device-scoped (top-level, not under `distro:`); compiles to an `ApkInstallStep` that ONLY `target: android` executes (skipped at image-build + on every other target). See `/charly-check:android`. |
 | `localpkg` | map (format→dir) | **Native-package deploy format** (sibling of `apk`). A per-format map (`pac`/`rpm`/`deb` → a bundled package SOURCE dir, e.g. the `charly` layer's `{pac: pkg/arch, rpm: pkg/fedora, deb: pkg/debian}`). Compiles to a `LocalPkgInstallStep` (`/charly-internals:install-plan`) emitted at "step 2.5", BEFORE the layer's `run:` steps. On a DEPLOY target (`target: local` / `target: vm`) charly picks the entry matching the target distro's package format, builds the package on the HOST (pac via `makepkg`; rpm/deb distro-natively in a podman container), and installs it via the format's AUTO-RESOLVING local-file install (`pacman -U` / `dnf install` / `apt-get install`) — so the package's repo dependencies resolve automatically and there is NO dependency-closure builder. Every command (build / install / probe / glob / `source_sentinel`) is rendered from the distro's `format.<fmt>.local_pkg:` block in the embedded build vocabulary — zero hardcoded package-manager literals in Go. The legacy scalar form (`localpkg: pkg/arch`) is rejected at load with an `charly migrate` hint. Resolution walks up from the deploy project dir, so a consumer under `box/<distro>` finds the superproject's `pkg/<fmt>`. Skipped at image build — the layer's own `run:` steps (curl/COPY) are the fallback. The `charly` layer uses this to install `charly` as the native OS package at `/usr/bin/charly` on every distro instead of a curl'd binary. |
-| `volumes` | `[]{name, path}` | Persistent named volumes. |
-| `aliases` | `[]{name, command}` | Host command aliases. |
+| `volume` | `[]{name, path}` | Persistent named volumes. |
+| `alias` | `[]{name, command}` | Host command aliases. |
 | `security` | object | Container security: `privileged`, `cap_add`, `devices`, `security_opt`, `shm_size`, resource caps. |
 | `port_relay` | `[]int` | Ports needing eth0 → loopback socat relay. Auto-adds `socat` dependency. |
-| `secrets` | `[]SecretYAML` | Image-owned container secrets (auto-generated per instance). |
-| `hooks` | `HooksConfig` | Lifecycle hooks: `post_enable` (after `charly config`), `pre_remove` (before `charly remove`). |
+| `secret` | `[]SecretYAML` | Image-owned container secrets (auto-generated per instance). |
+| `hook` | `CandyHook` | Lifecycle hooks: `post_enable` (after `charly config`), `pre_remove` (before `charly remove`). |
 | `libvirt` | `[]string` | Raw libvirt XML snippets for VM domain XML injection. |
 | `data` | `[]DataYAML` | Data mappings (`src` → volume `dest`) for volume staging. |
 | `env_provide` | `map[string]string` | Env vars injected into OTHER containers when this service is deployed. Template: `{{.ContainerName}}`. |
@@ -516,43 +500,34 @@ Field details for the non-step collection sections are below.
 
 ## Package Surface — the `distro:` map (single canonical surface)
 
-Packages are declared ONLY under the `distro:` child node, plus an optional
-`package:` base (its own `<name>-package:` child node). There is NO `rpm:` / `deb:` / `pac:` package-format
+Packages are declared ONLY under the candy body's `distro:` map, plus an optional
+`package:` base list beside it. There is NO `rpm:` / `deb:` / `pac:` package-format
 key and NO top-level `debian:13:` / `debian,ubuntu:` tag key — those legacy forms
-are removed (a stray one is a hard load error pointing at `charly migrate`, which the
-existing `calamares` step rewrites into the `distro:` map). The arch `aur:`
-sub-block is the one exception that stays a build format — see AUR below.
-
-> **Calamares package groups MUST use the `package-group:` kind, NOT `group:`.**
-> A `package-group:` entity is a Calamares installer package group (the `#Group`
-> schema — `name`/`package`/`subgroup`/`distro`/…). `group:` is EXCLUSIVELY a
-> targetless DEPLOY group (resource members, no own workload — see
-> `/charly-core:deploy`). The two are distinct kinds; authoring a Calamares group
-> under `group:` is wrong.
+are removed (a stray one is a hard load error pointing at `charly migrate`). The
+arch `aur:` sub-block is the one exception that stays a build format — see AUR below.
 
 ```yaml
-my-app-package:            # the always-included BASE — installed on EVERY distro
-  package:
-    - git                  #   (cross-distro-valid package names)
-
-my-app-distro:
-  distro:
-    fedora:                # bare distro name → applies to every fedora version
-      package: [vim, ripgrep]
-      copr: [owner/project]
-      option: ["--setopt=tsflags=noscripts"]
-    arch:
-      package: [vim, ripgrep]
-    "debian,ubuntu":       # COMPOUND → shared by both (split into one tag each)
-      package: [vim, ripgrep]
-      repo:                # /etc/apt/sources.list.d/<name>.list + keyring
-        - name: myrepo
-          url: "https://example.com/repo"
-          key: "https://example.com/key.gpg"   # ASCII-armored; gpg --dearmor'd
-          suite: stable
-          components: main
-    ubuntu-24.04:          # VERSIONED (dash form) → overrides for that version only
-      repo: [{name: nodesource, url: "...", suite: nodistro, components: main}]
+my-app:
+  candy:
+    package:               # the always-included BASE — installed on EVERY distro
+      - git                #   (cross-distro-valid package names)
+    distro:
+      fedora:              # bare distro name → applies to every fedora version
+        package: [vim, ripgrep]
+        copr: [owner/project]
+        option: ["--setopt=tsflags=noscripts"]
+      arch:
+        package: [vim, ripgrep]
+      "debian,ubuntu":     # COMPOUND → shared by both (split into one tag each)
+        package: [vim, ripgrep]
+        repo:              # /etc/apt/sources.list.d/<name>.list + keyring
+          - name: myrepo
+            url: "https://example.com/repo"
+            key: "https://example.com/key.gpg"   # ASCII-armored; gpg --dearmor'd
+            suite: stable
+            components: main
+      ubuntu-24.04:        # VERSIONED (dash form) → overrides for that version only
+        repo: [{name: nodesource, url: "...", suite: nodistro, components: main}]
 ```
 
 ### Key forms (all under `distro:`)
@@ -570,7 +545,7 @@ Each carries the full surface: `package` + `repo` + `copr` + `option` + `exclude
 
 For an image, the resolver walks the image's `distro:` tag chain — most-specific
 first (e.g. `[ubuntu:24.04, ubuntu]` or `[debian:13, debian]`) — plus the
-`package:` base child node:
+`package:` base list:
 
 - **packages = UNION** across the base + every matching level (deduped). A shared
   package on a broad level plus extras on a specific level accumulate.
@@ -600,22 +575,7 @@ per-version selection works identically on image builds and VM deploys. fedora /
 arch carry only a bare tag (`[fedora]` / `[arch]`) and reach their packages via
 the bare-distro tag section. See `/charly-build:build` and `/charly-internals:install-plan`.
 
-### Pac (`pac:`)
-
-```yaml
-pac:
-  packages:
-    - neovim
-    - ripgrep
-  repos:
-    - name: custom-repo
-      server: https://example.com/repo/$arch
-      siglevel: Optional TrustAll    # default if omitted
-  options:
-    - --needed
-```
-
-### AUR (`aur:`)
+### AUR (`distro.arch.aur:`)
 
 AUR packages are compiled by `yay` in a multi-stage build, then the resulting
 `.pkg.tar.zst` artifacts are `pacman -U`-installed into the final image. Two
@@ -639,35 +599,35 @@ and Arch repo + AUR packages together; the generator picks the section matching
 the image's `distro:` tags:
 
 ```yaml
-chrome-distro:
-  distro:
-    arch:
-      package:                 # Arch repo (core/extra) packages
-        - vulkan-icd-loader
-      aur:                     # AUR packages — need build: [pac, aur] on the image
+chrome:
+  candy:
+    distro:
+      arch:
+        package:               # Arch repo (core/extra) packages
+          - vulkan-icd-loader
+        aur:                   # AUR packages — need build: [pac, aur] on the image
+          package:
+            - google-chrome
+          option:
+            - --nocheck
+          # `replace:` lists distro-repo packages whose file paths conflict
+          # with the AUR build artifact. Each entry is removed via
+          # `pacman -Rs --noconfirm <pkg>` BEFORE the AUR `pacman -U` install.
+          # Idempotent — entries that aren't installed are silently skipped.
+          # Required when the AUR build owns paths also owned by an Arch repo
+          # package (e.g. `visual-studio-code-bin` and `code` both own /usr/bin/code).
+          replace:
+            - code
+      fedora:
         package:
-          - google-chrome
-        options:
-          - --nocheck
-        # `replaces:` lists distro-repo packages whose file paths conflict
-        # with the AUR build artifact. Each entry is removed via
-        # `pacman -Rs --noconfirm <pkg>` BEFORE the AUR `pacman -U` install.
-        # Idempotent — entries that aren't installed are silently skipped.
-        # Required when the AUR build owns paths also owned by an Arch repo
-        # package (e.g. `visual-studio-code-bin` and `code` both own /usr/bin/code).
-        replaces:
-          - code
-    fedora:
-      package:
-        - vulkan-loader
+          - vulkan-loader
 ```
 
-A top-level `aur:` block (sibling of `pac:`, with a plural `packages:` list) is
-the single-distro shorthand for an Arch-only candy; both forms flatten to the
-same internal `aur` format section (`charly/layers.go` `derivePackageSectionsFromCalamares`).
-Prefer the nested `distro.arch.aur.package` form for multi-distro candies.
+The `aur:` block lives ONLY nested under `distro.arch` — there is no top-level
+`aur:` (or `pac:`) section; the nested block flattens to the internal `aur`
+format section (`charly/layers.go` `derivePackageSectionsFromCalamares`).
 
-The `replaces:` mechanism applies to host (`target: local`) deploys; in OCI image builds the candy is applied to a fresh rootfs that never has the conflicting package, so `replaces:` is a no-op there.
+The `replace:` mechanism applies to host (`target: local`) deploys; in OCI image builds the candy is applied to a fresh rootfs that never has the conflicting package, so `replace:` is a no-op there.
 
 ---
 
@@ -676,15 +636,16 @@ The `replaces:` mechanism applies to host (`target: local`) deploys; in OCI imag
 Candies declare dependencies via `require`. The generator resolves transitively, topologically sorts, and pulls missing dependencies automatically. Circular dependencies are a validation error.
 
 ```yaml
-my-app-require:
-  require:
-    - python
-    - supervisord
+my-app:
+  candy:
+    require:
+      - python
+      - supervisord
 ```
 
-### `require` vs `layer`
+### `require` vs `candy` (composition)
 
-| | `require` | `layer` |
+| | `require` | `candy` |
 |---|---|---|
 | Purpose | Prerequisite ordering | Group composition |
 | Effect | Ensures dependency is installed first | Splices candies at this candy's position |
@@ -698,35 +659,32 @@ my-app-require:
 ## Environment Variables
 
 ```yaml
-my-app-env:
-  env:
-    PIXI_CACHE_DIR: "~/.cache/pixi"
-    MY_VAR: "value"
-
-my-app-path_append:
-  path_append:
-    - "~/.pixi/bin"
-    - "~/.local/bin"
+my-app:
+  candy:
+    env:
+      PIXI_CACHE_DIR: "~/.cache/pixi"
+      MY_VAR: "value"
+    path_append:
+      - "~/.pixi/bin"
+      - "~/.local/bin"
 ```
 
 `~` and `$HOME` expand to the resolved home directory at generation time. Setting `PATH` directly in `env` is a validation error — use `path_append`. Later candies override earlier for the same key.
 
 **`env:` vs `var:`:** `env:` is container **runtime** environment (emitted as `ENV` and persists into the running container). `var:` is **build-time** substitution for `${VAR}` references inside the candy's `run:`/`check:` steps — also emitted as `ENV` so BuildKit can substitute in COPY paths, but conceptually scoped to the candy's install. There's no hard rule against using `env:` for both purposes, but keeping them separate makes intent clearer.
 
-**`env:` is a MAP, not a list.** The YAML parser decodes it as `map[string]string`, not `[]string`. Authoring it as `- KEY=value` fails with `cannot unmarshal !!seq into map[string]string` at `charly box validate`. Always use map form:
+**`env:` is a MAP, not a list — everywhere** (candies, boxes, AND deploys). The parser decodes it as `map[string]string`, not `[]string`. Authoring it as `- KEY=value` fails with `cannot unmarshal !!seq into map[string]string` at `charly box validate`. Always use map form:
 
 ```yaml
 # ❌ WRONG — parser rejects the list shape
-my-app-env:
-  env:
-    - CHARLY_PROJECT_DIR=/workspace
-    - GOPATH=~/go
+env:
+  - CHARLY_PROJECT_DIR=/workspace
+  - GOPATH=~/go
 
 # ✓ RIGHT — map form
-my-app-env:
-  env:
-    CHARLY_PROJECT_DIR: "/workspace"
-    GOPATH: "~/go"
+env:
+  CHARLY_PROJECT_DIR: "/workspace"
+  GOPATH: "~/go"
 ```
 
 The `charly-mcp` candy is the canonical example of the map form used to thread a container-level env var into the MCP server process via supervisord.
@@ -744,16 +702,17 @@ Every entry has one `name:` plus either a `use_packaged:` reference (reuse a dis
 For services shipped by a distro package (postgresql, nginx, redis, sshd, ...). charly enables the packaged unit with optional drop-in overrides — it never regenerates the unit file. The packaged unit at `/usr/lib/systemd/system/<unit>.service` stays untouched; override config lands at `/etc/systemd/system/<unit>.service.d/charly-<layer>.conf`.
 
 ```yaml
-postgresql-service:
-  service:
-    - name: postgresql
-      use_packaged: postgresql.service     # distro-shipped unit
-      enable: true                          # systemctl enable --now
-      scope: system                         # system | user
-      overrides:                            # optional — rendered as drop-in
-        env:
-          PGDATA: /var/lib/postgresql/data
-        after: [network-online.target]
+postgresql:
+  candy:
+    service:
+      - name: postgresql
+        use_packaged: postgresql.service   # distro-shipped unit
+        enable: true                        # systemctl enable --now
+        scope: system                       # system | user
+        overrides:                          # optional — rendered as drop-in
+          env:
+            PGDATA: /var/lib/postgresql/data
+          after: [network-online.target]
 ```
 
 **Supervisord caveat**: `use_packaged:` is a systemd-only concept. On supervisord-targeted images (containers using the default init), packaged entries render a warning and get skipped; either author a custom entry (form 2) or target a systemd image.
@@ -763,22 +722,23 @@ postgresql-service:
 For services that aren't distro-packaged (ollama, custom daemons, candy-provided binaries). charly renders the spec through the init-system's `service_template` in the embedded build vocabulary — supervisord-init containers get INI fragments, systemd-init containers and bootc/host deploys get `.service` unit files.
 
 ```yaml
-ollama-service:
-  service:
-    - name: ollama
-      exec: /usr/bin/ollama serve
-      env:
-        OLLAMA_HOST: "0.0.0.0:11434"
-        OLLAMA_KEEP_ALIVE: "-1"
-      restart: always                       # no | on-failure | always | unless-stopped
-      working_directory: /var/lib/ollama
-      user: ollama
-      after: [network.target]
-      before: [ollama-exporter]
-      stdout: journal                       # journal | file:<path> | none
-      stop_timeout: "30s"
-      scope: system                         # system | user
-      enable: true
+ollama:
+  candy:
+    service:
+      - name: ollama
+        exec: /usr/bin/ollama serve
+        env:
+          OLLAMA_HOST: "0.0.0.0:11434"
+          OLLAMA_KEEP_ALIVE: "-1"
+        restart: always                     # no | on-failure | always | unless-stopped
+        working_directory: /var/lib/ollama
+        user: ollama
+        after: [network.target]
+        before: [ollama-exporter]
+        stdout: journal                     # journal | file:<path> | none
+        stop_timeout: "30s"
+        scope: system                       # system | user
+        enable: true
 ```
 
 ### Mixed entries in one candy
@@ -786,19 +746,20 @@ ollama-service:
 A candy can declare multiple entries mixing both forms. The `sshd` candy is the canonical example: it enables the packaged `sshd.service` for systemd-init scope AND runs a custom wrapper via supervisord.
 
 ```yaml
-sshd-service:
-  service:
-    - name: sshd
-      use_packaged: sshd.service           # bootc/systemd scope
-      enable: true
-      scope: system
+sshd:
+  candy:
+    service:
+      - name: sshd
+        use_packaged: sshd.service         # bootc/systemd scope
+        enable: true
+        scope: system
 
-    - name: sshd                            # name may repeat across forms (different init system renders each)
-      exec: /usr/local/bin/sshd-wrapper
-      restart: always
-      priority: 3
-      enable: true
-      scope: system
+      - name: sshd                          # name may repeat across forms (different init system renders each)
+        exec: /usr/local/bin/sshd-wrapper
+        restart: always
+        priority: 3
+        enable: true
+        scope: system
 ```
 
 ### Field reference
@@ -855,10 +816,11 @@ If you find yourself reaching for a `-host` suffix on a candy name, reach for a 
 ## Volume Declaration
 
 ```yaml
-my-app-volume:
-  volume:
-    - name: data
-      path: "~/.myapp"
+my-app:
+  candy:
+    volume:
+      - name: data
+        path: "~/.myapp"
 ```
 
 Names must match `^[a-z0-9]+(-[a-z0-9]+)*$`. Docker/podman volume names become `charly-<image>-<name>`. Collected across the full image base chain; first declaration wins.
@@ -866,25 +828,26 @@ Names must match `^[a-z0-9]+(-[a-z0-9]+)*$`. Docker/podman volume names become `
 ## Security Declaration
 
 ```yaml
-my-app-security:
-  security:
-    privileged: false
-    cap_add:
-      - SYS_PTRACE
-    devices:
-      - /dev/dri
-    security_opt:
-      - label:disable
-    group_add:
-      - keep-groups
-    mounts:
-      - /dev/input:/dev/input:rw
-      - tmpfs:/run/udev:rw,size=1m
-    shm_size: "1g"
-    memory_max: "8g"           # hard limit
-    memory_high: "6g"          # soft limit
-    memory_swap_max: "0"       # disable swap
-    cpus: "4.0"                # CPU quota
+my-app:
+  candy:
+    security:
+      privileged: false
+      cap_add:
+        - SYS_PTRACE
+      devices:
+        - /dev/dri
+      security_opt:
+        - label:disable
+      group_add:
+        - keep-groups
+      mounts:
+        - /dev/input:/dev/input:rw
+        - tmpfs:/run/udev:rw,size=1m
+      shm_size: "1g"
+      memory_max: "8g"         # hard limit
+      memory_high: "6g"        # soft limit
+      memory_swap_max: "0"     # disable swap
+      cpus: "4.0"              # CPU quota
 ```
 
 Security settings merge across candies (union for lists; `privileged` true if any candy sets it; smallest-wins for resource caps). Box-level `security:` in `charly.yml` overrides `privileged` and replaces resource caps.
@@ -898,9 +861,10 @@ Resource caps (memory / cpus) bound the blast radius of a Chrome crash loop on t
 Ports needing an eth0 → loopback socat relay inside the container. For services that bind only to 127.0.0.1. Auto-adds `socat` dependency and generates a relay service.
 
 ```yaml
-my-app-port_relay:
-  port_relay:
-    - 9222
+my-app:
+  candy:
+    port_relay:
+      - 9222
 ```
 
 Note: the chrome candy uses a dedicated `cdp-proxy` supervisord service instead of `port_relay`, to handle Chrome 146+ Host header validation.
@@ -910,14 +874,15 @@ Note: the chrome candy uses a dedicated `cdp-proxy` supervisord service instead 
 Ports support a protocol prefix that controls tunnel backend scheme and EXPOSE format:
 
 ```yaml
-my-app-port:
-  port:
-    - 18789                   # http (default) → tailscale --https, cloudflared http://
-    - "https+insecure:3000"   # https+insecure → HTTPS tunnel with self-signed OK
-    - tcp:5900                # raw TCP
-    - "tls-terminated-tcp:22" # tailscale TLS-terminated-tcp
-    - udp:47998               # EXPOSE /udp, not tunneled
-    - 9222                    # http (default)
+my-app:
+  candy:
+    port:
+      - 18789                   # http (default) → tailscale --https, cloudflared http://
+      - "https+insecure:3000"   # https+insecure → HTTPS tunnel with self-signed OK
+      - tcp:5900                # raw TCP
+      - "tls-terminated-tcp:22" # tailscale TLS-terminated-tcp
+      - udp:47998               # EXPOSE /udp, not tunneled
+      - 9222                    # http (default)
 ```
 
 Tailscale schemes: `http`, `https`, `https+insecure`, `tcp`, `tls-terminated-tcp`. Cloudflare adds `ssh`, `rdp`, `smb`. HTTPS backends (Traefik with self-signed certs) MUST use `https+insecure` — plain `http` proxying to HTTPS returns 404.
@@ -927,11 +892,12 @@ Tailscale schemes: `http`, `https`, `https+insecure`, `tcp`, `tls-terminated-tcp
 ## secrets (image-owned)
 
 ```yaml
-my-app-secret:
-  secret:
-    - name: api-key                # Podman secret `charly-<image>-<name>`
-      target: /run/secrets/api_key # mount path (default: /run/secrets/<name>)
-      env: API_KEY                 # fallback env var if Podman secrets unavailable
+my-app:
+  candy:
+    secret:
+      - name: api-key                # Podman secret `charly-<image>-<name>`
+        target: /run/secrets/api_key # mount path (default: /run/secrets/<name>)
+        env: API_KEY                 # fallback env var if Podman secrets unavailable
 ```
 
 Metadata only lives in OCI labels. Values are auto-generated per instance at `charly config` time. Use for image-internal secrets (like `db-password`). For user-owned credentials (API keys, auth tokens), use `secret_accept` / `secret_require` instead.
@@ -943,22 +909,19 @@ Metadata only lives in OCI labels. Values are auto-generated per instance at `ch
 Cross-container environment-variable service discovery. `env_provide` is the supply side; `env_require` (mandatory) and `env_accept` (opt-in) are the demand side.
 
 ```yaml
-my-app-env_provide:
-  env_provide:
-    OLLAMA_HOST: "http://{{.ContainerName}}:11434"
-    PGHOST: "{{.ContainerName}}"
-    PGPORT: "5432"
-
-my-app-env_require:
-  env_require:
-    - name: DATABASE_URL
-      description: "Postgres connection URL"
-      default: "postgres://localhost:5432/app"
-
-my-app-env_accept:
-  env_accept:
-    - name: HTTP_PROXY
-      description: "Upstream HTTP proxy (optional)"
+my-app:
+  candy:
+    env_provide:
+      OLLAMA_HOST: "http://{{.ContainerName}}:11434"
+      PGHOST: "{{.ContainerName}}"
+      PGPORT: "5432"
+    env_require:
+      - name: DATABASE_URL
+        description: "Postgres connection URL"
+        default: "postgres://localhost:5432/app"
+    env_accept:
+      - name: HTTP_PROXY
+        description: "Upstream HTTP proxy (optional)"
 ```
 
 `{{.ContainerName}}` resolves at `charly config` time. `env_provide` values are injected only into consumers that declare matching `env_accept` or `env_require` (opt-in filtering — prevents env var leakage). Missing `env_require` without a default is a hard error at `charly config`; missing `env_accept` silently drops the var.
@@ -970,16 +933,15 @@ See `/charly-core:charly-config` (`--update-all` flag, provides filtering) and `
 Credential-backed env vars. Same YAML shape as `env_accept` / `env_require`, but values flow through the credential store (keyring → config) and arrive via Podman secrets — **never plaintext in charly.yml or the quadlet**.
 
 ```yaml
-my-app-secret_require:
-  secret_require:
-    - name: WEBUI_ADMIN_PASSWORD
-      description: "Initial admin account password"
-
-my-app-secret_accept:
-  secret_accept:
-    - name: OPENROUTER_API_KEY
-      description: "API key for OpenRouter LLM inference"
-      key: charly/api-key/openrouter     # optional override; default charly/secret/<NAME>
+my-app:
+  candy:
+    secret_require:
+      - name: WEBUI_ADMIN_PASSWORD
+        description: "Initial admin account password"
+    secret_accept:
+      - name: OPENROUTER_API_KEY
+        description: "API key for OpenRouter LLM inference"
+        key: charly/api-key/openrouter   # optional override; default charly/secret/<NAME>
 ```
 
 Use for API keys, passwords, auth tokens. `key:` override must match `^charly/<service>/<key>$` (lowercase). Multiple candies sharing the same upstream credential (e.g. `charly/api-key/openrouter`) all resolve to the same stored value. See `/charly-build:secrets` for the credential-store chain, rotation, and `-e NAME=VAL` auto-import.
@@ -989,21 +951,20 @@ Use for API keys, passwords, auth tokens. `key:` override must match `^charly/<s
 Cross-container MCP server discovery. Consumers receive `CHARLY_MCP_SERVERS` as a JSON env var at `charly config` time.
 
 ```yaml
-my-app-mcp_provide:
-  mcp_provide:
-    - name: jupyter
-      url: "http://{{.ContainerName}}:8888/mcp"
-      transport: http                # or "sse"
-
-my-app-mcp_accept:
-  mcp_accept:
-    - name: jupyter
-      description: "JupyterLab CRDT MCP server for notebook manipulation"
+my-app:
+  candy:
+    mcp_provide:
+      - name: jupyter
+        url: "http://{{.ContainerName}}:8888/mcp"
+        transport: http              # or "sse"
+    mcp_accept:
+      - name: jupyter
+        description: "JupyterLab CRDT MCP server for notebook manipulation"
 ```
 
 **Pod-aware:** when provider and consumer share a container, URLs resolve to `localhost` (local wins over remote for same-named entries). **Naming is the service contract** — keep `name:` stable across candy/package/box renames.
 
-**Testing the endpoint:** once a candy is deployed, `charly check live <image> --filter mcp` runs the candy's declarative `mcp:` check steps (served out-of-process by candy/plugin-mcp) — `ping` verifies the server is alive, `list-tools` enumerates the tool catalog. Both are authorable as `mcp:` `check:` steps scoped `context: [deploy]` — each its own step child node on the candy. The full verb reference (methods, URL rewriting, port-publishing gotcha, validator rules) lives in `/charly-build:charly-mcp-cmd`.
+**Testing the endpoint:** once a candy is deployed, `charly check live <image> --filter mcp` runs the candy's declarative `mcp:` check steps (served out-of-process by candy/plugin-mcp) — `ping` verifies the server is alive, `list-tools` enumerates the tool catalog. Both are authorable as `mcp:` `check:` steps scoped `context: [deploy]` in the candy's `plan:`. The full verb reference (methods, URL rewriting, port-publishing gotcha, validator rules) lives in `/charly-build:charly-mcp-cmd`.
 
 ---
 
@@ -1012,16 +973,15 @@ my-app-mcp_accept:
 Data candies stage files from the candy directory into volume bind-mount areas. Build-time: files COPY into `/data/<volume>/[dest/]`. Deploy-time: `charly config --bind <volume>` provisions them into bind directories; `charly update` merges non-destructively.
 
 ```yaml
-my-app-volume:
-  volume:
-    - name: workspace
-      path: "~/workspace"
-
-my-app-data:
-  data:
-    - src: data/notebooks
-      volume: workspace
-      dest: ""                 # optional subdirectory within volume
+my-app:
+  candy:
+    volume:
+      - name: workspace
+        path: "~/workspace"
+    data:
+      - src: data/notebooks
+        volume: workspace
+        dest: ""               # optional subdirectory within volume
 ```
 
 **Data candies** are candies with only `data:` + `volume:` — no packages, no services, no plan steps. Valid standalone. **Data images** (`data_image: true` in charly.yml) are scratch-based — consumed via `charly config --data-from <image>`. See `/charly-jupyter:notebook-templates` for a worked example.
@@ -1080,39 +1040,36 @@ Go has no declarative manifest for global installs, so use `command:`:
 my-go-tool:
   candy:
     version: 2026.144.1531
-  my-go-tool-require:
     require:
       - golang
-  my-go-tool-env:
     env:
       GOPATH: "~/go"
-  my-go-tool-path_append:
     path_append:
       - "~/go/bin"
-  my-go-tool-install:
-    run: install the go tool globally
-    command: |
-      go install github.com/org/tool/cmd/tool@latest
-      go clean -cache
-    run_as: "${USER}"
+    plan:
+      - run: install the go tool globally
+        command: |
+          go install github.com/org/tool/cmd/tool@latest
+          go clean -cache
+        run_as: "${USER}"
 ```
 
-For cgo dependencies, add the required `-devel` packages to `rpm:`. Always `go clean -cache` to shrink the image.
+For cgo dependencies, add the required `-devel` packages to the `distro:` map (e.g. `distro.fedora.package`). Always `go clean -cache` to shrink the image.
 
 ### Add a binary download
 
 ```yaml
-my-tool-var:
-  var:
-    TOOL_VERSION: v1.2.3
-
-my-tool-binary:
-  run: install the tool release binary
-  download: "https://github.com/org/tool/releases/download/${TOOL_VERSION}/tool-linux-${ARCH}.tar.gz"
-  extract: tar.gz
-  to: /usr/local/bin
-  extract_include: [tool]
-  run_as: root
+my-tool:
+  candy:
+    var:
+      TOOL_VERSION: v1.2.3
+    plan:
+      - run: install the tool release binary
+        download: "https://github.com/org/tool/releases/download/${TOOL_VERSION}/tool-linux-${ARCH}.tar.gz"
+        extract: tar.gz
+        to: /usr/local/bin
+        extract_include: [tool]
+        run_as: root
 ```
 
 Use `${ARCH}` (BuildKit-style) if the release URL uses `amd64`/`arm64`; use `${BUILD_ARCH}` if it uses `x86_64`/`aarch64`. If the project only ships x86_64, omit the template and hardcode — don't fake multi-arch.
@@ -1120,21 +1077,19 @@ Use `${ARCH}` (BuildKit-style) if the release URL uses `amd64`/`arm64`; use `${B
 ### Install a wrapper script + make it the default
 
 ```yaml
-local-bin-dir:
-  run: create the user's local bin directory
-  mkdir: "${HOME}/.local/bin"
-  run_as: "${USER}"
-wrapper-install:
-  run: install the wrapper script
-  copy: my-wrapper
-  to: "${HOME}/.local/bin/my-wrapper"
-  mode: "0755"
-  run_as: "${USER}"
-wrapper-symlink:
-  run: make my-tool always go through the wrapper
-  link: "${HOME}/.local/bin/my-tool"     # make my-tool always go through the wrapper
-  target: my-wrapper
-  run_as: "${USER}"
+plan:
+  - run: create the user's local bin directory
+    mkdir: "${HOME}/.local/bin"
+    run_as: "${USER}"
+  - run: install the wrapper script
+    copy: my-wrapper
+    to: "${HOME}/.local/bin/my-wrapper"
+    mode: "0755"
+    run_as: "${USER}"
+  - run: make my-tool always go through the wrapper
+    link: "${HOME}/.local/bin/my-tool"
+    target: my-wrapper
+    run_as: "${USER}"
 ```
 
 ### Write a config file inline
@@ -1142,21 +1097,21 @@ wrapper-symlink:
 Use `write:` — never shell heredoc:
 
 ```yaml
-my-app-config:
-  run: write the my-app config
-  write: /etc/my-app/config.yml
-  mode: "0644"
-  run_as: root
-  content: |
-    listen: 0.0.0.0:8080
-    log_level: info
-    backends:
-      - http://localhost:9090
+plan:
+  - run: write the my-app config
+    write: /etc/my-app/config.yml
+    mode: "0644"
+    run_as: root
+    content: |
+      listen: 0.0.0.0:8080
+      log_level: info
+      backends:
+        - http://localhost:9090
 ```
 
 ### Add a service
 
-Declare `service:` with a supervisord `[program:<name>]` fragment and add `supervisord` to `require:`. The generator assembles per-candy service fragments into a single `/etc/supervisord.conf` at image build time.
+Declare a `service:` entry (the unified schema — see "Service Declaration" above) and add `supervisord` to `require:`. The generator renders per-candy entries into supervisord INI fragments assembled into a single `/etc/supervisord.conf` at image build time (or systemd units on systemd-init targets).
 
 ---
 
@@ -1175,37 +1130,39 @@ Declare `service:` with a supervisord `[program:<name>]` fragment and add `super
 
 ## Shell Init Surface (`shell:`)
 
-Candies declare per-shell init snippets via the structured `shell:` field.
-Same body shape as per-distro `rpm:`/`pac:`/`deb:`:
+Candies declare per-shell init snippets via the structured `shell:` field:
 intrinsic fields apply to every shell, optional sub-blocks named after a
 shell allowlist key (`bash` / `zsh` / `fish` / `sh`) override the
 intrinsic for that one shell.
 
 ```yaml
 # charly.yml — generic + override (the canonical shape)
-direnv-shell:
-  shell:
-    init: |
-      # Applies to bash, zsh, sh — ${SHELL_NAME} substituted at install time.
-      eval "$(direnv hook ${SHELL_NAME})"
-    fish:
+direnv:
+  candy:
+    shell:
       init: |
-        # Different syntax — explicit override.
-        direnv hook fish | source
+        # Applies to bash, zsh, sh — ${SHELL_NAME} substituted at install time.
+        eval "$(direnv hook ${SHELL_NAME})"
+      fish:
+        init: |
+          # Different syntax — explicit override.
+          direnv hook fish | source
 
 # Pure per-shell form
-direnv-shell:
-  shell:
-    bash: { init: 'eval "$(direnv hook bash)"' }
-    zsh:  { init: 'eval "$(direnv hook zsh)"' }
-    fish: { init: 'direnv hook fish | source' }
+direnv:
+  candy:
+    shell:
+      bash: { init: 'eval "$(direnv hook bash)"' }
+      zsh:  { init: 'eval "$(direnv hook zsh)"' }
+      fish: { init: 'direnv hook fish | source' }
 
 # PATH contributions (rendered with shell-appropriate syntax —
 # fish_add_path for fish, export PATH= for bash/zsh/sh).
-pixi-shell:
-  shell:
-    path_append:
-      - "~/.pixi/bin"
+pixi:
+  candy:
+    shell:
+      path_append:
+        - "~/.pixi/bin"
 ```
 
 **Selection rule** — applied per (target, shell) at install time:
@@ -1255,10 +1212,8 @@ target — same precedent as how `aur:` skips on non-Arch.
 `ExtractMetadata` at deploy. `charly.yml` `shell:` overlays merge by
 id (same replace/skip/append semantics as `plan:` steps).
 
-**Migration:** `charly migrate` rewrites legacy `command:` shell-rc
-heredoc steps (matching the `# opencharly:begin direnv-hook` /
-`# opencharly:begin ssh-auth-sock` fence patterns) into the structured
-shell: schema. Idempotent.
+**Migration:** legacy shapes below the current schema HEAD are converted
+by the single idempotent `charly migrate` — see `/charly-build:migrate`.
 
 ---
 
@@ -1298,6 +1253,6 @@ A candy is a top-level **name-first** node, so within a single document the top-
 
 ## Related skills
 
-- `/charly-build:migrate` — `charly migrate` converts legacy flat-form candy definitions + raw-INI `service:` blocks into the canonical schema
+- `/charly-build:migrate` — the single idempotent `charly migrate` brings any legacy config (including the former named data/step child-node shape) to the current schema
 - `/charly-internals:capabilities` — how the `service:` list is baked into the `LabelService` OCI label
 - `/charly-internals:install-plan` — internal IR the loader feeds into build/deploy pipelines

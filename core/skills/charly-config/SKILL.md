@@ -266,10 +266,12 @@ The quadlet is still written with the conflicting port, so `charly start` will f
 
 ## Deploy State
 
-All configuration is persisted to `~/.config/charly/charly.yml` in node-form — a
-`version:` stamp, an optional top-level `provides:` directive, and each deploy as a
-name-first `<name>: {<substrate-kind>: <scalars>, <child-nodes>}` entry (no `deploy:` map
-wrapper, no `target:` field — the substrate kind at the edge selects the target):
+All configuration is persisted to `~/.config/charly/charly.yml` in the compact
+node-form — a `version:` stamp, an optional top-level `provides:` directive, and each
+deploy as a name-first `<name>: {<substrate-kind>: <body>}` entry whose substrate-kind
+value carries the scalars, collections (`port:`/`volume:`/…), and `plan:` inline, with
+any nested/peer members as sibling child nodes (no `deploy:` map wrapper, no `target:`
+field — the substrate kind at the edge selects the target):
 
 ```yaml
 my-app:
@@ -278,7 +280,6 @@ my-app:
     tag: latest
     data_seeded: true
     data_source: "my-app:latest"
-  my-app-volume:
     volume:
       - name: workspace
         type: bind

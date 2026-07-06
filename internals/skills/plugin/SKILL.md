@@ -18,15 +18,15 @@ my-plugin:
     version: 2026.180.1200          # mandatory CalVer (any candy)
     description: |-                 # mandatory (ADE)
       What this plugin provides.
-  my-plugin-decl:
     plugin:
       providers: [verb:myprobe]     # "<class>:<word>" — class ∈ kind|verb|deploy|step|builder|command|build
       source: builtin               # OR github.com/org/repo/candy/<name>  (out-of-tree)
-  myprobe-check:                     # ADE: ≥1 deterministic check (its OWN acceptance test)
-    check: the myprobe verb dispatches and passes
-    plugin: myprobe
-    plugin_input: { marker: hello }
-    context: [runtime]
+      primary:
+        myprobe: marker             # scalar sugar target: `myprobe: hello` == {marker: hello}
+    plan:
+      - check: the myprobe verb dispatches and passes   # ADE: ≥1 deterministic check
+        myprobe: { marker: hello }  # the verb sugar — map value = the plugin input verbatim
+        context: [runtime]
 ```
 
 A candy with no `plugin:` block is an ordinary candy; one WITH it is a plugin. Full candy authoring surface
@@ -39,8 +39,11 @@ Every reserved word — every kind, verb, deploy-target, step, builder, command,
 error)`. A Provider is IN-PROCESS (a builtin, registered from `init()`) or OUT-OF-PROCESS (an external,
 served over go-plugin gRPC). The registry (`providerRegistry`, `provider_registry.go`), the call sites, and
 the bijection gate treat both identically — **the transport is invisible above the registry**. A
-`check: { plugin: <word>, plugin_input: {…} }` step dispatches through `runPluginVerb` →
-`providerRegistry.ResolveVerb(word)` → `Invoke`, whether the provider is compiled in or out-of-process.
+`check:` step's authored `<word>: <input>` verb sugar (desugared at parse time to the internal
+`plugin`/`plugin_input` pair — authoring that pair directly is a hard load error) dispatches through
+`runPluginVerb` → `providerRegistry.ResolveVerb(word)` → `Invoke`, whether the provider is compiled in or
+out-of-process. A verb plugin declares its scalar-sugar `primary:` field both in its served capability and
+in its candy manifest's `plugin:` block (`primary: {<word>: <field>}`).
 
 **The `build` class (BUILD-ENGINE DISPATCH).** `ClassBuild` serves `build:box` + `build:generate`
 (candy/plugin-build, COMPILED-IN): `charly box build` / `charly box generate` route through it instead of
@@ -219,10 +222,12 @@ See "Authoring an external COMMAND plugin" below.
 
 ## The per-plugin CUE schema — the single source, two consumers
 
-**Every plugin ships its OWN `.cue` schema, and it is the SINGLE SOURCE for that plugin's params.** This is
-CLAUDE.md's "Schema Driven Design (SDD)" pillar applied per-plugin: the schema comes BEFORE the plugin's code,
-and both consumers below are derived from that one source (the cross-generator pipeline map + the
-generation-coverage current state live in `/charly-internals:go` "Schema Driven Design (SDD)"). The schema is
+**Every plugin WITH authored input ships its OWN `.cue` schema, and it is the SINGLE SOURCE for that
+plugin's params.** This is CLAUDE.md's "Schema Driven Design (SDD)" pillar applied per-plugin: the schema
+comes BEFORE the plugin's code, and both consumers below are derived from that one source (the
+cross-generator pipeline map + the generation-coverage current state live in `/charly-internals:go`
+"Schema Driven Design (SDD)"). An INPUT-LESS plugin (no `input_def` on any capability) ships NO schema —
+the load gate waives it (the former requirement forced dozens of near-identical stub files). The schema is
 SELF-CONTAINED (package-less, references no base def) and used two ways — the SAME contract core `spec` uses:
 
 1. **DEV-TIME → Go params.** `cue exp gengotypes` (driven by `task cue:gen`, which wraps the schema with
@@ -231,16 +236,16 @@ SELF-CONTAINED (package-less, references no base def) and used two ways — the 
 2. **RUNTIME → schema-over-RPC.** The plugin SERVES its `.cue` source over the Provider **`Describe`**
    channel (the proto `Capabilities.schema_cue` field + structured `ProvidedCapability{class,word,input_def}`).
    The host splices it onto charly's base schema (`base ++ plugin`, via the public `sdk/schemaconcat` — the SAME
-   concat contract as the runtime `sharedCueSchema`, R3) and validates every authored `plugin_input` against
-   the plugin's def (e.g. `#MyprobeInput`). The host **never reads a candy's `schema/` dir from disk** — the
+   concat contract as the runtime `sharedCueSchema`, R3) and validates every authored verb input (the
+   desugared internal `plugin_input`) against the plugin's def (e.g. `#MyprobeInput`). The host **never reads a candy's `schema/` dir from disk** — the
    schema travels WITH the plugin.
 
 **A `class:step` plugin ALSO declares its install-step contract over Describe (F3).** A step plugin (a
 PLUGIN-contributed install-step KIND, distinct from a `class:verb` step which rides the fixed
 `ExternalPlugin` kind) sets `ProvidedCapability.StepContract{Scope,Venue,Gate,Emits}` (the proto
 `step_contract` field; `sdk.ProvidedCapability.StepContract`) — the host carries that DECLARED contract so
-a `run: plugin: <word>` lowers to an `externalStep` (kind `external:<word>`, opaque Payload) the OPEN
-DEFAULT ARM dispatches via `OpExecute`, with NO compiled-in case. Reverse is NOT declared (an external
+a `run:` step carrying the word's `<word>: <input>` sugar lowers to an `externalStep` (kind
+`external:<word>`, opaque Payload) the OPEN DEFAULT ARM dispatches via `OpExecute`, with NO compiled-in case. Reverse is NOT declared (an external
 step's teardown ops are recorded dynamically from its `OpExecute` reply). **BUILD leg (F-STEP-EMIT):**
 `StepContract.Emits=true` declares the step ALSO produces a build-context Containerfile FRAGMENT — served by
 `Invoke(OpEmit)` → `spec.EmitReply.Fragment`. Composed into a POD overlay (add_candy), the pod-overlay
@@ -274,10 +279,12 @@ schema-handling one.
 ### The load gate + the validator (one each, shared)
 
 - `registerPluginUnitSchema(name, schema)` is THE load gate (`plugin_loader.go`), byte-identical for builtin
-  and external: it rejects an **empty** schema, a schema that will not **splice** onto the base, and a declared
-  `input_def` the schema does not define — all LOUD failures at load. Builtins are gated at process start
-  (`loadBuiltinPluginUnits`, a `sync.Once` pass over every registered unit); externals at connect
-  (`loadPluginUnit` → build on host → `LocalTransport.Connect` → gate → register).
+  and external: it rejects a schema that will not **splice** onto the base, a declared `input_def` the
+  schema does not define, and an EMPTY schema from a plugin that DOES declare input defs — all LOUD failures
+  at load. An input-less plugin (no `input_def` on any capability) legitimately serves NO schema and passes
+  the gate. Builtins are gated at process start (`loadBuiltinPluginUnits`, a `sync.Once` pass over every
+  registered unit); externals at connect (`loadPluginUnit` → build on host → `LocalTransport.Connect` →
+  gate → register).
 - `validateAuthoredPluginInput(class, word, json)` is THE validator: it looks the def up in the process-wide
   `pluginSchemas` set (filled by the gate) and unifies the authored input against it. Wired into
   `runPluginVerb` before dispatch — a missing/empty/typo'd field is a hard `TestFail`, not a silent surprise.
@@ -486,7 +493,7 @@ only in each repo's `CHANGELOG/`):
 
 - `/charly-internals:go` — the provider registry + the reserved-word spine (verbs/kinds/deploy/steps/builders/commands).
 - `/charly-image:layer` — the candy authoring surface the `plugin:` block extends.
-- `/charly-check:check` — the `plugin:` check verb + ADE (a plugin's own acceptance plan).
+- `/charly-check:check` — the plugin-verb check steps (`<word>: <input>` sugar) + ADE (a plugin's own acceptance plan).
 - `/charly-build:validate` — `charly box validate` rules.
 - `/charly-internals:install-plan` — the `externalDeployTarget` deploy lifecycle (`OpExecute` reverse channel, ledger record) + the `OpEmit` build-time fragment; the deploy wire types in `sdk/spec/deploy_wire.go`.
 - `/charly-build:generate` + `/charly-internals:generate-source` — the build-time plugin connect seam + the `emitTasks` placement-agnostic plugin-verb dispatch (`OpEmit` → fragment).

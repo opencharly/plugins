@@ -31,31 +31,35 @@ unchanged from a built-in verb: you write `dbus: notify`, never `plugin: dbus`.
 
 ### Authoring a `dbus:` step
 
-Each method is the declarative `dbus:` step you author: the method name
-(list/call/introspect/notify) is the verb's YAML value, and method-specific fields
-(`dest:`, `path:`, `method:`, `args:`, `text:`, `description:`) are siblings of the
-verb line. Shared matchers (`stdout:`, `stderr:`, `exit_status:`) work like every
-other verb. All `dbus:` steps are **deploy-context only** (they need a running
-session bus), so author them with `context: [deploy]`. See `/charly-check:check`
-for the full YAML shape. Example:
+Each method is the declarative `dbus:` step you author — an ordered list item under
+the candy/box `plan:`. The method name (list/call/introspect/notify) is the scalar
+value for a bare-method step (`dbus: list`), or the `method:` key of the `dbus:` map
+when the step carries dbus-exclusive fields (`dest:`, `path:`, `member:`, `arg:`,
+`text:`) — those live INSIDE the `dbus:` map. The shared matchers (`stdout:`,
+`stderr:`, `exit_status:`) and `description:` (the notify body, doubling as the step's
+report label) stay siblings of the `dbus:` key. All `dbus:` steps are
+**deploy-context only** (they need a running session bus), so author them with
+`context: [deploy]`. See `/charly-check:check` for the full YAML shape. Example:
 
 ```yaml
-notifications-registered:
-    check: the notifications service is on the session bus
-    dbus: list
-    context: [deploy]
-    stdout:
-        contains: org.freedesktop.Notifications
+- check: the notifications service is on the session bus
+  context: [deploy]
+  dbus: list
+  stdout:
+    contains: org.freedesktop.Notifications
 ```
 
 ## Quick Reference
 
 | Action | Declarative step | Description |
 |--------|------------------|-------------|
-| Send notification | `dbus: notify` + `text:` (+ optional `description:`) | Desktop notification via the Notifications interface |
-| Call method | `dbus: call` + `dest:` + `path:` + `method:` (+ optional `args:`) | Generic D-Bus method call |
+| Send notification | `dbus: notify` + `text:` (+ sibling `description:` body) | Desktop notification via the Notifications interface |
+| Call method | `dbus: call` + `dest:` + `path:` + `member:` (+ optional `arg:`) | Generic D-Bus method call |
 | List services | `dbus: list` | List all registered session bus services |
 | Introspect | `dbus: introspect` + `dest:` + `path:` | Introspect a service's interfaces and methods |
+
+The `+ <field>:` entries (except `description:`) are keys INSIDE the `dbus:` map;
+`description:` and the `stdout:`/`stderr:`/`exit_status:` matchers stay siblings.
 
 Run a candy's baked `dbus:` steps against a live deployment with
 `charly check live <image> --filter dbus`.
@@ -69,12 +73,12 @@ exit 0 (run them as `run:` steps). All steps are deploy-context only.
 ### Desktop Notifications
 
 ```yaml
-notify-build-done:
-    check: a desktop notification is delivered
-    dbus: notify
-    context: [deploy]
-    text: Build Complete           # notification summary
-    description: Image built successfully   # notification body
+- check: a desktop notification is delivered
+  context: [deploy]
+  dbus:
+    method: notify
+    text: Build Complete           # notification summary (dbus-exclusive, in the map)
+  description: Image built successfully   # notification body (shared #Op sibling)
 ```
 
 Calls `org.freedesktop.Notifications.Notify` on the session bus; the notification
@@ -83,14 +87,14 @@ appears via the running notification daemon (swaync or mako).
 ### Generic Method Calls
 
 ```yaml
-notifications-capabilities:
-    check: the notifications service reports its capabilities
-    dbus: call
-    context: [deploy]
+- check: the notifications service reports its capabilities
+  context: [deploy]
+  dbus:
+    method: call
     dest: org.freedesktop.Notifications
     path: /org/freedesktop/Notifications
-    method: org.freedesktop.Notifications.GetCapabilities
-    # args: [...]                  # optional method arguments
+    member: org.freedesktop.Notifications.GetCapabilities   # the interface.Method to call
+    # arg: [...]                  # optional typed call arguments (type:value)
 ```
 
 Calls an arbitrary D-Bus method on the session bus and returns its reply.
@@ -98,12 +102,11 @@ Calls an arbitrary D-Bus method on the session bus and returns its reply.
 ### List Services
 
 ```yaml
-list-services:
-    check: the session bus has the expected services registered
-    dbus: list
-    context: [deploy]
-    stdout:
-        contains: org.freedesktop.Notifications
+- check: the session bus has the expected services registered
+  context: [deploy]
+  dbus: list
+  stdout:
+    contains: org.freedesktop.Notifications
 ```
 
 Lists all registered services on the venue's session bus.
@@ -111,14 +114,14 @@ Lists all registered services on the venue's session bus.
 ### Introspect a Service
 
 ```yaml
-introspect-notifications:
-    check: the notifications object exposes the Notify method
-    dbus: introspect
-    context: [deploy]
+- check: the notifications object exposes the Notify method
+  context: [deploy]
+  dbus:
+    method: introspect
     dest: org.freedesktop.Notifications
     path: /org/freedesktop/Notifications
-    stdout:
-        contains: Notify
+  stdout:
+    contains: Notify
 ```
 
 Introspects a service object's interfaces, methods, signals, and properties.
@@ -137,7 +140,7 @@ Introspects a service object's interfaces, methods, signals, and properties.
 - `/charly-internals:plugin` -- the out-of-process provider model that serves `dbus` (the EXEC-based `gdbus`-over-reverse-channel plugin).
 - `/charly-check:cdp` -- Chrome DevTools Protocol automation (sibling out-of-process verb served by `candy/plugin-cdp`).
 - `/charly-check:vnc` -- VNC desktop automation (sibling out-of-process verb served by `candy/plugin-vnc`).
-- `/charly-check:wl` -- Wayland desktop automation (sibling in-core host verb under `charly check`).
+- `/charly-check:wl` -- Wayland desktop automation (sibling out-of-process verb served by `candy/plugin-wl`).
 - `/charly-core:cmd` -- single command execution in running containers (its best-effort completion notification drives the session bus via `gdbus` from the host).
 - `/charly-core:shell` -- interactive shell access
 - `/charly-infrastructure:dbus-layer` -- D-Bus session bus layer configuration

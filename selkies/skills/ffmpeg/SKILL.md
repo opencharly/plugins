@@ -24,13 +24,11 @@ RPM: `ffmpeg` (from negativo17 `fedora-multimedia` repo — full nonfree build w
 ## Usage
 
 ```yaml
-# a box composing this candy — the candy list is a child node
+# a box composing this candy — the candy list is inline
 my-box:
   candy:
     base: fedora
-  my-box-candy:
-    candy:
-      - ffmpeg
+    candy: [ffmpeg]
 ```
 
 All candies that need ffmpeg should declare it as a dependency rather than independently adding the negativo17 repo. This ensures a single authoritative install point.

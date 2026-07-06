@@ -324,12 +324,20 @@ another deploy by construction — and `validateCheckBeds` requires every bed to
 `disposable: true` and to resolve to a substrate (pod / vm / local / android, with
 the referenced vm/local/android entity present). Distinct beds therefore get distinct `charly-<bed>`
 container / libvirt-domain / image names. **Host-port disjointness is NOT
-statically guaranteed** — neither mechanism checks ports; assigning each bed
-non-overlapping host ports is the AUTHOR's responsibility, and an overlap
-surfaces only at deploy time when `CheckPortAvailability` fails the SECOND bed's
-`start`. Partition beds with disjoint ports BY CONSTRUCTION — the loader will
-not catch an overlap for you. A bed pins an image → layers → files, so owning a
-bed owns those source files.
+statically guaranteed, so EVERY eval bed MUST use PORT AUTO-ALLOCATION — never a
+hardcoded host port.** The loader checks no ports, so a hardcoded host port
+shared by two beds surfaces only at deploy time when `CheckPortAvailability` /
+passt's `Listen failed … Address already in use` fails the SECOND bed's `start`
+(a real concurrency defect this campaign hit: two VM beds both pinned SSH host
+`12227`). Manual "pick disjoint ports" deconfliction is FORBIDDEN — it is
+fragile authoring that silently collides the moment a bed is added or the roster
+runs concurrently. Use auto-allocation BY CONSTRUCTION: a `vm:` bed sets
+`ssh: {port_auto: true}` (the runner probes a free host port and persists it in
+`vm_state`); a `pod:`/`local:` deploy uses the `port: [auto]` sentinel
+(`AllocateAutoPorts` tracks an `occupied` set so concurrent `[auto]` deploys
+never collide) and references the assigned port via `${HOST_PORT}` /
+`${HOST:<member>:<port>}` in its checks — NEVER a literal host port. A bed pins
+an image → layers → files, so owning a bed owns those source files.
 
 Each bed is a **candybox** (CLAUDE.md "Candyboxing"): a disposable, secured
 deployment stocked with the FULL `charly` + MCP + `charly check` toolset, so the bed's
@@ -396,6 +404,61 @@ The playbook:
    store), **fails alone too → a real deterministic bug** (e.g. the pixelflux 404 a
    fragile `curl -sL | tar` masked as `tar: Child returned status 1`). With the store
    lock removed, RAM/disk/CPU have enough headroom that maxjobs ≈ 20-24 runs cleanly.
+4b. **Serialize beds that share an EXCLUSIVE host-resource token — the SECOND
+   concurrency ceiling, ORTHOGONAL to the store lock.** A bed declaring
+   `requires_exclusive:` / `requires_shared:` on a resource token (`nvidia-gpu`
+   for the real GPU; a synthetic selector-less token like `test-lock` for the
+   arbiter/preempt beds) contends with every OTHER bed claiming the same token:
+   the arbiter **FAST-FAILS** a second claim on a held exclusive token
+   (`resource nvidia-gpu is held EXCLUSIVELY by "<bed>" — cannot share it`,
+   exit 1, ZERO build steps — the bed never builds), because two live claims on
+   one exclusive resource is a contradiction, not a queue. So a PARALLEL roster
+   must PARTITION by token: each exclusive-token set runs as its OWN SERIAL group
+   (one bed at a time), while different token groups AND the no-token pool run in
+   PARALLEL. On this repo: `nvidia-gpu` = {check-cachyos-gpu-vm,
+   check-selkies-{kde,labwc}-nvidia-vm (exclusive) + check-cachyos-{comfyui,
+   unsloth-studio,immich-ml,jupyter-ml}-pod + check-versa-pod (shared)} — ALL
+   serial among themselves (an exclusive vfio flip cannot overlap a shared
+   nvidia+CDI claim); `test-lock` = {check-preempt-arbiter-pod,
+   check-preempt-live-pod, check-cross-pod-cdp} — serial (GPU-free, so parallel
+   with the nvidia-gpu group). A read-only GPU DETECTION bed
+   (`check-gpu-local`, `charly vm gpu status`) declares NO token → parallel pool.
+   The signature that tells the two ceilings apart: `held EXCLUSIVELY … cannot
+   share` at the ACQUIRE step (arbiter → serialize the token group) vs `database
+   is locked` MID-build (store lock → transient_store). NEVER release a sibling's
+   ACTIVE lease to force a parallel claim through — serialize the group instead
+   (a stranded lease from a killed claimant is cleared with `charly preempt
+   restore`, not by racing it).
+4c. **A parallel LONG-bed roster is owned by the persistent session as N
+   `run_in_background` tasks — NEVER the sub-agent `/verify-beds` workflow for
+   >600s beds.** A sub-agent's internal `charly check run` is ONE foreground call
+   (600s-capped), so a VM/GPU bed that outruns 600s is killed mid-run while a
+   sub-agent holds it (the "still running when forced to report" incomplete
+   verdict — a fan-out artifact, NOT a bed failure). The persistent session
+   survives across turns to receive each completion notification, so it is the
+   only owner that can hold a long bed (see "Handling a long-running bed"). And
+   **NEVER force-terminate a running roster:** SIGKILLing a bed's `charly box
+   build` mid-write corrupts the graphroot image (a partial image with a missing
+   `manifest` file → every later `podman images` fails exit 125 host-wide);
+   recover with `podman rmi -f <corrupt-id>` (the ID the error names). Let a
+   roster finish, or tear its deploys down with `charly vm destroy` / `charly
+   remove` — transient_store fixes the LOCK, not a hard mid-write kill.
+4d. **A shared-tree WALK must tolerate a concurrent sibling's transient build
+   artifacts — the FOURTH concurrency ceiling, invisible to every serial run.**
+   Beds run in ONE source tree, and a bed that builds in-tree (a candy's makepkg
+   under `pkgbuild/{pkg,src}`, a cargo `target/`, an npm `node_modules/`) creates
+   directories that are transiently unreadable (fakeroot-owned, mode-0700, or
+   half-written) WHILE a SIBLING bed's loader walks the same tree. A walk that
+   aborts on the first per-entry `EACCES` fails the sibling's ENTIRE
+   `LoadUnified` — surfacing as a bogus downstream error (this campaign: a
+   swallowed discover-walk `EACCES` on `candy/examplebuild-localpkg/pkgbuild/pkg`
+   became check-local's misleading "unknown kind:local template"). Root-cause
+   fix pattern: a tree walk SKIPS an unreadable/erroring subtree (`filepath.
+   SkipDir`) and continues — a discoverable manifest can never live in an
+   unreadable dir — and skips VCS/build-artifact dirs by name; it NEVER aborts
+   the whole load. Same lesson for any shared-state read under concurrency: don't
+   swallow the real error (it hides the class), and don't let one sibling's
+   transient artifact fail an unrelated bed.
 5. **The lead owns the single commit**, gated on the consolidated full
    final-code live test (the beds in parallel). Teammates never commit/push.
 

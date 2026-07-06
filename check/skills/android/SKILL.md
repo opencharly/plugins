@@ -28,14 +28,13 @@ the apps installed on it. The install machinery is shared — see "One installer
 ## `kind: android` — the device
 
 ```yaml
-# charly.yml — each device is its own name-first entity (the android: discriminator
-# holds scalars; non-scalar fields become child nodes)
+# charly.yml — each device is its own name-first entity; the android: value holds
+# the WHOLE body — scalars AND the non-scalar google_account:/adb: fields, inline
 pixel9a-36:                          # in-pod emulator device
     android:
         box: android-emulator       # `box:` source field → the `candy:` image that BAKES the emulator + system image
         device: pixel_9a             # informational (documents the baked AVD profile)
-        api_level: 36                # informational (the API level is a BUILD property of image:)
-    pixel9a-36-google_account:       # non-scalar field → child node
+        api_level: 36                # informational (the API level is a BUILD property of box:)
         google_account:              # credential-store secret-key refs for apkeep google-play
             email_secret: GOOGLE_ACCOUNT_EMAIL
             token_secret: GOOGLE_AAS_TOKEN
@@ -43,9 +42,8 @@ pixel9a-36:                          # in-pod emulator device
 my-phone:                            # remote/physical device
     android:
         serial: 192.168.1.50:5555
-    my-phone-adb:                    # non-scalar field → child node
-        adb:
-            host: 192.168.1.50:5555  # an adb SERVER addr (a host running `adb connect`)
+        adb:                         # an adb SERVER addr (a host running `adb connect`)
+            host: 192.168.1.50:5555
 ```
 
 **Device source is exclusive: `image:` XOR `adb:`.**
@@ -68,11 +66,10 @@ drivers. Two API levels = two images, each with its own `kind: android`.
 
 ```yaml
 # candy/my-android-apps/charly.yml — name-first: the candy name is the top-level key,
-# the apk: list is a child node
+# the apk: list is inline in the candy body
 my-android-apps:
     candy:
         version: 2026.145.1700
-    my-android-apps-apk:
         apk:
             - package: org.fdroid.fdroid   # apkeep download by id
               source: apk-pure             # apk-pure(default) | google-play | f-droid | huawei-app-gallery
@@ -95,15 +92,14 @@ image (preinstalled) instead.
 
 ```yaml
 # charly.yml — the device deploys INTO the emulator pod (pod → android), so it is a
-# resource node placed UNDER the android-stack deploy (was nested:)
+# resource node placed UNDER the android-stack deploy
 android-stack:
     pod:
         image: android-emulator
-    device:                              # deploy-into: applies apk: layers onto the device
+    device:                              # deploy-into member: applies apk: layers onto the device
         android:
             from: pixel9a-36             # → the kind: android device, deployed onto the emulator pod
-        device-add_candy:
-            add_candy:
+            add_candy:                   # deploy data inline in the substrate value
                 - my-android-apps        # layers whose apk: packages install onto the device
 ```
 

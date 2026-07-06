@@ -48,12 +48,11 @@ Reserved literal: `local`. Anything else (including `localhost`, `127.0.0.1`) go
 # Each deployment is a name-first deploy: the `local:` substrate kind at
 # the edge, `from:` selects the template, and `host:` selects direct shell vs SSH.
 
-# Direct local — host: omitted == "local". add_candy is a list, so it
-# lives in its own child node.
+# Direct local — host: omitted == "local". Deploy data (add_candy,
+# install_opts, …) lives inline in the substrate node.
 my-laptop:
   local:
     from: dev-workstation
-  my-laptop-add_candy:
     add_candy: [sshkeys]
 
 # Explicit local sentinel.

@@ -55,7 +55,13 @@ A step is a small record:
 
 **CUE has NO transformation capability.** CUE is monotone unification — it can validate, default, require, and close, and nothing more; it CANNOT rewrite a config. So CUE owns exactly two things here: the version pins (`#SchemaVersion` / `#SchemaFloor`) and the SHAPE of the declarative table (`#Migration` validates every entry at startup). Every actual transform is Go — the generic op-walker, or an `apply:` hook. Do not expect CUE to migrate anything.
 
-**The table currently ships EMPTY, reset to a clean baseline.** The floor is set at the reset version, so any config predating it is unmigratable — the accepted clean-slate consequence. The engine, the op vocabulary, and the floor gate are all live; the first future cutover appends the first entry.
+**The current table.** The floor sits at the migration-baseline reset version (`2026.174.1100`), so any config predating it is unmigratable — the accepted clean-slate consequence. The table carries ONE entry, the schema-compaction cutover:
+
+| version | name | touches_host | apply |
+|---|---|---|---|
+| `2026.186.2323` | `compact-node-form` | `true` | `compactNodeForm` (goHook) |
+
+The `compactNodeForm` hook is a structural reshape the four generic ops can't express: it folds the former named data/step child-node grammar into the compact node form — collections (`env`/`volume`/`port`/`service`/…) inline in the kind value, steps as the ordered `plan:` list (a meaningful former step-node name becomes the step's `id:`), deploy data (`add_candy`/`install_opts`/`vm_state`/…) inline in the substrate node, and every authored step `plugin:`+`plugin_input:` pair rewritten to the `<word>: <input>` verb sugar. Member children (sub-entities under a deployable kind) stay named children. Remote layer caches auto-migrate on fetch (see "Remote-cache auto-migration"). The same cutover DELETED the Calamares `target:` / `module:` / `package-group:` kinds (and their plugins) — they had zero core readers; they return as their own cutover when the installer feature is real.
 
 ## How it runs
 
@@ -78,7 +84,7 @@ Per-step backups follow the established `<file>.bak.<unix-ts>` convention.
 The load-time gate `gateSchemaVersion` (`charly/unified.go`) is unchanged: `LoadUnified` parses the merged `version:` and rejects anything below HEAD (or absent, or non-CalVer):
 
 ```
-charly.yml: schema 2026.174.1100 is required (found "4"). Run: charly migrate
+charly.yml: schema 2026.186.2323 is required (found "4"). Run: charly migrate
 ```
 
 A non-CalVer value (a legacy integer, empty, or garbage) parses as "older than every real CalVer", so a stale config trips the gate with a uniform `Run: charly migrate` hint — the forward-compat trigger that makes a future migration fire. Whether that migrate then SUCCEEDS depends on the floor: a config in `[floor, HEAD)` migrates; one below the floor is refused (see "How it runs"). Residual-key checks (e.g. `kind: deployment`, `target: host`, `secret_backend: kdbx`) remain as defense-in-depth, but every remediation hint points uniformly at bare `charly migrate`.
@@ -111,7 +117,7 @@ Running `charly migrate` twice is a no-op: after the first run the config is sta
 
 ## See Also
 
-- `/charly-image:layer` — the node-form candy schema migrations produce
+- `/charly-image:layer` — the compact-node-form candy schema migrations produce
 - `/charly-image:image` — `image:` entries + `charly box build/validate/inspect`
 - `/charly-core:deploy` — the deploy entries a migration may rewrite
 - `/charly-local:local-spec` — `kind: local` templates

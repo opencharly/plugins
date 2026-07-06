@@ -16,13 +16,13 @@ The `wl:` check verb is the unified desktop automation verb for wlroots composit
 
 ### Authoring a `wl:` step
 
-Each method is the declarative `wl:` step you author: the method name is the verb's YAML value, and method-specific fields (`x`, `y`, `text`, `key`, `combo`, `target`, `action`, `artifact`, `artifact_min_bytes`) are siblings of the verb line. Nested methods are hyphenated: `wl: overlay-show`, `wl: sway-tree`, `wl: sway-workspaces`. A query is a `check:` step; a side-effect action (click/type/exec/…) is a `run:` step. All `wl:` steps are **deploy-context only** (they need a running deployment), so author them with `context: [deploy]`. See `/charly-check:check` for the full method allowlist. Example:
+Each method is the declarative `wl:` step you author — an ordered list item under the candy/box `plan:`. The method name is the scalar value for a bare-method step (`wl: screenshot`), or the `method:` key of the `wl:` map when the step carries wl-exclusive fields (`x:`, `y:`, `x2:`, `y2:`, `button:`, `text:`, `key:`, `combo:`, `direction:`, `amount:`, `target:`, `action:`, `query:`, `command:`, `artifact:` and the artifact validators) — those live INSIDE the `wl:` map. Only the shared matchers (`stdout:`, `stderr:`, `exit_status:`) and `context:`/`id:`/`timeout:` stay siblings. Nested methods are hyphenated: `wl: overlay-show`, `wl: sway-tree`, `wl: sway-workspaces`. A query is a `check:` step; a side-effect action (click/type/exec/…) is a `run:` step. All `wl:` steps are **deploy-context only** (they need a running deployment), so author them with `context: [deploy]`. See `/charly-check:check` for the full method allowlist. Example:
 
 ```yaml
-desktop-captured:
-    check: a non-empty desktop screenshot is captured
-    wl: screenshot
-    context: [deploy]
+- check: a non-empty desktop screenshot is captured
+  context: [deploy]
+  wl:
+    method: screenshot
     artifact: /tmp/desktop.png
     artifact_min_bytes: 10000
 ```
@@ -38,25 +38,28 @@ desktop-captured:
 | Send key | `wl: key` + `key:` | Press a named key via wtype |
 | Key combo | `wl: key-combo` + `combo:` | Send key combination (ctrl+c, alt+tab) |
 | Move mouse | `wl: mouse` + `x:` + `y:` | Move pointer to absolute coordinates |
-| Scroll | `wl: scroll` + `x:` + `y:` + `action:` | Scroll at coordinates (up/down/left/right) |
-| Drag | `wl: drag` + `x:` + `y:` (+ end coords) | Drag between coordinates (experimental) |
+| Scroll | `wl: scroll` + `x:` + `y:` + `direction:` | Scroll at coordinates (up/down/left/right) |
+| Drag | `wl: drag` + `x:` + `y:` + `x2:` + `y2:` | Drag between coordinates (experimental) |
 | List windows | `wl: windows` | List windows (wlrctl toplevel, xdotool fallback) |
 | List toplevel | `wl: toplevel` | List Wayland toplevel windows via wlrctl |
 | Focus window | `wl: focus` + `target:` | Focus window (wlrctl toplevel, xdotool fallback) |
 | Close window | `wl: close` + `target:` | Close window via wlrctl toplevel |
 | Fullscreen | `wl: fullscreen` + `target:` | Toggle fullscreen via wlrctl toplevel |
 | Minimize | `wl: minimize` + `target:` | Toggle minimize via wlrctl toplevel |
-| Launch app | `wl: exec` + `text:` | Launch application in container |
-| Resolution | `wl: resolution` + `text:` | Set output resolution via wlr-randr |
-| Clipboard | `wl: clipboard` + `action:` | Read/write Wayland clipboard (get/set/clear) |
+| Launch app | `wl: exec` + `command:` | Launch application in container |
+| Resolution | `wl: resolution` + `target:` | Set output resolution via wlr-randr |
+| Clipboard | `wl: clipboard` + `action:` (+ `text:` for set) | Read/write Wayland clipboard (get/set/clear) |
 | Window props | `wl: xprop` + `target:` | Query X11 window properties |
 | Window rect | `wl: geometry` + `target:` | Get window position/size as JSON |
 | A11y tree | `wl: atspi` + `action: tree` | Dump accessibility tree as JSON |
-| A11y find | `wl: atspi` + `action: find` + `target:` | Find elements by name/role |
-| A11y click | `wl: atspi` + `action: click` + `target:` | Click element by name/role |
+| A11y find | `wl: atspi` + `action: find` + `query:` | Find elements by name/role |
+| A11y click | `wl: atspi` + `action: click` + `query:` | Click element by name/role |
 | Status | `wl: status` | Check all tool availability |
 | Overlay show | `wl: overlay-show` (+ overlay fields) | Show recording overlay (see `/charly-check:wl-overlay`) |
 | Overlay hide | `wl: overlay-hide` | Remove overlays |
+
+Every `+ <field>:` entry is a key INSIDE the `wl:` map (`wl: {method: scroll, x: …, y: …, direction: down}`);
+only `stdout:`/`stderr:`/`exit_status:` and `context:`/`id:`/`timeout:` are siblings.
 
 Run a candy's baked `wl:` steps against a live deployment with
 `charly check live <image> --filter wl` (add `-i <instance>` for multi-instance).
@@ -130,10 +133,10 @@ candy's baked steps with `charly check live <image> --filter wl` (add
 
 ### Key Combo
 ```yaml
-wl-key-combo:
-    run: send a key combination
-    wl: key-combo
-    context: [deploy]
+- run: send a key combination
+  context: [deploy]
+  wl:
+    method: key-combo
     combo: ctrl+shift+t        # also ctrl+c, alt+tab, super+l
 ```
 
@@ -141,61 +144,62 @@ Modifiers: `ctrl`/`control`, `alt`, `shift`, `super`/`win`/`logo`, `meta`. Uses 
 
 ### Scroll
 ```yaml
-wl-scroll:
-    run: scroll down at the desktop center
-    wl: scroll
-    context: [deploy]
+- run: scroll down at the desktop center
+  context: [deploy]
+  wl:
+    method: scroll
     x: 960
     y: 540
-    action: down               # up/down/left/right
+    direction: down            # up/down/left/right
 ```
 
 Uses xdotool click 4/5/6/7 (X11 scroll buttons) for XWayland windows. Falls back to wtype Page_Up/Page_Down.
 
 ### Drag (Experimental)
 ```yaml
-wl-drag:
-    run: drag from one point to another
-    wl: drag
-    context: [deploy]
+- run: drag from one point to another
+  context: [deploy]
+  wl:
+    method: drag
     x: 100
     y: 100
-    # end coordinates carried as the step's drag-target fields
+    x2: 400                    # end coordinates
+    y2: 300
 ```
 
 Requires XWayland (uses `xdotool mousemove + mousedown/mouseup`).
 
 ### Window Management (wlrctl toplevel)
 ```yaml
-wl-focus-chrome:
-    run: focus a window by title
-    wl: focus
-    context: [deploy]
+- run: focus a window by title
+  context: [deploy]
+  wl:
+    method: focus
     target: Chrome             # also close / fullscreen / minimize via the matching method
-wl-launch-terminal:
-    run: launch a terminal in the container
-    wl: exec
-    context: [deploy]
-    text: foot
+- run: launch a terminal in the container
+  context: [deploy]
+  wl:
+    method: exec
+    command: foot              # exec's argv rides wl's `command:` field
 ```
 
 `wl: toplevel` lists all windows; `wl: close` / `wl: fullscreen` / `wl: minimize` take the same `target:`.
 
 ### Resolution
 ```yaml
-wl-resolution:
-    run: set the output resolution
-    wl: resolution
-    context: [deploy]
-    text: 1920x1080            # auto-detect output
+- run: set the output resolution
+  context: [deploy]
+  wl:
+    method: resolution
+    target: 1920x1080          # auto-detect output
 ```
 
 ### Clipboard
 ```yaml
-wl-clipboard-set:
-    run: write the Wayland clipboard
-    wl: clipboard
-    context: [deploy]
+- run: write the Wayland clipboard
+  context: [deploy]
+  wl:
+    method: clipboard
     action: set
     text: hello
 ```
@@ -204,30 +208,29 @@ wl-clipboard-set:
 
 ### Window Geometry
 ```yaml
-wl-geometry:
-    check: the window geometry is reported
-    wl: geometry
-    context: [deploy]
+- check: the window geometry is reported
+  context: [deploy]
+  wl:
+    method: geometry
     target: Chrome             # returns JSON: {"x":0,"y":0,"width":1920,"height":1080}
-wl-xprop:
-    check: the active window's X11 properties are reported
-    wl: xprop
-    context: [deploy]
+- check: the active window's X11 properties are reported
+  context: [deploy]
+  wl: xprop
 ```
 
 ### AT-SPI2 Accessibility
 ```yaml
-wl-atspi-tree:
-    check: the accessibility tree is dumped
-    wl: atspi
-    context: [deploy]
+- check: the accessibility tree is dumped
+  context: [deploy]
+  wl:
+    method: atspi
     action: tree               # dump full accessibility tree as JSON
-wl-atspi-click:
-    run: click an element by name AND role
-    wl: atspi
-    context: [deploy]
+- run: click an element by name AND role
+  context: [deploy]
+  wl:
+    method: atspi
     action: click
-    target: "Save:button"      # name / role / "name:role"
+    query: "Save:button"       # name / role / "name:role"
 ```
 
 Requires `a11y-tools` layer. Chrome needs `--force-renderer-accessibility` flag.
@@ -240,16 +243,16 @@ click with a `wl: click` step at the reported desktop `x:`/`y:` (wlrctl pointer 
 critical for selkies-desktop which has no VNC):
 
 ```yaml
-submit-locate:
-    check: the submit button is located
-    cdp: coords
-    context: [deploy]
+- check: the submit button is located
+  context: [deploy]
+  cdp:
+    method: coords
     tab: "1"
     selector: "#submit-button"
-submit-wl-click:
-    run: deliver the click via the wl pointer at the reported desktop center
-    wl: click
-    context: [deploy]
+- run: deliver the click via the wl pointer at the reported desktop center
+  context: [deploy]
+  wl:
+    method: click
     x: 640
     y: 360
 ```
@@ -260,20 +263,19 @@ The sway IPC methods are the hyphenated `wl: sway-*` methods. They require a swa
 compositor (swaymsg) and error on labwc.
 
 ```yaml
-wl-sway-tree:
-    check: the sway window tree is reported
-    wl: sway-tree
-    context: [deploy]
-wl-sway-msg:
-    run: run any swaymsg command
-    wl: sway-msg
-    context: [deploy]
-    text: focus left
+- check: the sway window tree is reported
+  context: [deploy]
+  wl: sway-tree
+- run: run any swaymsg command
+  context: [deploy]
+  wl:
+    method: sway-msg
+    command: focus left        # sway-msg's argv rides wl's `command:` field
 ```
 
 Other sway methods: `wl: sway-workspaces` / `sway-outputs` (JSON queries),
 `sway-focus` / `sway-move` / `sway-resize` / `sway-kill` / `sway-floating` /
-`sway-layout` / `sway-workspace` (window/workspace control via `target:`/`action:`),
+`sway-layout` / `sway-workspace` (window/workspace control via `target:`),
 and `sway-reload` (reload sway config).
 
 ## Differences from VNC

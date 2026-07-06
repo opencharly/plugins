@@ -1,6 +1,6 @@
 ---
 name: layer-validator
-description: Blocking - Validates charly.yml structure before edits. Checks the high-value invariants (mandatory version, kind-keyed form, one-verb-per-run-step, requires references, the unified service schema) and defers the full field set to /charly-image:layer + `charly box validate`.
+description: Blocking - Validates charly.yml structure before edits. Checks the high-value invariants (mandatory version + description + one check: step, the compact one-kind-key node form, one-verb-per-step, requires references, the unified service schema) and defers the full field set to /charly-image:layer + `charly box validate`.
 tools: Read, Grep, Glob
 model: inherit
 ---
@@ -19,14 +19,22 @@ guessing.
 
 ## High-value invariants (check these)
 
-### 1. Kind-keyed form + mandatory version
+### 1. Compact node form + mandatory version / description / check step
 
-- The file is the `candy: { name: <name>, … }` wrapper form (the runtime
-  parser accepts only this shape; `charly migrate` converts legacy files).
+- The entity is `<name>:` with EXACTLY ONE kind key (`candy:`) whose value is
+  the COMPLETE body — scalars, collections (`package`/`env`/`service`/
+  `volume`/…) INLINE, and the steps as the ordered `plan:` list (the runtime
+  parser accepts only this compact shape; `charly migrate` converts legacy
+  files, including the former named data/step child-node grammar). The only
+  legal children beside the kind key are sub-ENTITY members, and ONLY under a
+  deployable kind (pod/vm/k8s/local/android/group) — a candy nests NO members,
+  so any second key under a candy entity is an error.
 - **`version:` is MANDATORY** — a CalVer `YYYY.DDD.HHMM`. `charly box validate`
   hard-errors when absent. Bump it when the layer's content changes (it is
   the per-entity identity that drives cross-repo resolution and the
   consuming image's `ai.opencharly.version` label).
+- **`description:` and a `plan:` with ≥1 deterministic `check:` step are
+  MANDATORY** (the ADE gate) — `charly box validate` hard-errors otherwise.
 
 ### 2. Dependencies (`require:` / `candy:`)
 
@@ -37,13 +45,18 @@ guessing.
 - A common mistake: `require: [pixi]` when you mean `require: [python]`
   (pixi installs the build tool; python installs Python via pixi).
 
-### 3. Plan `run:` steps — exactly one verb per entry
+### 3. Plan steps — one intent keyword + at most one verb-position key
 
-- The candy's operational list is `plan:` (a flat ordered list of steps).
-  Each state-change step is a `run:` step carrying **exactly one verb**
-  discriminator: `command` / `mkdir` / `copy` / `write` / `link` /
-  `download` / `setcap` / `build`. Zero or multiple verbs is a hard error.
-  (Deterministic probes are `check:` steps — see `/charly-check:check`.)
+- The candy's operational list is `plan:` (a flat ordered UNNAMED list of
+  steps; an optional `id:` names a step). Each step carries exactly ONE
+  intent keyword — `run:` / `check:` / `agent-run:` / `agent-check:` /
+  `include:` — plus **at most one verb-position key**: a builtin install
+  verb (`mkdir` / `copy` / `write` / `link` / `download` / `setcap` /
+  `build`) OR the plugin-verb sugar `<word>: <input>` (map = the verb's
+  input verbatim; scalar = the verb's primary-field shorthand). Multiple
+  verb keys on one step is a hard error.
+- Authoring `plugin:` or `plugin_input:` in a step is a HARD LOAD ERROR
+  (they are internal-only, produced by the parse-time desugar).
 - `copy:`/`write:` need `to:`/`content:` respectively; `download:` needs
   `to:` (unless `extract: sh`); `link:` needs `target:`.
 - `run_as:` per step: `root` / `${USER}` / literal username (created earlier
@@ -63,14 +76,16 @@ guessing.
 
 - `env:` is a **map** (`KEY: value`), never a list (`- KEY=value` fails to
   parse). `PATH` must NOT be set in `env:` — use `path_append:`.
-- `ports:` are 1–65535, plain int or protocol-annotated string
+- `port:` entries are 1–65535, plain int or protocol-annotated string
   (`tcp:5900`, `https+insecure:3000`, …).
 
 ### 6. Package sections
 
-- `rpm:` / `deb:` / `pac:` / `aur:` per-format (multi-distro layers carry
-  several; the generator picks by the image's `build:` list). `apk:` is the
-  device-scoped Android app-install format (NOT installed into the image).
+- Packages live ONLY in the `distro:` map (bare / versioned / compound
+  distro keys) plus the optional cross-distro `package:` base list; `aur:`
+  nests under `distro.arch`. A residual `rpm:` / `deb:` / `pac:` format key
+  is a hard load error. `apk:` is the device-scoped Android app-install
+  format (NOT installed into the image).
 - Volume names match `^[a-z0-9]+(-[a-z0-9]+)*$`; alias entries need `name` +
   `command`.
 
@@ -79,9 +94,9 @@ guessing.
 ```
 LAYER VALIDATION: <layer-name>
 
-[PASS/FAIL] Kind-keyed form + version: <details>
+[PASS/FAIL] Compact node form + version/description/check step: <details>
 [PASS/FAIL] requires/candy references: <details>
-[PASS/FAIL] plan run: steps (one verb each): <details>
+[PASS/FAIL] plan steps (one intent keyword + at most one verb key): <details>
 [PASS/FAIL] service schema: <details>
 [PASS/FAIL] env/path/ports: <details>
 [PASS/FAIL] package sections / volumes / aliases: <details>

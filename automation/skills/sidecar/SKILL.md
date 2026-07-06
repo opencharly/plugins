@@ -96,7 +96,6 @@ Missing `env_accept` on the consumer side silently drops the var. Missing `env_r
 selkies-desktop:
   pod:
     image: selkies-desktop
-  selkies-desktop-sidecar:
     sidecar:
       tailscale:
         env:
@@ -122,7 +121,6 @@ tailscale:
   sidecar:
     parameter:
       tailnet: ""            # required: deploy must supply via parameter.tailnet
-  tailscale-secret:
     secret:
       - name: ts-authkey
         env: TS_AUTHKEY                                                     # container var (what tailscale's binary reads)
@@ -135,7 +133,6 @@ tailscale:
 ecovoyage:
   pod:
     image: sway-browser-vnc
-  ecovoyage-sidecar:
     sidecar:
       tailscale:
         parameter:

@@ -31,13 +31,14 @@ without leaving the pod.
 ## Service spec
 
 ```yaml
-pmtiles-viewer-service:
-  service:
-    - name: pmtiles-viewer
-      exec: /usr/bin/python3 -m http.server 8001 --directory /opt/pmtiles-viewer/build
-      restart: always
-      working_directory: /opt/pmtiles-viewer
-      priority: 35
+pmtiles-viewer:
+  candy:
+    service:
+      - name: pmtiles-viewer
+        exec: /usr/bin/python3 -m http.server 8001 --directory /opt/pmtiles-viewer/build
+        restart: always
+        working_directory: /opt/pmtiles-viewer
+        priority: 35
 ```
 
 Pure stdlib server — no marimo-pixi-env coupling. The system
@@ -54,35 +55,35 @@ explicit base flag Vite defaults to whatever's configured in
 HTML bakes a subpath into `<script src>` references and they
 404 in the browser when served at root.
 
-The build override:
+The build override — an ordered `plan:` step:
 
 ```yaml
-pmtiles-viewer-step-build:
-  run: build the PMTiles app SPA from upstream source with the Vite --base=/ override
-  command: |
-    git clone --depth 1 https://github.com/protomaps/PMTiles /tmp/PMTiles
-    cd /tmp/PMTiles/app
-    npm ci --no-audit --no-fund
-    npm run build -- --base=/
-    cp -r dist /opt/pmtiles-viewer/build
-    cd /
-    rm -rf /tmp/PMTiles /root/.npm
-  run_as: root
+plan:
+  - run: build the PMTiles app SPA from upstream source with the Vite --base=/ override
+    command: |
+      git clone --depth 1 https://github.com/protomaps/PMTiles /tmp/PMTiles
+      cd /tmp/PMTiles/app
+      npm ci --no-audit --no-fund
+      npm run build -- --base=/
+      cp -r dist /opt/pmtiles-viewer/build
+      cd /
+      rm -rf /tmp/PMTiles /root/.npm
+    run_as: root
 ```
 
 The `check:` step (deploy context) greps the served HTML for forbidden
 subpath prefixes and fails if any are present:
 
 ```yaml
-pmtiles-viewer-asset-base-not-prefixed:
-  check: served HTML uses root-relative asset URLs
-  id: pmtiles-viewer-asset-base-not-prefixed
-  command: |
-    ! curl -fsS http://localhost:8001/ | grep -qE '"/(pmtiles|app)/'
-  context:
-    - deploy
-  in_container: true
-  exit_status: 0
+plan:
+  - check: served HTML uses root-relative asset URLs
+    id: pmtiles-viewer-asset-base-not-prefixed
+    context: [deploy]
+    exit_status: 0
+    command:
+      command: |
+        ! curl -fsS http://localhost:8001/ | grep -qE '"/(pmtiles|app)/'
+      in_container: true
 ```
 
 The step is a `check:` step, so it fails when the forbidden prefix is

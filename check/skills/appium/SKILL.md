@@ -34,72 +34,77 @@ the W3C escape hatch: `POST /session/<id>/execute/sync` with
 
 ### Authoring the `appium:` verb in a plan step
 
-The verb is the inline Op of a `check:` step node in the candy/box plan
-(deploy-context only — `context: [deploy]`); an Appium action that drives the
-UI is a `run:` step. Each step is its own named child node (named by its
-`id:`); there is no `plan:` list key.
+The verb is the inline Op of a step — an ordered list item under the candy/box
+`plan:` (deploy-context only — `context: [deploy]`); an Appium action that drives the
+UI is a `run:` step. The method name is the scalar value for a bare-method step
+(`appium: status`), or the `method:` key of the `appium:` map when the step carries
+appium-exclusive fields (`caps:`, `apk:`, `strategy:`, `selector:`, `text:`,
+`attribute:`, `app_id:`, `activity:`, `keycode:`, `params:`, `expression:`,
+`http_method:`, `path:`, `request_body:`, `session:`, `artifact:` and the artifact
+validators) — those live INSIDE the `appium:` map. Only the shared matchers
+(`stdout:`, `stderr:`, `exit_status:`) and `context:`/`id:`/`timeout:` stay siblings.
 
 ```yaml
-appium-up:
-    check: the Appium server reports ready
-    id: appium-up
-    appium: status
-    stdout: { contains: '"ready":true' }
-    context: [deploy]
-open-session:
-    run: open a W3C WebDriver session against the emulator
-    id: open-session
-    appium: session-create
+- check: the Appium server reports ready
+  id: appium-up
+  appium: status
+  stdout: { contains: '"ready":true' }
+  context: [deploy]
+- run: open a W3C WebDriver session against the emulator
+  id: open-session
+  appium:
+    method: session-create
     caps: |
-        {"platformName":"Android","appium:automationName":"UiAutomator2","appium:deviceName":"emulator-5554"}
-    context: [deploy]
-install:
-    run: install the ApiDemos test app
-    id: install
-    appium: install-app
+      {"platformName":"Android","appium:automationName":"UiAutomator2","appium:deviceName":"emulator-5554"}
+  context: [deploy]
+- run: install the ApiDemos test app
+  id: install
+  appium:
+    method: install-app
     apk: ./tests/data/ApiDemos-debug.apk   # HOST path; staged into the container by the verb
-    context: [deploy]
-tap-animation:
-    run: tap the Animation list entry
-    id: tap-animation
-    appium: click
+  context: [deploy]
+- run: tap the Animation list entry
+  id: tap-animation
+  appium:
+    method: click
     strategy: xpath
     selector: '//android.widget.TextView[@text="Animation"]'
-    context: [deploy]
-snapshot:
-    check: a screenshot of the post-tap screen is captured
-    id: snapshot
-    appium: screenshot
+  context: [deploy]
+- check: a screenshot of the post-tap screen is captured
+  id: snapshot
+  appium:
+    method: screenshot
     artifact: /tmp/post-tap.png
     artifact_min_bytes: 10000
-    context: [deploy]
-close:
-    run: close the WebDriver session
-    id: close
-    appium: session-delete
-    context: [deploy]
+  context: [deploy]
+- run: close the WebDriver session
+  id: close
+  appium: session-delete
+  context: [deploy]
 ```
 
 ## Quick Reference
 
 These are the `appium:` declarative-verb methods (NOT host CLI commands — there
-is no `charly check appium`). The method name is the `appium:` value; the
-modifiers below are sibling fields on the same `check:`/`run:` step node.
+is no `charly check appium`). The method name is the scalar `appium:` value for a
+bare-method step; when a step carries modifiers those go INSIDE the `appium:` map
+(`appium: {method: click, selector: …}`), and only `stdout:`/`stderr:`/`exit_status:`
+and `context:`/`id:`/`timeout:` stay siblings.
 
-| Method | Declarative form | Required modifier | Description |
+| Method | Declarative form | Required map field | Description |
 |---|---|---|---|
 | `status` | `appium: status` | — | GET /status, prints JSON, fails on HTTP != 200 |
-| `session-create` | `appium: session-create` + `caps:` | `caps:` | Create W3C session, persist id |
+| `session-create` | `appium: {method: session-create, caps: …}` | `caps:` | Create W3C session, persist id |
 | `session-delete` | `appium: session-delete` | — | Close session and remove file |
-| `install-app` | `appium: install-app` + `apk:` | `apk:` | mobile:installApp escape hatch |
-| `find` | `appium: find` + `selector:` (+ `strategy:`) | `selector:` | Find element, prints W3C id |
-| `click` | `appium: click` + `selector:` | `selector:` | Find + click |
-| `send-keys` | `appium: send-keys` + `selector:` + `text:` | `selector:`+`text:` | Find + type |
-| `screenshot` | `appium: screenshot` + `artifact:` | `artifact:` | GET /screenshot, decode base64, write PNG |
-| `get-text` | `appium: get-text` + `selector:` | `selector:` | find + GET .../text, prints element text |
-| `get-attribute` | `appium: get-attribute` + `selector:` + `attribute:` | `selector:`+`attribute:` | find + GET .../attribute/<a> (checked/enabled/text/...) |
-| `clear` | `appium: clear` + `selector:` | `selector:` | find + POST .../clear |
-| `find-all` | `appium: find-all` + `selector:` | `selector:` | POST /elements; prints count + ids |
+| `install-app` | `appium: {method: install-app, apk: …}` | `apk:` | mobile:installApp escape hatch |
+| `find` | `appium: {method: find, selector: …}` (+ `strategy:`) | `selector:` | Find element, prints W3C id |
+| `click` | `appium: {method: click, selector: …}` | `selector:` | Find + click |
+| `send-keys` | `appium: {method: send-keys, selector: …, text: …}` | `selector:`+`text:` | Find + type |
+| `screenshot` | `appium: {method: screenshot, artifact: …}` | `artifact:` | GET /screenshot, decode base64, write PNG |
+| `get-text` | `appium: {method: get-text, selector: …}` | `selector:` | find + GET .../text, prints element text |
+| `get-attribute` | `appium: {method: get-attribute, selector: …, attribute: …}` | `selector:`+`attribute:` | find + GET .../attribute/<a> (checked/enabled/text/...) |
+| `clear` | `appium: {method: clear, selector: …}` | `selector:` | find + POST .../clear |
+| `find-all` | `appium: {method: find-all, selector: …}` | `selector:` | POST /elements; prints count + ids |
 | `source` | `appium: source` | — | GET /source (UI hierarchy XML) |
 | `back` | `appium: back` | — | POST /back (navigate back) |
 
@@ -117,16 +122,16 @@ groups expose flat method names, e.g. `appium: gesture-tap` in a plan step.
 
 ### Tier 3 — generic escape hatch (the cdp-`raw` equivalent — 100% coverage)
 
-| Method | Declarative form | Required | Description |
+| Method | Declarative form | Required map field | Description |
 |---|---|---|---|
-| `execute` | `appium: execute` + `expression:` (+ `request_body:`) | `expression:` | `POST /execute/sync` — any `mobile:` command or JS. Object `request_body` → `[obj]`; array → as-is. Optional `selector:` resolves an element id for `{element}` substitution in `request_body`. |
-| `raw` | `appium: raw` + `method:` + `path:` (+ `request_body:`) | `method:`+`path:` | Any W3C call relative to `/session/<id>` (charly prepends it). `path:`/`request_body:` support the `{element}` token when `selector:` is set. Reaches **everything** including `mobile:` via `/execute/sync`. |
+| `execute` | `appium: {method: execute, expression: …}` (+ `request_body:`) | `expression:` | `POST /execute/sync` — any `mobile:` command or JS. Object `request_body` → `[obj]`; array → as-is. Optional `selector:` resolves an element id for `{element}` substitution in `request_body`. |
+| `raw` | `appium: {method: raw, http_method: …, path: …}` (+ `request_body:`) | `http_method:`+`path:` | Any W3C call relative to `/session/<id>` (charly prepends it). `http_method:` is the W3C HTTP verb (the input's `method:` is always the verb method `raw`); `path:`/`request_body:` support the `{element}` token when `selector:` is set. Reaches **everything** including `mobile:` via `/execute/sync`. |
 
 **`raw` is the coverage guarantee** — anything not covered by a typed method or
 sugar group is reachable here (e.g. `raw GET /element/{element}/rect`,
 `raw POST /timeouts {"implicit":10000}`).
 
-`--strategy` accepts: `xpath` (default), `id`, `accessibility-id`,
+`strategy:` accepts: `xpath` (default), `id`, `accessibility-id`,
 `class-name`, `android-uiautomator`, `name`, `css`. Mapped to W3C / Appium
 locator strings inside the implementation.
 
@@ -135,13 +140,15 @@ locator strings inside the implementation.
 ### W3C capabilities (not legacy JSONWire)
 
 Appium 3.x rejects the legacy JSONWire capability format with HTTP 400.
-**Always use W3C-style caps**:
+**Always use W3C-style caps** (the `caps:` value lives inside the `appium:` map):
 
 ```yaml
-caps: |
-  {"platformName":"Android",
-   "appium:automationName":"UiAutomator2",
-   "appium:deviceName":"emulator-5554"}
+appium:
+  method: session-create
+  caps: |
+    {"platformName":"Android",
+     "appium:automationName":"UiAutomator2",
+     "appium:deviceName":"emulator-5554"}
 ```
 
 The `appium:` vendor prefix is mandatory on Appium-specific keys
@@ -185,12 +192,13 @@ fired immediately after it returns "no such element". Set an implicit wait once
 after `session-create` so every `find` polls until the element renders:
 
 ```yaml
-set-implicit-wait:
-    run: set a W3C implicit wait so every find polls until the element renders
-    appium: raw
-    method: POST
+- run: set a W3C implicit wait so every find polls until the element renders
+  appium:
+    method: raw
+    http_method: POST
     path: /timeouts
     request_body: '{"implicit":10000}'
+  context: [deploy]
 ```
 
 (Verified: without it, ~half the per-screen checks fail the layout race; with
@@ -201,7 +209,7 @@ it, all pass. The `check-android-emulator-pod` bed does exactly this.)
 `execute` / `raw` resolve an element host-side when `selector:` is set and
 substitute its W3C id for the literal token `{element}` in `request_body:`
 (execute) and `path:`+`request_body:` (raw), e.g.
-`raw method: GET path: /element/{element}/text selector: …`. Single-brace
+`appium: {method: raw, http_method: GET, path: /element/{element}/text, selector: …}`. Single-brace
 `{element}` (deliberately NOT `${…}`) so the check runtime-variable resolver
 leaves it untouched. `charly box validate` errors if `{element}` appears with no
 `selector:`.
@@ -211,8 +219,8 @@ leaves it untouched. `charly box validate` errors if `{element}` appears with no
 On API 34, ApiDemos (and many apps) raise a runtime POST_NOTIFICATIONS dialog
 (`com.google.android.permissioncontroller`) on first launch that covers the
 app, so every find returns "no such element". Pre-grant the permission before
-driving the app: `adb: shell arg: [pm, grant, <pkg>, android.permission.POST_NOTIFICATIONS]`
-then `adb: shell arg: [am, force-stop, <pkg>]` for a clean launch.
+driving the app: `adb: {method: shell, arg: [pm, grant, <pkg>, android.permission.POST_NOTIFICATIONS]}`
+then `adb: {method: shell, arg: [am, force-stop, <pkg>]}` for a clean launch.
 
 ### WebView context switch needs a pinned chromedriver (NOT --allow-insecure)
 
@@ -234,31 +242,31 @@ API-34 system image is sdkmanager-fetched (no package exists).
 
 ## Method allowlist + required modifiers
 
-| Method | Required modifiers | Notes |
+| Method | Required map field | Notes |
 |---|---|---|
 | `status` | — | Bypasses the SDK — plain `http.Get` against `/status`. |
-| `session-create` | `Caps` | Accepts both flat `{"k":"v"}` and pre-wrapped `{"alwaysMatch":{"k":"v"}}`. Use `--caps @path.json` to read from file. Deletes any pre-existing session for the same image+instance first (best-effort), then `selenium.NewRemote` + persist. |
+| `session-create` | `caps:` | Accepts both flat `{"k":"v"}` and pre-wrapped `{"alwaysMatch":{"k":"v"}}`. Use `caps: @path.json` to read from file. Deletes any pre-existing session for the same image+instance first (best-effort), then `selenium.NewRemote` + persist. |
 | `session-delete` | — | Best-effort `DELETE /session/<id>` + `rm` of session file. No-op if no session exists. |
-| `install-app` | `Apk` | `Apk` is a HOST path. The verb stages it into the container via `<engine> cp`, then `POST /session/<id>/execute/sync` with `mobile: installApp` + `{appPath: <in-container-temp>}`, then removes the temp file. Symmetric with `adb: install`. |
-| `find` | `Selector` | `POST /session/<id>/element`, prints the W3C element id (a UUID-ish string). |
-| `click` | `Selector` | Find + `POST /session/<id>/element/<eid>/click`. Atomic. |
-| `send-keys` | `Selector`+`Text` | Find + `POST /session/<id>/element/<eid>/value` with `{text: <Text>}`. |
-| `screenshot` | `Artifact` | `GET /session/<id>/screenshot`, base64-decode, write to `Artifact`. Pairs with `artifact_min_bytes:`. |
-| `get-text` / `clear` / `find-all` | `Selector` | find-then-act over `/element[s]/<id>/{text,clear}` (find-all → `/elements`). |
-| `get-attribute` | `Selector`+`Attribute` | find + `GET .../attribute/<name>`. |
+| `install-app` | `apk:` | `apk:` is a HOST path. The verb stages it into the container via `<engine> cp`, then `POST /session/<id>/execute/sync` with `mobile: installApp` + `{appPath: <in-container-temp>}`, then removes the temp file. Symmetric with `adb: install`. |
+| `find` | `selector:` | `POST /session/<id>/element`, prints the W3C element id (a UUID-ish string). |
+| `click` | `selector:` | Find + `POST /session/<id>/element/<eid>/click`. Atomic. |
+| `send-keys` | `selector:`+`text:` | Find + `POST /session/<id>/element/<eid>/value` with `{text: <text>}`. |
+| `screenshot` | `artifact:` | `GET /session/<id>/screenshot`, base64-decode, write to `artifact:`. Pairs with `artifact_min_bytes:`. |
+| `get-text` / `clear` / `find-all` | `selector:` | find-then-act over `/element[s]/<id>/{text,clear}` (find-all → `/elements`). |
+| `get-attribute` | `selector:`+`attribute:` | find + `GET .../attribute/<name>`. |
 | `source` / `back` | — | `GET /source` / `POST /back`. |
-| `gesture-*` | — (element-or-xy enforced in `Run()`); `gesture-swipe`/`scroll`/`fling` need `Direction` | `mobile: <name>Gesture`; element id from `Selector`, else `X`/`Y`; `Percent`+`Params` merged into args. |
-| `app-start-activity` | `Activity` | `mobile: startActivity {intent}`. |
-| `app-activate`/`terminate`/`remove`/`clear`/`is-installed`/`state` | `AppId` | `mobile: <name>App {appId}`. |
+| `gesture-*` | — (element-or-xy enforced); `gesture-swipe`/`scroll`/`fling` need `direction:` | `mobile: <name>Gesture`; element id from `selector:`, else `x:`/`y:`; `percent:`+`params:` merged into args. |
+| `app-start-activity` | `activity:` | `mobile: startActivity {intent}`. |
+| `app-activate`/`terminate`/`remove`/`clear`/`is-installed`/`state` | `app_id:` | `mobile: <name>App {appId}`. |
 | `app-current-activity`/`current-package` | — | `mobile: getCurrent{Activity,Package}`. |
-| `key-press` | `Keycode` | `mobile: pressKey {keycode}` (+`Params`). |
+| `key-press` | `keycode:` | `mobile: pressKey {keycode}` (+`params:`). |
 | `key-hide`/`key-shown` | — | `mobile: hideKeyboard` / `isKeyboardShown`. |
 | `device-info`/`battery`/`time`/`notifications` | — | `mobile: deviceInfo`/`batteryInfo`/`getDeviceTime`/`openNotifications`. |
 | `device-orientation`/`contexts` | — | `GET /orientation` / `GET /contexts`. |
-| `device-set-orientation`/`set-clipboard` | `Params` | `POST /orientation` / `mobile: setClipboard`. |
-| `device-context`/`get-clipboard` | — | `device-context`: empty `Params` → `GET /context`, set → `POST /context {name}`. |
-| `execute` | `Expression` | `POST /execute/sync {script,args:[<RequestBody>]}`; `{element}` from `Selector`. |
-| `raw` | `Method`+`Path` | arbitrary W3C call under `/session/<id>`; `{element}` from `Selector`. |
+| `device-set-orientation`/`set-clipboard` | `params:` | `POST /orientation` / `mobile: setClipboard`. |
+| `device-context`/`get-clipboard` | — | `device-context`: empty `params:` → `GET /context`, set → `POST /context {name}`. |
+| `execute` | `expression:` | `POST /execute/sync {script,args:[<request_body>]}`; `{element}` from `selector:`. |
+| `raw` | `http_method:`+`path:` | arbitrary W3C call under `/session/<id>`; `{element}` from `selector:`. |
 
 ## Session-file format + location
 
@@ -289,20 +297,25 @@ Mode `0600`. Why XDG cache and NOT in-project / NOT `~/.local/share`:
 Override the session id for a single check with `session:`:
 
 ```yaml
-post-tap-shot:
-    check: capture a screenshot against an explicit session id
-    appium: screenshot
+- check: capture a screenshot against an explicit session id
+  appium:
+    method: screenshot
     artifact: /tmp/x.png
     session: 37e8f3c1-...   # bypass the session file
+  context: [deploy]
 ```
 
 ## Implementation
 
 The `appium:` verb and its `github.com/tebeka/selenium` dependency live in the
 out-of-tree `candy/plugin-appium` plugin module (an external-charly-verb
-plugin), NOT in charly's core (which carries no selenium dependency). The verb
-keeps its `appium:` discriminator + every modifier on charly's core closed
-`#Op`, so authoring is unchanged; at
+plugin), NOT in charly's core (which carries no selenium dependency). The verb's
+method enum + every appium modifier (including the absorbed `caps:` and the raw
+`http_method:`) live in the plugin's OWN input schema
+(`candy/plugin-appium/schema/appium.cue`, `#AppiumInput`), served over the Describe
+channel and spliced onto the base for validation — so authoring is unchanged
+(`appium: status`, not `plugin: appium`); the internal plugin/plugin_input wire
+envelope the sugar desugars to is never authored. At
 check time the host dispatches it through the provider registry —
 `providerRegistry.ResolveVerb("appium")` → the out-of-process `grpcProvider` →
 `invokeVerbProvider`, which hands the plugin the full `#Op` as params.

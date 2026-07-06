@@ -37,9 +37,7 @@ contributes.
 my-image:
   candy:
     base: fedora
-  my-image-candy:
-    candy:
-      - agent-forwarding
+    candy: [agent-forwarding]
 ```
 
 Included in all application boxes (27 total). Not included in base images (`fedora`, `arch`) or builder images (`fedora-builder`, `arch-builder`).

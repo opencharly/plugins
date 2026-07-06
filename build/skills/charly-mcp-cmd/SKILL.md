@@ -26,16 +26,15 @@ The `mcp:` check verb connects to Model Context Protocol servers declared by run
 
 ### Authoring shape
 
-Each `mcp:` step is a `check:` step node in a candy/box plan. The method name becomes the verb's YAML value; method-specific args are sibling fields (`tool:`, `uri:`, `input:`, `mcp_name:`). A probe is a `check:` step node — a top-level, name-first node (there is no `plan:` list key). Shared matchers (`stdout:`, `stderr:`, `exit_status:`, `timeout:`) work like other verbs. See `/charly-check:check` for the parent router and the complete method allowlist. Example:
+Each `mcp:` step is a `check:` step — an ordered list item under a candy/box `plan:`. The method name is the scalar value for a bare-method step (`mcp: ping`), or the `method:` key of the `mcp:` map when the step carries mcp-exclusive fields (`tool:`, `uri:`, `input:`, `mcp_name:`) — those live INSIDE the `mcp:` map. Only the shared matchers (`stdout:`, `stderr:`, `exit_status:`) and `context:`/`timeout:`/`id:` stay siblings. See `/charly-check:check` for the parent router and the complete method allowlist. Example:
 
 ```yaml
-jupyter-mcp-list-tools:
-    check: jupyter exposes its core notebook mcp tools
-    mcp: list-tools
-    context: [deploy]
-    stdout:
-        - contains: insert_cell
-        - contains: execute_cell
+- check: jupyter exposes its core notebook mcp tools
+  context: [deploy]
+  mcp: list-tools
+  stdout:
+    - contains: insert_cell
+    - contains: execute_cell
 ```
 
 ## Quick Reference
@@ -47,13 +46,14 @@ jupyter-mcp-list-tools:
 | List tools | `mcp: list-tools` | Tool name + first-line description per line |
 | List resources | `mcp: list-resources` | URI + name + MIME type per line |
 | List prompts | `mcp: list-prompts` | Prompt name + description per line |
-| Call | `mcp: call` + `tool:` (+ optional `input:`) | Invoke a tool; emits TextContent payload |
-| Read | `mcp: read` + `uri:` | Read a resource; emits Text content |
+| Call | `mcp: {method: call, tool: …}` (+ optional `input:`) | Invoke a tool; emits TextContent payload |
+| Read | `mcp: {method: read, uri: …}` | Read a resource; emits Text content |
 
-Every method accepts:
-- `mcp_name: <server>` — disambiguate when the image declares multiple `mcp_provide` entries
-- `timeout: <duration>` — per-operation timeout (default 30s)
-- the shared matchers (`stdout:`, `stderr:`, `exit_status:`)
+The `tool:`/`uri:`/`input:`/`mcp_name:` fields live INSIDE the `mcp:` map; a
+bare-method step (`mcp: ping`) uses the scalar form. Every method accepts:
+- `mcp_name: <server>` (in the map) — disambiguate when the image declares multiple `mcp_provide` entries
+- `timeout: <duration>` (a shared `#Op` sibling) — per-operation timeout (default 30s)
+- the shared matchers (`stdout:`, `stderr:`, `exit_status:`) as siblings
 
 Output is always tab-separated plaintext fed to the matcher pipeline (no `--json` form — that was a property of the retired host CLI). Run a candy's baked `mcp:` steps against a live deployment with `charly check live <image> --filter mcp`.
 
@@ -78,12 +78,11 @@ Each method is shown as the declarative `mcp:` step you author. Run them against
 ### Ping
 
 ```yaml
-jupyter-mcp-ping:
-    check: the jupyter mcp server responds to ping
-    mcp: ping
-    context: [deploy]
-    stdout:
-        equals: ok
+- check: the jupyter mcp server responds to ping
+  context: [deploy]
+  mcp: ping
+  stdout:
+    equals: ok
 ```
 
 Calls `ClientSession.Ping(ctx, nil)`. Passes iff the server responds. Useful as a liveness check, often paired with a short `timeout:`.
@@ -91,12 +90,11 @@ Calls `ClientSession.Ping(ctx, nil)`. Passes iff the server responds. Useful as 
 ### Servers (discovery only, no dial)
 
 ```yaml
-jupyter-mcp-servers:
-    check: the image advertises the jupyter mcp server
-    mcp: servers
-    context: [deploy]
-    stdout:
-        contains: jupyter        # emits "<name>\t<url>\t<transport>" per server, e.g. jupyter http://localhost:8888/mcp http
+- check: the image advertises the jupyter mcp server
+  context: [deploy]
+  mcp: servers
+  stdout:
+    contains: jupyter        # emits "<name>\t<url>\t<transport>" per server, e.g. jupyter http://localhost:8888/mcp http
 ```
 
 Reads `mcp_provide` from the OCI label, applies template substitution + pod-aware rewrite, emits the result. No MCP handshake — metadata only. Useful for confirming which server names the image advertises before dialing.
@@ -104,13 +102,12 @@ Reads `mcp_provide` from the OCI label, applies template substitution + pod-awar
 ### List tools / resources / prompts
 
 ```yaml
-jupyter-mcp-list-tools:
-    check: the jupyter mcp server exposes its notebook tools
-    mcp: list-tools
-    context: [deploy]
-    stdout:
-        - contains: list_notebooks   # "list_notebooks\tList all notebooks accessible in the workspace."
-        - contains: execute_cell
+- check: the jupyter mcp server exposes its notebook tools
+  context: [deploy]
+  mcp: list-tools
+  stdout:
+    - contains: list_notebooks   # "list_notebooks\tList all notebooks accessible in the workspace."
+    - contains: execute_cell
 ```
 
 Plaintext output is tab-separated (`name\tfirst-line-of-description`) for easy `contains:` matching without JSON parsing. Multi-line descriptions collapse to the first non-empty line. `list-resources` emits `uri\tname\tmime`; `list-prompts` emits `name\tdescription`. The provider automatically pages through `NextCursor` so all results return in a single invocation.
@@ -118,13 +115,13 @@ Plaintext output is tab-separated (`name\tfirst-line-of-description`) for easy `
 ### Call a tool
 
 ```yaml
-jupyter-mcp-call-list-notebooks:
-    check: list_notebooks returns successfully
-    mcp: call
-    context: [deploy]
+- check: list_notebooks returns successfully
+  context: [deploy]
+  mcp:
+    method: call
     tool: list_notebooks          # required
     input: "{}"                   # optional JSON arg blob; omit for zero-arg tools
-    exit_status: 0                # assert no IsError
+  exit_status: 0                  # assert no IsError (shared #Op sibling)
 ```
 
 The `input:` field is the tool's arguments as a JSON object (optional — omit for zero-arg tools), parsed with `encoding/json`. Returned `TextContent` blocks emit one per line; `ImageContent` / `AudioContent` emit a `[image content: <mime>, <N> bytes]` placeholder. If the server sets `IsError: true`, the step FAILS with the error text.
@@ -132,13 +129,13 @@ The `input:` field is the tool's arguments as a JSON object (optional — omit f
 ### Read a resource
 
 ```yaml
-mcp-read-resource:
-    check: reading a resource returns a non-empty body
-    mcp: read
-    context: [deploy]
+- check: reading a resource returns a non-empty body
+  context: [deploy]
+  mcp:
+    method: read
     uri: file:///workspace/data.txt   # required
-    stdout:
-        - matches: "."                # non-empty body
+  stdout:
+    - matches: "."                # non-empty body
 ```
 
 Calls `ReadResource(URI: …)`. Text content is emitted to stdout; binary blobs emit a `[binary resource …]` placeholder.
@@ -148,11 +145,11 @@ Calls `ReadResource(URI: …)`. Text content is emitted to stdout; binary blobs 
 When an image declares more than one `mcp_provide` entry, every `mcp:` step requires the `mcp_name:` modifier; without it the step FAILS with `image provides multiple mcp servers; use mcp_name (available: jupyter, chrome-devtools)`:
 
 ```yaml
-chrome-devtools-mcp-ping:
-    check: the chrome-devtools mcp server responds to ping
-    mcp: ping
+- check: the chrome-devtools mcp server responds to ping
+  context: [deploy]
+  mcp:
+    method: ping
     mcp_name: chrome-devtools
-    context: [deploy]
 ```
 
 No existing image ships multiple providers today — `jupyter` layers expose one server (`jupyter`), `chrome-devtools-mcp` exposes one (`chrome-devtools`). The disambiguation exists for future compositions.
@@ -175,11 +172,10 @@ declare `ports: [9224:9224]` in the image or run the test from inside the pod
 sway-browser-vnc:
     pod:
         image: sway-browser-vnc
-sway-browser-vnc-port:
-    port:
-        - 5900:5900
-        - 9250:9222
-        - 9224:9224   # ← add this
+        port:
+            - "5900:5900"
+            - "9250:9222"
+            - "9224:9224"   # ← add this
 ```
 
 … or remove the `port:` override entirely so the image default (which already includes 9224) applies. Re-run `charly config <image>` and restart the service (`charly stop && charly start` — `charly update` may no-op if the image tag hasn't changed).
@@ -222,52 +218,50 @@ The plaintext is fed straight to the matcher pipeline. There is no JSON output f
 
 ## Declarative authoring examples
 
-Checks currently shipping in the three provider candies (`candy/jupyter/charly.yml`, `candy/jupyter-ml/charly.yml`, `candy/chrome-devtools-mcp/charly.yml`), in each candy's plan (as top-level `check:` step nodes):
+Checks currently shipping in the three provider candies (`candy/jupyter/charly.yml`, `candy/jupyter-ml/charly.yml`, `candy/chrome-devtools-mcp/charly.yml`), as list items under each candy's `plan:`:
 
 ```yaml
 # Liveness check — fastest sanity verification
-jupyter-mcp-ping:
-    check: the jupyter mcp server responds to ping
-    mcp: ping
-    context: [deploy]
-    timeout: 10s
+- check: the jupyter mcp server responds to ping
+  context: [deploy]
+  mcp: ping
+  timeout: 10s
 
 # Catalog assertion — ensure the server exposes the tools we expect
-jupyter-mcp-list-tools:
-    check: the jupyter mcp server exposes the expected tools
-    mcp: list-tools
-    context: [deploy]
-    stdout:
-        - contains: insert_cell
-        - contains: execute_cell
+- check: the jupyter mcp server exposes the expected tools
+  context: [deploy]
+  mcp: list-tools
+  stdout:
+    - contains: insert_cell
+    - contains: execute_cell
 
 # Real tool invocation — exercises the full request/response path
-jupyter-mcp-call-list-notebooks:
-    check: list_notebooks returns successfully
-    mcp: call
-    context: [deploy]
+- check: list_notebooks returns successfully
+  context: [deploy]
+  mcp:
+    method: call
     tool: list_notebooks
     input: "{}"
-    exit_status: 0
+  exit_status: 0
 
 # Tool with arguments
-jupyter-mcp-call-get-notebook:
-    check: get_notebook returns a notebook with cells
-    mcp: call
-    context: [deploy]
+- check: get_notebook returns a notebook with cells
+  context: [deploy]
+  mcp:
+    method: call
     tool: get_notebook
     input: '{"path":"getting-started.ipynb"}'
-    stdout:
-        - contains: cells
+  stdout:
+    - contains: cells
 
 # Resource read
-jupyter-mcp-read-prompt:
-    check: a prompt resource reads back non-empty
-    mcp: read
-    context: [deploy]
+- check: a prompt resource reads back non-empty
+  context: [deploy]
+  mcp:
+    method: read
     uri: file:///workspace/prompt.txt
-    stdout:
-        - matches: "."
+  stdout:
+    - matches: "."
 ```
 
 Each `mcp:` step is a `check:` step — a deterministic probe that satisfies the mandatory-ADE gate. **Deploy-context only.** `mcp:` steps require a running container with the mcp port published; `charly box validate` rejects build-context mcp steps at authoring time, and `charly check box` skips them at runtime with the message `"mcp: <method> requires a running container (skip under charly check box)"`. Follow the same rule as the other four live-container verbs — `cdp`, `wl`, `dbus`, `vnc`.

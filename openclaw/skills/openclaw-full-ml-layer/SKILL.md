@@ -25,11 +25,10 @@ This metalayer extends `openclaw-full` with ML capabilities:
 ## Usage
 
 ```yaml
-# box charly.yml — composition is a child node, not a top-level list
+# box charly.yml — composition is an inline candy: list in the body
 openclaw-full-ml-box:
     candy:
         base: nvidia
-    openclaw-full-ml-box-candy:
         candy:
             - openclaw-full-ml
 ```
@@ -56,5 +55,5 @@ Use when the user asks about:
 
 ## Related
 
-- `/charly-image:layer` — candy authoring reference (`charly.yml` schema, task verbs, service declarations)
+- `/charly-image:layer` — candy authoring reference (`charly.yml` schema, plan steps, service declarations)
 - `/charly-check:check` — declarative testing (`check:` block, `charly check box`, `charly check live`)

@@ -17,13 +17,11 @@ description: |
 ## Usage
 
 ```yaml
-# box or candy charly.yml — composition is a child node, not a top-level list
+# box charly.yml — compose the candy as an inline list in the box body
 my-box:
     candy:
         base: fedora
-    my-box-candy:
-        candy:
-            - codex
+        candy: [codex]
 ```
 
 ## Used In Boxes

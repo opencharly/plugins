@@ -92,13 +92,11 @@ stream.
 ## Usage
 
 ```yaml
-# charly.yml — name-first; the charly candy is now composed into all supervisord images
+# charly.yml — the charly candy is composed into all supervisord images
 my-image:
   candy:
     base: fedora
-  my-image-candy:
-    candy:
-      - charly
+    candy: [charly]
 ```
 
 ## Used In Boxes

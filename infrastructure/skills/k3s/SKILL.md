@@ -34,12 +34,11 @@ Typically not used directly — compose `/charly-infrastructure:k3s-server` or
 `/charly-infrastructure:k3s-agent` (both depend on this candy).
 
 ```yaml
-# For a bare binary-only image (rare) — a box composes the candy through a
-# <box>-candy child node (node-form: every non-scalar field is its own node):
+# For a bare binary-only image (rare) — a box composes the candy via an
+# inline candy: list in its body:
 k3s-base:
   candy:
     base: fedora
-  k3s-base-candy:
     candy:
       - k3s
 ```

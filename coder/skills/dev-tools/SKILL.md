@@ -26,41 +26,42 @@ RPM (with `--setopt=tsflags=noscripts`): `android-tools`, `apptainer`, `apptaine
 
 - Arch: `apptainer-suid`, `dislocker`, `ecryptfs-utils`, `fuse-dislocker`, `podman-machine`, `podman-remote`, `podman-tui` — not packaged.
 - Debian: same drops as Arch, plus `arch-install-scripts` (obviously) and `apptainer` itself (only in bookworm-backports, skipped on trixie).
-- Ubuntu 24.04: additionally drops `fastfetch` — package not in noble main. Handled by a `ubuntu:24.04:` tag section that re-lists the deb packages minus fastfetch.
+- Ubuntu: additionally drops `fastfetch` — package not in noble main. Because the distro-specificity cascade unions packages (it cannot subtract), fastfetch is simply omitted from every Ubuntu package level rather than removed by an override.
 
 ### bat → batcat symlink (Debian/Ubuntu)
 
 Both Debian and Ubuntu rename `bat` → `batcat` in their archives to avoid a namespace collision with a legacy `bacula` utility. The `bat` package installs only `/usr/bin/batcat`; nothing lives at `/usr/bin/bat`. To keep downstream scripts, docs, and declarative tests portable, the candy ships a distro-tolerant symlink plan step:
 
 ```yaml
-# a child step node under the dev-tools candy entity
-dev-tools-symlink-bat:
-    run: symlink batcat to bat on Debian/Ubuntu
-    command: |
-        if [ -f /usr/bin/batcat ] && [ ! -e /usr/bin/bat ]; then
-          ln -sf /usr/bin/batcat /usr/bin/bat
-        fi
-    run_as: root
+# a plan step under the dev-tools candy's plan: list
+plan:
+    - run: symlink batcat to bat on Debian/Ubuntu
+      command: |
+          if [ -f /usr/bin/batcat ] && [ ! -e /usr/bin/bat ]; then
+            ln -sf /usr/bin/batcat /usr/bin/bat
+          fi
+      run_as: root
 ```
 
 No-op on Fedora/Arch (where `/usr/bin/bat` already exists from the distro package) — the guard short-circuits. Creates the symlink on Debian/Ubuntu. Idempotent across rebuilds.
 
-### fastfetch test — `exclude_distros: [ubuntu:24.04]`
+### fastfetch test — `exclude_distro: [ubuntu]`
 
-The `fastfetch-binary` test is declared with an `exclude_distros:` filter:
+The `fastfetch-binary` test is declared with an `exclude_distro:` filter:
 
 ```yaml
-# an id-named check step node under the dev-tools candy entity
-fastfetch-binary:
-    check: the fastfetch binary is installed (skipped on ubuntu:24.04)
-    id: fastfetch-binary
-    file: /usr/bin/fastfetch
-    exists: true
-    exclude_distros:
-        - ubuntu:24.04
+# a plan step in the dev-tools candy's plan: list
+plan:
+    - check: the fastfetch binary is installed (skipped on Ubuntu)
+      id: fastfetch-binary
+      exclude_distro:
+          - ubuntu
+      file:
+          file: /usr/bin/fastfetch
+          exists: true
 ```
 
-On images whose `ai.opencharly.platform.distro` OCI label includes `ubuntu:24.04`, the test runner skips this check with a reason — see `/charly-check:check` "`exclude_distros:` field". This was added because dropping fastfetch from the `ubuntu:24.04:` tag section is clean, but the baked test probe would otherwise false-fail.
+On images whose `ai.opencharly.platform.distro` OCI label includes `ubuntu`, the test runner skips this check with a reason — see `/charly-check:check` "`exclude_distro:` field". fastfetch is omitted from the Ubuntu package set, so the baked test probe would otherwise false-fail on Ubuntu.
 
 ### Git tooling lives in `/charly-coder:gh`
 
@@ -73,13 +74,11 @@ you want the git tooling, compose `/charly-coder:gh` alongside
 ## Usage
 
 ```yaml
-# charly.yml — composition is a child node, not a top-level list
+# charly.yml — compose the candy as an inline list in the box body
 my-dev:
     candy:
         base: fedora
-    my-dev-candy:
-        candy:
-            - dev-tools
+        candy: [dev-tools]
 ```
 
 ## Used In Boxes
@@ -98,8 +97,8 @@ my-dev:
 ## Related Commands
 - `/charly-build:build` — Build boxes that ship the dev-tools package set
 - `/charly-core:shell` — Interactive shell to use bat/ripgrep/neovim/etc.
-- `/charly-check:check` — `exclude_distros:` field reference for the fastfetch-binary test
-- `/charly-image:layer` — authoring reference for distro-tolerant `command:` plan steps and `exclude_distros:`
+- `/charly-check:check` — `exclude_distro:` field reference for the fastfetch-binary test
+- `/charly-image:layer` — authoring reference for distro-tolerant `command:` plan steps and `exclude_distro:`
 
 ## When to Use This Skill
 

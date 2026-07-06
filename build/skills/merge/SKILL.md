@@ -50,18 +50,17 @@ charly box merge --all
 
 ## Configuration in charly.yml
 
-The unified form is name-first: the image entity carries its scalars under
-`candy:` (an image is a `candy:` node carrying `base:`/`from:`), and the `merge:`
-map is its own child node `<name>-merge:`.
+The unified form is name-first: the image entity carries its scalars — including
+the `merge:` map — inline in its `candy:` kind value (an image is a `candy:` node
+carrying `base:`/`from:`).
 
 ```yaml
 sway-browser-vnc:
     candy:
         base: fedora
-sway-browser-vnc-merge:
-    merge:
-        auto: true      # Include in `charly box merge --all`
-        max_mb: 128     # Size threshold (default: 128)
+        merge:
+            auto: true      # Include in `charly box merge --all`
+            max_mb: 128     # Size threshold (default: 128)
 ```
 
 ## How It Works

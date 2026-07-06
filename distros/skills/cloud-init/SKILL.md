@@ -27,9 +27,7 @@ my-cloud-image:
   candy:
     base: "quay.io/fedora/fedora-bootc:43"
     bootc: true
-  my-cloud-image-candy:
-    candy:
-      - cloud-init
+    candy: [cloud-init]
 ```
 
 ## Used In Boxes
