@@ -30,7 +30,7 @@ Every push of an charly-project repo (one with an `charly.yml`) carries a **fres
 
 ## The migration table (declarative data)
 
-The migration steps are **declarative DATA, not code**: an ordered list embedded from **`candy/plugin-migrate/migrations.cue`** (the TABLE lives in candy/plugin-migrate), validated at process start against the `#Migration` schema (`sdk/schema/migration.cue`). Each step is stamped with the CalVer of the date it landed and listed **chronologically** — the order the cutovers were authored in, which is the only correct replay order for an arbitrarily-old config. `charly migrate` applies every step whose version is newer than the config's stamp; each step is idempotent, so applying the whole set is safe (an already-current file is a no-op).
+The migration steps are **declarative DATA, not code**: an ordered list embedded from **`candy/plugin-migrate/migrations.cue`** (the TABLE lives in candy/plugin-migrate), validated at process start against the `#Migration` schema (`candy/plugin-migrate/schema/migration.cue` — a plugin-only validation schema that lives in the plugin per the kernel/plugin boundary law, concatenated at compile with the SDK's `version.cue` for `#CanonCalVer`). Each step is stamped with the CalVer of the date it landed and listed **chronologically** — the order the cutovers were authored in, which is the only correct replay order for an arbitrarily-old config. `charly migrate` applies every step whose version is newer than the config's stamp; each step is idempotent, so applying the whole set is safe (an already-current file is a no-op).
 
 A step is a small record:
 
