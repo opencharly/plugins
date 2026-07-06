@@ -24,17 +24,18 @@ channel enumeration, native display-channel image decode, and input injection.
 VM-only — it needs a running libvirt VM that exposes a `<graphics type='spice'>`
 device.
 
-### The host pre-resolves the endpoint; the plugin speaks the wire
+### The plugin resolves its endpoint via a reverse-leg; then speaks the wire
 
-charly core owns NO go-libvirt. The host (`preresolveSpiceEndpoint`,
-charly/spice_preresolve.go) DELEGATES the vm.yml → libvirt-domain → live-XML →
-`<graphics type='spice'>` resolution to the out-of-process vm plugin
+charly core owns NO go-libvirt. The out-of-process spice plugin resolves its own
+dialable endpoint through the GENERIC `cc.ResolveGraphicsEndpoint("spice")`
+reverse-leg; the host side of that leg (`resolveVerbGraphics` in
+`charly/check_endpoint_resolve.go`) DELEGATES the vm.yml → libvirt-domain →
+live-XML → `<graphics type='spice'>` resolution to the out-of-process vm plugin
 (`invokeVmPlugin("resolve-spice", …)` → candy/plugin-vm's `ResolveVmTarget` /
 `SpiceEndpoint`, where the go-libvirt deps live), passing the resolved VM-entity
-name (`Runner.vmTargetName()`) as the domain target. It opens any qemu+ssh:// side
-tunnel itself from the returned endpoint and hands the spice plugin a plain
-DIALABLE endpoint via the CheckEnv. The spice plugin just dials it and runs the
-method.
+name (`Runner.vmTargetName()`) as the domain target. The host opens any qemu+ssh://
+side tunnel itself (tracked for post-Invoke teardown) and returns a plain DIALABLE
+endpoint (+ the SPICE ticket); the spice plugin just dials it and runs the method.
 
 ## Authoring the `spice:` verb in a plan step
 
@@ -181,10 +182,11 @@ charly's core (which carries no SPICE library and no opus/portaudio cgo deps).
 
 Host side:
 
-- `charly/spice_preresolve.go` — `preresolveSpiceEndpoint`: delegates vm.yml →
-  libvirt domain → live XML → SPICE endpoint to the vm plugin, opens any
-  qemu+ssh:// side tunnel, and hands the spice plugin a dialable `SpiceEnv` via
-  the CheckEnv. Stays in core (it owns no go-libvirt).
+- `charly/check_endpoint_resolve.go` — `resolveVerbGraphics("spice")`, the host side
+  of the `cc.ResolveGraphicsEndpoint` reverse-leg: delegates vm.yml → libvirt domain →
+  live XML → SPICE endpoint to the vm plugin, opens any qemu+ssh:// side tunnel, and
+  returns a dialable endpoint (+ ticket) to the spice plugin. Stays in core (it owns no
+  go-libvirt); shared with `vnc:` (the venue-aware vnc/spice resolution is one function).
 - `candy/plugin-vm/vm_target.go` — the OUT-OF-PROCESS VM target resolution
   (`ResolveVmTarget` / `SpiceEndpoint`, go-libvirt); `VmTarget.XML` gives the live
   `libvirtxml.Domain`. The host reaches it via `invokeVmPlugin("resolve-spice", …)`,

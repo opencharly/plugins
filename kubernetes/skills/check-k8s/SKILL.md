@@ -53,9 +53,9 @@ map). The only shared `#Op` sibling a `kube:` step commonly carries is `timeout:
 
 ## Cluster selection
 
-Every method accepts the same three cluster-selection modifiers, resolved
-host-side (by `preresolveKubeCluster`) in this precedence BEFORE the Op is
-marshaled to the plugin:
+Every method accepts the same three cluster-selection modifiers. The plugin
+resolves the `cluster:` profile to a concrete kubeconfig context via the generic
+`cc.ResolveClusterContext` reverse-leg; the precedence is:
 
 1. `kubeconfig: <path>` — direct kubeconfig file pointer. Overrides
    everything.
@@ -196,10 +196,10 @@ charly's core binary.
   No client-go import remains in core.
 - `charly/k8s_config.go` — `findK8sSpec` looks up a `K8sSpec` (`kind: k8s`
   cluster template) by name from the project `charly.yml` / `k8s.yml`, and
-  `preresolveKubeCluster` uses it to turn a `kube:` step's `cluster:` profile
-  name into a concrete kubeconfig context HOST-side (copy-on-write) before
-  the Op is marshaled — the out-of-process plugin cannot reach the project
-  loader itself.
+  `resolveClusterContext` (the host side of the `cc.ResolveClusterContext`
+  reverse-leg) uses it to turn a `kube:` step's `cluster:` profile name into a
+  concrete kubeconfig context — the out-of-process plugin PULLS the mapping (it
+  cannot reach the project loader itself).
 
 There is no `charly/k8s_cmd.go`, `kubeMethods` table, `runKube` dispatcher,
 `posKube*` flag builder, or `k8sClusterFlags`/`LoadClusterProfile` symbol —

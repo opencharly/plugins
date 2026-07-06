@@ -20,7 +20,7 @@ Both surfaces share the same SDK: `github.com/modelcontextprotocol/go-sdk v1.5.0
 
 ## Overview
 
-The `mcp:` check verb connects to Model Context Protocol servers declared by running containers via `mcp_provide`, using [github.com/modelcontextprotocol/go-sdk](https://pkg.go.dev/github.com/modelcontextprotocol/go-sdk) (v1.5.0). Seven methods cover the full MCP client surface: `ping`, `servers`, `list-tools`, `list-resources`, `list-prompts`, `call`, `read`. No MCP URL argument is ever typed by the user — the HOST reads the target image's `ai.opencharly.mcp_provide` OCI label, resolves `{{.ContainerName}}` templates, applies pod-aware `localhost` rewriting, and maps the container-network URL to the published host port automatically (`preresolveMcpEndpoint`), then hands the pre-resolved endpoint to the plugin.
+The `mcp:` check verb connects to Model Context Protocol servers declared by running containers via `mcp_provide`, using [github.com/modelcontextprotocol/go-sdk](https://pkg.go.dev/github.com/modelcontextprotocol/go-sdk) (v1.5.0). Seven methods cover the full MCP client surface: `ping`, `servers`, `list-tools`, `list-resources`, `list-prompts`, `call`, `read`. No MCP URL argument is ever typed by the user — the out-of-process plugin reads the target image's `ai.opencharly.mcp_provide` OCI label via the generic `cc.ResolveImageLabel` reverse-leg, resolves `{{.ContainerName}}` templates, applies pod-aware `localhost` rewriting, and maps the container-network URL to the published host port via `cc.ResolveEndpoint` (the host owns that machinery behind the class-generic reverse-legs).
 
 **Served out-of-process — no host CLI subcommand.** The verb is a DECLARATIVE check verb only; there is no `charly check` subcommand for it (just like `kube:`/`spice:`/`adb:`/`appium:`). The MCP-client implementation (the go-sdk dial + the 7 methods) lives in `candy/plugin-mcp`, an out-of-tree charly plugin that charly's loader go-builds on the host and serves out-of-process over go-plugin gRPC (`LocalTransport`). A `check:` step carrying `mcp:` dispatches through the provider registry exactly like a built-in verb (`ResolveVerb("mcp")` → grpcProvider → `Provider.Invoke` with the full `Op` marshaled + a `CheckEnv` snapshot). Exercise it with `charly check live <image> --filter mcp`.
 
@@ -59,7 +59,7 @@ Output is always tab-separated plaintext fed to the matcher pipeline (no `--json
 
 ## Architecture
 
-The HOST owns all podman / OCI-label / port-mapping resolution and pre-resolves a single host-routable dial endpoint (`preresolveMcpEndpoint`) into the check env; the out-of-process `candy/plugin-mcp` provider then builds a single `*mcp.ClientSession` against that endpoint per invocation. The plugin needs no container inspection at all.
+The host owns all podman / OCI-label / port-mapping machinery behind the class-generic reverse-legs (`cc.ResolveImageLabel` for the declared servers + `cc.ResolveEndpoint` for the host-routable dial address); the out-of-process `candy/plugin-mcp` provider resolves its endpoint through them and builds a single `*mcp.ClientSession` per invocation. The plugin needs no container inspection at all.
 
 1. **Container resolution** (host): `resolveContainer(image, instance)` → `charly-<image>[-<instance>]`.
 2. **Image ref + metadata** (host): `containerImageRef` → `ExtractMetadata` → `meta.MCPProvide` (read from OCI label `ai.opencharly.mcp_provide`).
@@ -69,7 +69,7 @@ The HOST owns all podman / OCI-label / port-mapping resolution and pre-resolves 
 6. **Transport pick** (plugin): `transport: http` (or empty) → `StreamableClientTransport{Endpoint}`; `transport: sse` → `SSEClientTransport{Endpoint}`; any other string errors at dial time with the declared transport echoed.
 7. **Session** (plugin): `mcp.NewClient(…).Connect(ctx, transport, nil)` runs the MCP `initialize` handshake and returns an opened `ClientSession`; the provider evaluates the step's matchers itself and returns a `{status,message}` verdict to the host. A `defer session.Close()` always fires.
 
-Source: the host pre-resolver `charly/mcp_preresolve.go` (`preresolveMcpEndpoint`); the MCP client (the 7 methods + the dial) lives in `candy/plugin-mcp` (`provider.go` dispatch + `methods.go` client layer). See `/charly-internals:plugin` for the out-of-process provider model and `/charly-internals:go` for the host-side map.
+Source: the endpoint resolution lives in `candy/plugin-mcp` (`resolve.go` — the `cc.ResolveImageLabel` + `cc.ResolveEndpoint` reverse-legs), alongside the MCP client (the 7 methods + the dial: `provider.go` dispatch + `methods.go` client layer). See `/charly-internals:plugin` for the out-of-process provider model and `/charly-internals:go` for the host-side map.
 
 ## Methods
 
@@ -445,7 +445,7 @@ The server registers destructive tools with `DestructiveHint: true` rather than 
 - `/charly-openwebui:openwebui` — another consumer (`mcp_accept: jupyter, chrome-devtools`).
 - `/charly-jupyter:jupyter`, `/charly-jupyter:jupyter-ml`, `/charly-jupyter:jupyter-ml-notebook` — images bundling `jupyter-mcp`; `charly check live <image> --filter mcp` exercises the verb end-to-end.
 - `/charly-selkies:sway-browser-vnc`, `/charly-selkies:selkies-labwc`, `/charly-selkies:selkies-labwc-nvidia` — images bundling `chrome-devtools-mcp` (transitively via the chrome metalayer).
-- `/charly-internals:go` — host-side implementation map: `mcp_preresolve.go` (`preresolveMcpEndpoint` — host podman/OCI-label/port resolution into the check env), `mcp_server.go` (server: Kong→MCP reflection, destructive-hint set, `captureAndRun`), `validate_check.go` (op-level deploy-scope enforcement; the `mcp` method-name + required-modifier checks live in `candy/plugin-mcp` + the CUE `#Op` enum). The MCP CLIENT (the 7 methods + the go-sdk dial) lives out-of-process in `candy/plugin-mcp` — see `/charly-internals:plugin`.
+- `/charly-internals:go` — host-side implementation map: `check_endpoint_resolve.go` (the host-endpoint reverse-legs — `resolveImageLabel` + `resolveVerbEndpoint` the mcp plugin pulls), `mcp_server.go` (server: Kong→MCP reflection, destructive-hint set, `captureAndRun`), `validate_check.go` (op-level deploy-scope enforcement; the `mcp` method-name + required-modifier checks live in `candy/plugin-mcp` + the CUE `#Op` enum). The MCP CLIENT (the 7 methods + the go-sdk dial) lives out-of-process in `candy/plugin-mcp` — see `/charly-internals:plugin`.
 - `/charly-coder:charly-mcp` — the deployment layer that wires `charly mcp serve` into an image via supervisord. Includes the `/workspace` bind-mount (volume NAME `project`) + `CHARLY_PROJECT_DIR` env var pattern for build-mode tools.
 - `/charly-tools:charly` — the underlying binary layer; required by `charly-mcp`.
 - `/charly-image:image` — "Project directory resolution" subsection documents the `-C` / `--dir` / `CHARLY_PROJECT_DIR` global flag that makes the server's project-dir bind-mount work.

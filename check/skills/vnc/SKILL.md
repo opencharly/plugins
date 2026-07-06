@@ -76,7 +76,7 @@ Run a candy's baked `vnc:` steps against a live deployment with
 
 ```
 host (charly check live --filter vnc)
-   -> vnc_preresolve.go: pre-resolve the RFB endpoint
+   -> resolveVerbGraphics (cc.ResolveGraphicsEndpoint reverse-leg): resolve the RFB endpoint
         pod: podman port <name> 5900   |   vm: libvirt VNC via bridge/tunnel
    -> resolveVNCPassword (charly settings + VNC_PASSWORD env — retained host-side)
    -> Op + endpoint + password handed to candy/plugin-vnc over gRPC
@@ -233,7 +233,7 @@ for low-level protocol work.
 | Use case | Web automation | Desktop automation |
 
 Source: `candy/plugin-vnc` (the out-of-process RFB client); host-side endpoint
-pre-resolution + the VNC credential store in `charly/vnc_preresolve.go`.
+resolution (`resolveVerbGraphics`) + the VNC credential store in `charly/vnc_helpers.go`.
 
 ## VNC as Anti-Detection Fallback
 
