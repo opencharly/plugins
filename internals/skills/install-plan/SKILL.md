@@ -244,7 +244,7 @@ bed always exercises the in-development charly; a real box ships the released on
 **`ShellSnippetStep` notes:**
 - Compiled by `compileShellSnippetSteps` in `install_build.go` — applies the per-shell-wins-over-generic selection rule from `layer.Shell()`.
 - OCITarget emits a `RUN mkdir -p ... && cat > <dest> <<EOF` heredoc with a sha256-derived end-marker (anti-collision).
-- The external `local:` (`candy/plugin-deploy-local`) and `vm:` (`candy/plugin-deploy-vm`) deploy walks — the SAME `kit.WalkPlans`, the vm one over the guest `SSHExecutor` — probe `command -v <shell>` once at the top of the walk; absent shells become VenueSkip-style no-ops with a logged reason. UseDropin=true → whole-file write; UseDropin=false → `replaceOrAppendManagedBlock` against the existing rc file with a per-layer marker.
+- The external `local:` (`candy/plugin-deploy-local`) and `vm:` (`candy/plugin-deploy-vm`) deploy walks — the SAME `kit.WalkPlans`, the vm one over the guest `SSHExecutor` — probe `command -v <shell>` once at the top of the walk; absent shells become VenueSkip-style no-ops with a logged reason. UseDropin=true → whole-file write; UseDropin=false → the kit walk's managed-block splice (`sdk/kit/profile.go`) against the existing rc file with a per-layer marker.
 - Reverse: `ReverseOpRmFileSystem` / `ReverseOpRmFileUser` for drop-ins; `ReverseOpRemoveManaged` (with `Extra["marker"]=CandyName`) for managed-block append.
 - Round-trip: `LabelShell` (`ai.opencharly.shell`) carries the merged set; `CollectShell` builds it at `charly box build` time, `ExtractMetadata` parses it at deploy time, `MergeDeployShell` overlays charly.yml entries by id.
 
