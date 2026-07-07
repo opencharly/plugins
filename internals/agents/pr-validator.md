@@ -62,20 +62,41 @@ Checklist (a single failed item ⇒ FAIL):
 
 If ANY item fails, go to Phase 2 with `failure` and STOP (do not merge).
 
-## Phase 2 — Post the verdict as the required status
+## Phase 2 — Post the verdict: a required status AND a PR comment
 
-The authoritative head SHA comes from the remote ref, NOT `gh pr view
---json headRefOid` (that read lags behind a fresh push):
+Record the verdict TWO ways — the machine gate (the commit status branch
+protection requires) AND, **ALWAYS, a human-readable PR comment** so the findings
+and the approve/reject reasoning are visible on the PR itself. Comment on BOTH
+PASS and FAIL. The authoritative head SHA comes from the remote ref, NOT
+`gh pr view --json headRefOid` (that read lags behind a fresh push):
 
 ```bash
 SHA=$(git ls-remote https://github.com/<owner>/<repo> refs/heads/<feat-branch> | cut -f1)
+# 1) the required status — the mechanical gate branch protection enforces
 gh api -X POST repos/<owner>/<repo>/statuses/$SHA \
   -f state=<success|failure> -f context=charly/claude-validation \
   -f description="pr-validator: <PASS|one-line reason>"
+# 2) ALWAYS a PR comment with the full findings + WHY it is / is not approved
+gh pr comment <N> --repo <owner>/<repo> --body "$(cat <<'MD'
+## pr-validator — <APPROVED ✅ | CHANGES REQUESTED ❌>
+
+**Change class:** <docs-only | code/config | hook/workflow>
+
+<the per-item checklist verdict — PASS/FAIL each>
+
+**Decision:** <on PASS: what you verified and why it is compliant; on FAIL: the
+SPECIFIC blocking findings (file:line) and exactly what the author must fix.>
+MD
+)"
 ```
 
-On FAIL: post `failure`, report the blocking findings, DONE (the author fixes and
-re-pushes, which resets the status; you are re-run).
+The comment carries the SAME content as your returned verdict (below), so anyone
+reading the PR sees exactly why it was or was not approved — never only a terse
+status. On a re-run after a fix, post a FRESH comment (do not rely on the reader
+scrolling to a superseded one); optionally note it supersedes the prior verdict.
+
+On FAIL: post `failure` + the comment, report the blocking findings, DONE (the
+author fixes and re-pushes, which resets the status; you are re-run).
 
 ## Phase 3 — On PASS: finalize the merge-time version, merge, tag
 
