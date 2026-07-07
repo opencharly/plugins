@@ -169,7 +169,7 @@ from the executor), so the reverse ops run IN THE GUEST.
 | File | Contents |
 |---|---|
 | `charly/deploy_target_external.go` | `externalDeployTarget` — the generic out-of-process adapter for all five external substrates; `Add` Invokes `deploy:vm` over the reverse channel, `Del` replays recorded `ReverseOps` |
-| `charly/deploy_substrate_lifecycle.go` | the generic `substrateLifecycle` interface + the `registerSubstrateLifecycle` / `substrateLifecycleFor` registry |
+| `charly/deploy_substrate_lifecycle.go` | the generic `substrateLifecycle` interface + the `substrateLifecycleFor` registry (wire-backed hooks register via `registerPluginSubstrateLifecycle` at plugin-load) |
 | `charly/substrate_lifecycle_grpc.go` | `grpcSubstrateLifecycle` — the generic proxy implementing `substrateLifecycle` by Invoking an out-of-process substrate's lifecycle Ops; consults the `lifecyclePrepareHook` / `lifecyclePostTeardownHook` by word, re-materializes the plugin's returned `VenueDescriptor`, and persists the returned `VmDeployState` via `saveDeployState` |
 | `charly/vm_lifecycle_preresolve.go` | the vm `lifecyclePrepareHook` (`vmLifecyclePrepare` — `LoadUnified` → `spec.Vm` + entity + ssh user/port + prior `VmDeployState`, shipped as `spec.LifecyclePrepareInput`) + the vm `lifecyclePostTeardownHook` (ephemeral-lifecycle host cleanup); `vmEntityForAdd` |
 | `candy/plugin-deploy-vm/lifecycle.go` | the plugin's venue lifecycle — implements every lifecycle Op (`OpPrepareVenue` / `OpPostApply` / `OpStart` / … / `OpPostTeardown`) over `kit` + `HostBuild("cli")` + the served guest executor |
@@ -239,9 +239,8 @@ The env.d-sourcing managed block is written by `kit.WalkPlans`'s finalizer
 (`ensureVenueManagedBlock`) over the served (guest) executor — so for a `vm`
 deploy it lands in the guest's detected login-shell init via the reverse legs
 (`GetFile` the existing rc, merge the fenced block, `PutFile` it back). The
-shared body/path helpers (`ManagedBlockBody`, `ShellInitFilePath`,
-`replaceOrAppendManagedBlock`)
-live in `charly/shell_profile.go`; the plugin renders the equivalent via
+shared body/path helpers (`ManagedBlockBody`, `ShellInitFilePath`)
+live in `charly/shell_profile.go`; the block-splice itself is kit's (`sdk/kit/profile.go`); the plugin renders the equivalent via
 `sdk/kit/profile.go`. Without this block the per-layer env.d files
 exist but are never sourced, so PATH never picks up `~/.npm-global/bin` etc. The
 shell is detected from the GUEST `/etc/passwd` (getent), because the guest's
