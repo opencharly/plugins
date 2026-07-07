@@ -107,7 +107,7 @@ the **Acceptance checklist**, and the **AI Attribution** tier table.
 | SDD operationalization (the schema→generated-code pipeline map, the schema-change recipe, the generation-coverage current state) | `/charly-internals:go` |
 | Hard-cutover workflow, forbidden patterns, deliverables | `/charly-internals:cutover-policy` |
 | `disposable:` / `preemptible:` flag semantics, "What counts as an R10 run" | `/charly-internals:disposable` |
-| Landing mechanics (branch loop, multi-repo order, CalVer tags, PR path) | `/charly-internals:git-workflow` |
+| Landing mechanics (branch loop, the two-step PR + `pr-validator` merge/tag, CalVer-generated-at-merge, branch protection, multi-repo order) | `/charly-internals:git-workflow` |
 | Agent/workflow/team primitives, hooks doctrine | `/charly-internals:agents` |
 | Kernel/plugin doctrine (core = kernel; every capability a plugin candy), the two authoring shapes, placement, the three-lane transport doctrine, the seams catalog, **the kernel/plugin boundary law** (E/M/B/D/R) + the incomplete-seam mandate | `/charly-internals:plugin` |
 | Skill Dispatcher, RDD/ADE/SDD definitions, Acceptance checklist, attribution tiers (incl. `documentation reviewed`), Documentation-only change class anchor, Key Rules index | CLAUDE.md |
@@ -123,7 +123,7 @@ swept in the SAME commit as any rename or removal (R5):
 - the 5 hooks in `.claude/hooks/` (`runtime-verification-reminder.sh`,
   `end-of-turn-challenge.sh`, `team-coordination-reminder.sh`,
   `pre-commit-gate.sh`, `pre-push-gate.sh`),
-- the 5 agents in `plugins/internals/agents/*.md`,
+- the 6 agents in `plugins/internals/agents/*.md`,
 - the 8 per-directory signpost `CLAUDE.md` files (`charly/`, `candy/`,
   `plugins/`, each `box/<distro>`),
 - the workflows in `.claude/workflows/*.js`,

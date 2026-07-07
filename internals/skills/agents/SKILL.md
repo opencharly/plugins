@@ -78,6 +78,14 @@ under the binding rule). "Prefer agents" governs BOUNDED work.
   owns the 4-tier confidence table (must match CLAUDE.md).
 - **`layer-validator`** — pre-edit `charly.yml` sanity gate; defers the full
   schema to `/charly-image:layer` + `charly box validate`.
+- **`pr-validator`** — the FRESH PR evaluator (the disposing half of the two-step
+  landing). Spawned with NEW context, it independently re-validates a PR against
+  R0–R10 + the relevant skills, posts the `charly/claude-validation` commit status,
+  and ONLY on PASS generates the merge-time CalVer, rewrites the version surfaces
+  on the feat branch, merges (`gh pr merge --rebase`), and tags. It is the ONLY
+  actor that posts the status or merges; branch protection makes its status the
+  mechanical gate. NEVER the agent that authored the PR — the point is independent
+  evaluation. See `/charly-internals:git-workflow` (B1 step 2, B5).
 
 An agent's narrowed `tools:` frontmatter (e.g. `layer-validator`'s
 Read/Grep/Glob) is ROLE-lane discipline — it keeps enforcers gating and
@@ -249,7 +257,10 @@ Hooks in this project do TWO things and nothing more. The full inventory
    all-documentation (`*.md`/CHANGELOG/README/LICENSE/VISION/`*.txt`,
    comment-only code edits, or a submodule pointer bump to an all-documentation
    submodule commit — the tier-vs-diff coherence check, conservative-safe:
-   it never lets a behavioral change pass as docs), force-push
+   it never lets a behavioral change pass as docs), a direct push to `main`
+   (a `git push` whose refspec destination is `main` / `refs/heads/main` — `main`
+   advances ONLY via an agent-validated PR merge; a bare `git push` with no
+   refspec is left to the authoritative server-side branch protection), force-push
    (`git push --force` / `--force-with-lease` / `-f`, bundled forms included),
    and a RUNTIME-tier commit (`fully tested and validated` / `analysed on a live
    system`) that stages no `CHANGELOG/<YYYY.DDD.HHMM>.md` entry in a repo that tracks a
@@ -459,8 +470,9 @@ The playbook:
    the whole load. Same lesson for any shared-state read under concurrency: don't
    swallow the real error (it hides the class), and don't let one sibling's
    transient artifact fail an unrelated bed.
-5. **The lead owns the single commit**, gated on the consolidated full
-   final-code live test (the beds in parallel). Teammates never commit/push.
+5. **The lead opens the single PR**, gated on the consolidated full final-code
+   live test (the beds in parallel); a FRESH `pr-validator` (never a teammate that
+   authored code) validates and merges it. Teammates never commit, push, or merge.
 
 Worked partition (illustrative): A→`{check-pod, check-local}`,
 B→`{check-jupyter-pod, check-versa-pod}`, C→`{check-k3s-vm}` (VM, needs the
