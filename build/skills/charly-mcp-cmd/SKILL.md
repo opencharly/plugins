@@ -10,9 +10,9 @@ description: |
 `charly` speaks MCP in both directions. This skill covers both:
 
 - **Client** — the declarative `mcp:` check verb: connect to any MCP server declared via `mcp_provide` and probe/call/read. Authored as an `mcp:` step in a candy/box plan and run via `charly check live <image> --filter mcp`; it is served OUT-OF-PROCESS by `candy/plugin-mcp` and has **no** host `charly check` subcommand (parallel to the `kube:`/`spice:`/`adb:`/`appium:` plugin verbs). Used to test MCP endpoints shipped by `jupyter-mcp`, `chrome-devtools-mcp`, or the charly server itself.
-- **Server** — `charly mcp serve`: expose the entire charly CLI surface (build + test + deploy modes, 190 tools) as MCP over Streamable HTTP or stdio. Used by LLM agents (Claude Code, Open WebUI, OpenClaw) to drive charly remotely. Deployed in-container via the `charly-mcp` layer. The 190-tool catalog now includes a project-scaffolding + YAML-editing + file-write authoring surface, so an agent can build an `charly` project from scratch over RPC — see "Authoring tools" below.
+- **Server** — `charly mcp serve`: expose the entire charly CLI surface (build + test + deploy modes; one tool per leaf command) as MCP over Streamable HTTP or stdio. Used by LLM agents (Claude Code, Open WebUI, OpenClaw) to drive charly remotely. Deployed in-container via the `charly-mcp` layer. The tool catalog includes a project-scaffolding + YAML-editing + file-write authoring surface, so an agent can build an `charly` project from scratch over RPC — see "Authoring tools" below.
 
-Both surfaces share the same SDK: `github.com/modelcontextprotocol/go-sdk v1.5.0` — the client half now lives in `candy/plugin-mcp` (out of charly's core); charly's core keeps the SDK only for the `charly mcp serve` server (`charly/mcp_server.go`).
+Both surfaces are legs of the SAME plugin candy: `candy/plugin-mcp` serves `verb:mcp` (the client) AND `command:mcp` (the server, `serve.go`), sharing one `github.com/modelcontextprotocol/go-sdk`; charly's core links NO MCP SDK — its host half is the SDK-free `charly __cli-model` seam (`charly/cli_model_cmd.go`).
 
 ---
 
@@ -283,37 +283,35 @@ No other required modifiers — `ping`, `servers`, `list-*` take only the option
 
 ## Overview
 
-`charly mcp serve` runs the charly CLI *as* an MCP server. Every leaf command in the Kong CLI tree — `box.build`, `status`, `test.mcp.ping`, `config.setup`, `box.new.project`, `candy.add-rpm`, etc. — becomes a callable MCP tool. Tool catalogs are **auto-generated from Kong struct tags** by reflection; there is no hand-written schema per command. Result: **190 tools** covering the entire build + test + deploy surface, including the MCP-first authoring verbs (`image.{new.project, new.image, set, add-layer, rm-layer, fetch, refresh, write, cat}` + `layer.{set, add-rpm, add-deb, add-pac, add-aur}`).
+`charly mcp serve` runs the charly CLI *as* an MCP server. Every leaf command in the Kong CLI tree — `box.build`, `status`, `test.mcp.ping`, `config.setup`, `box.new.project`, `candy.add-rpm`, etc. — becomes a callable MCP tool. Tool catalogs are **auto-generated from Kong struct tags** by reflection — host-side, over the hidden `charly __cli-model` seam — with no hand-written schema per command. Result: **one tool per leaf command** covering the entire build + test + deploy surface, including the MCP-first authoring verbs (`image.{new.project, new.image, set, add-layer, rm-layer, fetch, refresh, write, cat}` + `layer.{set, add-rpm, add-deb, add-pac, add-aur}`).
 
 ```bash
 charly mcp serve                                # Streamable HTTP on :18765/mcp
 charly mcp serve --listen 127.0.0.1:9999        # Custom port
 charly mcp serve --path /api/mcp                # Custom HTTP path prefix (default /mcp)
 charly mcp serve --stdio                        # Stdio transport for editor/LLM integration
-charly mcp serve --read-only                    # Skip registering the 51 destructive tools
+charly mcp serve --read-only                    # Skip registering the destructive tools
 ```
 
-The server uses the same `github.com/modelcontextprotocol/go-sdk` v1.5.0 as the client (the `candy/plugin-mcp` provider), so the wire format is identical and the `mcp: ping` check verb works against it unchanged.
+Server and client share one `github.com/modelcontextprotocol/go-sdk` inside the same plugin candy, so the wire format is identical and the `mcp: ping` check verb works against it unchanged.
 
 ## Architecture
 
-The server lives in a single file: `charly/mcp_server.go`.
+The server is the `command:mcp` leg of `candy/plugin-mcp` (`serve.go`), fed by ONE hidden host seam: `charly __cli-model` (`charly/cli_model_cmd.go`), which emits charly's ASSEMBLED Kong command tree — the core CLI struct plus the builtin command-provider grammar — as an `sdk.CLIModel` JSON document on stdout. Core links no MCP SDK.
 
-1. **Reflection** — `buildMcpServer(readOnly)` calls `kong.New(&CLI{}, …)` to materialise the CLI tree, then walks `k.Model.Leaves(true)` — every non-branch node. For each leaf, `kongLeafToTool(leaf, path, destructive)` emits an `*mcp.Tool`:
-   - **Name**: dot-joined Kong path (e.g. `box.build`, `test.mcp.ping`, `config.setup`).
-   - **Description**: Kong's `Help` tag, with a `[destructive: …]` annotation appended for mutating tools.
-   - **InputSchema**: JSON schema built from `long:""`, `help:""`, `enum:""`, `default:""`, `required:""` struct tags. Positional args become required properties; flags become optional properties. **Every schema has `additionalProperties: false`** — unknown keys are rejected by the SDK's input validation before the handler runs. The schema validator is LLM-honest about the allowed surface.
+1. **Reflection (host-side)** — at startup `buildMcpServer(bin, readOnly, noDefaultRepo)` fork/execs `charly __cli-model` (`fetchCLIModel` — deliberately with NO project prefix: the model needs no project, so a cold-start network blip can never strip the project prefix) and registers one tool per model leaf via `cliLeafToTool(leaf, destructive)`:
+   - **Name**: dot-joined command path (e.g. `box.build`, `test.mcp.ping`, `config.setup`).
+   - **Description**: the leaf's help, with a `[destructive: …]` annotation appended for mutating tools.
+   - **InputSchema**: JSON schema built from the model's args (`argToSchema`) — positionals become required properties, flags optional ones, `enum:`/`default:` surfaced. **Every schema has `additionalProperties: false`** — unknown keys are rejected by the SDK's input validation before the handler runs. The schema validator is LLM-honest about the allowed surface.
    - **Annotations**: destructive tools get `DestructiveHint: &true`; everything else gets `ReadOnlyHint: true`.
 
-2. **Destructive gating** — `mcpDestructivePaths` is an explicit 63-entry allowlist of mutating tools (lifecycle: `remove`/`stop`/`start`/`update`/`cmd`/`shell`/`service.*`; config: `config.setup`/`mount`/`unmount`/`passwd`/`remove`; secrets: `set`/`delete`/`import`/`init`/`gpg.setup`/`gpg.set`/`gpg.unset`/`gpg.edit`/`gpg.encrypt`/`gpg.add-recipient`/`gpg.import-key`; deploy: `import`/`reset`; image build/scaffold/edit: `box.build`/`merge`/`new.{layer,project,image}`/`set`/`add-layer`/`rm-layer`/`refresh`/`write`; layer edit: `candy.set`/`add-rpm`/`add-deb`/`add-pac`/`add-aur`; VM: `create`/`destroy`/`start`/`stop`/`build`; udev: `install`/`remove`; alias: `install`/`uninstall`/`add`/`remove`; record: `start`/`stop`/`cmd`; tmux: `kill`/`run`/`send`/`cmd`; settings: `set`/`reset`/`migrate-secrets`). When `--read-only` is set, `buildMcpServer` skips registration entirely rather than gating at runtime — read-only servers expose **127 tools** (190 − 63). `box.fetch` (idempotent, additive cache prime) and `box.cat` (read-only file read) are **not** in the destructive set despite living in the authoring family — they're safe under `--read-only`.
+2. **Destructive gating** — `mcpDestructivePaths` (`serve.go`) is an explicit allowlist of mutating tool paths (the lifecycle, config, secrets, deploy, image build/scaffold/edit, layer edit, VM, udev, alias, record, tmux, and settings families). When `--read-only` is set, `buildMcpServer` skips registration entirely rather than gating at runtime. `box.fetch` (idempotent, additive cache prime) and `box.cat` (read-only file read) are **not** in the destructive set despite living in the authoring family — they're safe under `--read-only`.
 
-3. **Tool invocation** — `makeToolHandler(path, leaf)` returns a closure. On call: decode the MCP JSON arguments, reconstruct a `[]string` argv via `argvFromJSON(…)` (booleans → bare flag, slices → repeated `--flag=value`, positionals in Kong order), then `captureAndRun(argv)` builds a fresh `kong.New(&CLI{})`, calls `k.Parse(argv)`, invokes `kctx.Run()`, and returns captured stdout/stderr as a single `TextContent`. Errors become `IsError: true` tool results, not MCP-protocol errors — the LLM sees the failure text.
+3. **Tool invocation — fork/exec, no in-process capture** — `makeToolHandler(bin, prefix, leaf)` returns a closure. On call: decode the MCP JSON arguments, reconstruct a `[]string` argv via `argvFromJSON(…)` (booleans → bare flag, slices → repeated `--flag=value`, positionals in model order), then `forkCharly` runs `charly <prefix> <path> <args…>` as a SUBPROCESS and `assembleToolText` returns the captured stdout/stderr as a single `TextContent`. Errors become `IsError: true` tool results, not MCP-protocol errors — the LLM sees the failure text. The fork/exec design REPLACED the former in-process capture model wholesale: there is no `os.Stdout` redirect, no capture mutex, and subprocess output cannot leak past its own tool result.
 
-4. **Capture model — os.Stdout / os.Stderr redirect, NOT fd-level** — capture redirects the `os.Stdout`/`os.Stderr` package variables only, not fd 1/2 via `syscall.Dup2`. Fd-level capture deadlocks: the MCP SDK's `StdioTransport` captures `os.Stdout` by pointer at Connect time, so dup2'ing fd 1 to a capture pipe sends the SDK's JSON-RPC responses into the tool-output buffer instead of to the client. Because the redirect is at the package-variable level, every charly command must write via `fmt.Println`/`fmt.Printf` (not Go's builtin `println`, which bypasses `os.Stderr` and writes directly to fd 2) — `VersionCmd` uses `fmt.Println` for exactly this reason. Subprocess output *is* a known leak — but the `charly` codebase invokes subprocesses via `cmd.Stdout = os.Stderr` etc., so in practice it stays captured.
+4. **Project prefix** — every tool call carries the managed prefix from `computeProjectPrefix` (see "Project-dir wiring" below); `childCharlyEnv` strips `CHARLY_PROJECT_DIR`/`CHARLY_PROJECT_REPO` from the child environment so the prefix stays authoritative.
 
-5. **Serialisation** — `runMu` (sync.Mutex) serialises handler invocations because `os.Stdout`/`os.Stderr` redirects are global. MCP tool calls on the server run sequentially; most tools are I/O-bound shell-outs to podman so parallelism is not a big loss.
-
-6. **Transport** — `mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return server }, nil)` wraps the server for HTTP mode. In stdio mode, `server.Run(ctx, &mcp.StdioTransport{})` blocks on stdin.
+5. **Transport** — `mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return server }, nil)` wraps the server for HTTP mode; `--stdio` runs the same server over the stdio transport.
 
 ## Deployment: the `charly-mcp` layer
 
@@ -358,9 +356,9 @@ charly-mcp-service:
 
 2. **Remote pin** — set `CHARLY_PROJECT_REPO=opencharly/charly@<sha-or-ref>` in the container env (e.g. via `charly config <image> -e CHARLY_PROJECT_REPO=...`). The charly CLI clones (or hits its `~/.cache/charly/repos/` cache) and chdirs into the cache path before Kong dispatch. No bind mount required. Use this for reproducible agent runs against a pinned upstream.
 
-3. **Auto-default** — `charly mcp serve` with no charly.yml reachable at cwd silently falls back to `github.com/opencharly/charly`. The fallback fires regardless of `CHARLY_PROJECT_DIR` being set — it checks whether the resolved cwd actually contains `charly.yml`, not whether the env var is populated. This matters because the `charly-mcp` layer permanently sets `CHARLY_PROJECT_DIR=/workspace`: a deployer who forgets the `--bind` still gets a working MCP server backed by the upstream repo, with a log line naming the reason (`charly mcp: CHARLY_PROJECT_DIR=/workspace has no charly.yml; falling back to default repo …`). Pass `--no-default-repo` on the serve command to opt out (hard-fail with a clear message). This is the only command in the entire CLI that auto-fetches; the top-level CLI stays opt-in. Implementation: `McpServeCmd.bootstrapProject()` in `charly/mcp_server.go`.
+3. **Auto-default** — `charly mcp serve` with no charly.yml reachable at cwd falls back to `github.com/opencharly/charly` by prepending a managed `--repo default` prefix to every project-dependent tool call (`computeProjectPrefix` in `candy/plugin-mcp/serve.go`); the child `charly` resolves + fetches the default-repo cache. The fallback fires regardless of `CHARLY_PROJECT_DIR` being set — the check is whether the cwd actually contains `charly.yml`, not whether the env var is populated (and `childCharlyEnv` strips the env from children so the prefix stays authoritative). This matters because the `charly-mcp` layer permanently sets `CHARLY_PROJECT_DIR=/workspace`: a deployer who forgets the `--bind` still gets a working MCP server backed by the upstream repo. Pass `--no-default-repo` to opt out — the server still runs, and project-dependent tools error at call time (the child reports "no project"). This is the only command surface that auto-fetches; the top-level CLI stays opt-in.
 
-See `/charly-image:image` "Project directory resolution" for the flag/env semantics, and `charly/mcp_serve_default_repo_test.go` for the auto-fallback behaviour test.
+See `/charly-image:image` "Project directory resolution" for the flag/env semantics; the implementation is `computeProjectPrefix` + `childCharlyEnv` in `candy/plugin-mcp/serve.go`.
 
 **Composition style** — `charly-mcp` uses `candy: [charly, supervisord]` (meta-layer composition) rather than `require:` (hard prerequisite) because it adds no install of its own — it's pure wiring. Boxes that want the MCP server add `charly-mcp` to their candy list; boxes that just want the charly binary continue to use the `charly` candy alone. Both `candy:` and `require:` reference other candies, but only `candy:` lets the using candy ship no install files.
 
@@ -377,7 +375,7 @@ charly start charly-arch
 # run against the live deployment:
 charly check live charly-arch --filter mcp
 # the mcp: ping / list-tools / call (version, box.list.boxes) steps all pass
-#   list-tools → 190 tools; call version → 2026.nnn.nnnn; call box.list.boxes →
+#   list-tools → the full tool catalog; call version → 2026.nnn.nnnn; call box.list.boxes →
 #   charly-arch [testing], arch [testing], … (reads charly.yml from the bind-mounted /workspace)
 ```
 
@@ -445,7 +443,7 @@ The server registers destructive tools with `DestructiveHint: true` rather than 
 - `/charly-openwebui:openwebui` — another consumer (`mcp_accept: jupyter, chrome-devtools`).
 - `/charly-jupyter:jupyter`, `/charly-jupyter:jupyter-ml`, `/charly-jupyter:jupyter-ml-notebook` — images bundling `jupyter-mcp`; `charly check live <image> --filter mcp` exercises the verb end-to-end.
 - `/charly-selkies:sway-browser-vnc`, `/charly-selkies:selkies-labwc`, `/charly-selkies:selkies-labwc-nvidia` — images bundling `chrome-devtools-mcp` (transitively via the chrome metalayer).
-- `/charly-internals:go` — host-side implementation map: `check_endpoint_resolve.go` (the host-endpoint reverse-legs — `resolveImageLabel` + `resolveVerbEndpoint` the mcp plugin pulls), `mcp_server.go` (server: Kong→MCP reflection, destructive-hint set, `captureAndRun`), `validate_check.go` (op-level deploy-scope enforcement; the `mcp` method-name + required-modifier checks live in `candy/plugin-mcp` + the CUE `#Op` enum). The MCP CLIENT (the 7 methods + the go-sdk dial) lives out-of-process in `candy/plugin-mcp` — see `/charly-internals:plugin`.
+- `/charly-internals:go` — host-side implementation map: `check_endpoint_resolve.go` (the host-endpoint reverse-legs — `resolveImageLabel` + `resolveVerbEndpoint` the mcp plugin pulls), `cli_model_cmd.go` (the `charly __cli-model` seam the server consumes; the server itself is `candy/plugin-mcp/serve.go`), `validate_check.go` (op-level deploy-scope enforcement; the `mcp` method-name + required-modifier checks live in `candy/plugin-mcp` + the CUE `#Op` enum). The MCP CLIENT (the 7 methods + the go-sdk dial) lives out-of-process in `candy/plugin-mcp` — see `/charly-internals:plugin`.
 - `/charly-coder:charly-mcp` — the deployment layer that wires `charly mcp serve` into an image via supervisord. Includes the `/workspace` bind-mount (volume NAME `project`) + `CHARLY_PROJECT_DIR` env var pattern for build-mode tools.
 - `/charly-tools:charly` — the underlying binary layer; required by `charly-mcp`.
 - `/charly-image:image` — "Project directory resolution" subsection documents the `-C` / `--dir` / `CHARLY_PROJECT_DIR` global flag that makes the server's project-dir bind-mount work.
