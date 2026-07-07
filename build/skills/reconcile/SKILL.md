@@ -81,7 +81,7 @@ idempotency, single-version-untouched, no-pins no-op).
 - `/charly-internals:go` "Remote-layer resolver" — the warn-and-newest-wins resolver this aligns to.
 - `/charly-build:validate` — surfaces the multi-version warning reconcile clears.
 - `/charly-internals:git-workflow` — cross-repo (B6) producer→consumer landing that calls reconcile.
-- `/charly-build:migrate` — per-push CalVer tags that reconcile pins point at.
+- `/charly-build:migrate` — per-merge CalVer tags that reconcile pins point at.
 - `/charly-image:image` — `import:` / namespace authoring + the family overview.
 
 ## When to Use This Skill
