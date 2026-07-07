@@ -174,8 +174,11 @@ See "Authoring an external COMMAND plugin" below.
   host-side build, via the `sdk.Executor`: `InvokeProvider(class, word, op, params, env)` — the host resolves
   the peer in the registry and Invokes it on the caller's behalf (threading the SAME venue executor into an
   out-of-process target over a nested broker — the host is the dispatch broker, since it owns the registry);
-  and `HostBuild(kind, spec)` — the host runs the registered host-builder for `kind` (the build ENGINE stays in
-  core). This is the shared-capability seam: a SHARED plugin (egress, k8s-gen, arbiter) is "a plugin others
+  and `HostBuild(kind, spec)` — the host runs the registered host-builder for `kind` — TEN registered kinds
+  today: `image` + `containerfiles` (the box build engine), `overlay` (the pod overlay build), `step-emit`
+  (host-coupled step fragments), `cli` (the generic run-any-charly-command reentry), `hostprobe` (doctor's
+  raw host facts), `feature`, `settings`, `retention`, and `plugin-binary` (the F10 plugin host build); the build ENGINE stays in
+  core. This is the shared-capability seam: a SHARED plugin (egress, k8s-gen, arbiter) is "a plugin others
   invoke", never "kept in core". Reference: `candy/plugin-example-dispatch`; mechanism:
   `/charly-internals:install-plan` (`plugin_dispatch_reverse.go`).
 - **Deploy time.** An external deploy-target provider runs its full Add/Test/Update/Del lifecycle over the

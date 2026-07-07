@@ -21,7 +21,7 @@ Three verbs, in decreasing scope:
 
 All three are **comment-preserving**: the YAML edits route through the `yaml.v3` Node API rather than the value API, so human-authored comments and key order survive round trips. Implementation lives in `charly/scaffold_project.go` + `sdk/kit/yaml.go`.
 
-Each verb also auto-becomes an MCP tool (`box.new.project`, `box.new.box`, `box.new.candy`) via Kong reflection in `charly/mcp_server.go` — so an LLM agent driving `charly mcp serve` can scaffold a project from scratch over RPC. See `/charly-build:charly-mcp-cmd` "Authoring tools".
+Each verb also auto-becomes an MCP tool (`box.new.project`, `box.new.box`, `box.new.candy`) via the `charly __cli-model` reflection seam (`charly/cli_model_cmd.go`) consumed by the externalized MCP server (`candy/plugin-mcp`) — so an LLM agent driving `charly mcp serve` can scaffold a project from scratch over RPC. See `/charly-build:charly-mcp-cmd` "Authoring tools".
 
 ## Quick Reference
 

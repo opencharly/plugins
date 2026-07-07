@@ -127,7 +127,7 @@ The error messages are explicit when misconfigured: `cannot chdir to --dir "/mis
 
 ### Authoring (the MCP-first surface)
 
-Each verb below is also auto-exposed as an MCP tool (`box.new.project`, `box.new.box`, `box.set`, `box.add-candy`, `box.rm-candy`, `box.write`, `box.cat`, `candy.set`, `candy.add-rpm`, …) via `charly/mcp_server.go`'s Kong reflection. So an LLM agent driving `charly mcp serve` can author a project from scratch over RPC.
+Each verb below is also auto-exposed as an MCP tool (`box.new.project`, `box.new.box`, `box.set`, `box.add-candy`, `box.rm-candy`, `box.write`, `box.cat`, `candy.set`, `candy.add-rpm`, …) via the `charly __cli-model` reflection seam (`charly/cli_model_cmd.go`) consumed by the externalized MCP server (`candy/plugin-mcp` `command:mcp`). So an LLM agent driving `charly mcp serve` can author a project from scratch over RPC.
 
 | Action | Command |
 |--------|---------|

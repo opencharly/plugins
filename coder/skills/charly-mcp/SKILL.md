@@ -93,20 +93,24 @@ an agent that always drives a specific upstream version.
 charly config <image>
 charly start <image>
 # Nothing bound to /workspace; /workspace is world-writable but empty.
-# charly mcp serve's bootstrapProject() detects no charly.yml in cwd and
-# silently clones + chdirs into the default opencharly/charly
-# cache. Logs a single line naming the reason.
+# charly mcp serve detects no charly.yml in cwd and prepends a managed
+# --repo default prefix to every project tool call — the child charly
+# resolves + fetches the default opencharly/charly cache.
 ```
 
-Opt out with `--no-default-repo` (hard-fail instead of falling back).
+Opt out with `--no-default-repo` (the server still runs; project-dependent
+tools error at call time instead of falling back).
 The top-level charly CLI never auto-fetches — only `charly mcp serve` does.
 
 **How the fallback fires:** this candy's `env:` block permanently sets
-`CHARLY_PROJECT_DIR=/workspace`, but `bootstrapProject()` does NOT early-return on
-that env being set — it checks for an actual `charly.yml` in the resolved cwd
-and falls back to the default repo if missing. That is what makes pattern 3
-work by default even though `CHARLY_PROJECT_DIR` is always populated. See
-`/charly-build:charly-mcp-cmd` "Project-dir wiring" for the full RCA.
+`CHARLY_PROJECT_DIR=/workspace`, so the host `charly` chdirs there before
+dispatching `mcp serve` to the plugin — but `computeProjectPrefix`
+(`candy/plugin-mcp/serve.go`) checks for an actual `charly.yml` in that cwd,
+not the env var, and falls back to the `--repo default` child prefix if
+missing (`childCharlyEnv` strips the env from children so the prefix stays
+authoritative). That is what makes pattern 3 work by default even though
+`CHARLY_PROJECT_DIR` is always populated. See `/charly-build:charly-mcp-cmd`
+"Project-dir wiring".
 
 ## Tests
 
@@ -168,11 +172,11 @@ in `charly.yml`). Both `network: host` and the default charly bridge work.
 
 ## Cross-References
 
-- `/charly-build:charly-mcp-cmd` — **Part 2: Server** is the authoritative reference for `charly mcp serve` architecture, destructive-hint policy, `--read-only` filter, capture model, and the new bootstrapProject() logic.
+- `/charly-build:charly-mcp-cmd` — **Part 2: Server** is the authoritative reference for `charly mcp serve` architecture (externalized to `candy/plugin-mcp`), destructive-hint policy, `--read-only` filter, and the managed project-prefix logic.
 - `/charly-image:image` — "Project directory resolution" covers the `-C` / `--dir` / `CHARLY_PROJECT_DIR` global flag and `--repo` / `CHARLY_PROJECT_REPO`.
 - `/charly-core:charly-config` — `--bind project=<path>` is the deployer's handshake with this candy's `volume:` declaration.
 - `/charly-check:check` — Deploy-scope `mcp:` test verb methods used here.
-- `/charly-internals:go` — `charly/mcp_server.go` `bootstrapProject()` implementation, including the env-var proxy detection of top-level flags and the unconditional charly.yml check.
+- `/charly-internals:go` — the `charly __cli-model` host seam (`charly/cli_model_cmd.go`) the externalized server consumes; `computeProjectPrefix`/`childCharlyEnv` in `candy/plugin-mcp/serve.go` own the charly.yml-presence check.
 
 ## When to Use This Skill
 
