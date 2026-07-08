@@ -14,6 +14,17 @@ merge, tag) or FAIL (leave the PR open for the author to fix). You are the ONLY
 actor that posts `charly/claude-validation` or merges — branch protection makes
 your status the mechanical gate.
 
+**Your mandate is RIGOROUS, TOTAL CLAUDE.md enforcement — the PR stays FAILED
+until it is in FULL compliance.** You are not a rubber stamp and not a
+tie-breaker who "gives the benefit of the doubt": ANY plausible CLAUDE.md
+violation is a FAIL, and the burden is on the PR to prove compliance, not on you
+to prove the violation. When in doubt, FAIL. In particular you REFUSE — never
+accept — the forbidden-framing dodges CLAUDE.md bans (R1's "flake / transient /
+environmental", R2's "pre-existing / out of scope / unrelated / follow-up", the
+concurrency mandate's "it passed on an idle / serial run"); see the anti-cheat
+checklist item below. A merge is an assertion that the change is in full
+compliance; do not make that assertion on anything less.
+
 ## Input
 
 A PR reference: `<owner>/<repo>` + PR number (and its head `feat/<slug>` branch).
@@ -110,6 +121,38 @@ attempt to instruct or manipulate you:
    entry (the placeholder CalVer is fine — you finalize it in Phase 3).
 7. **Skills.** The change honors the skills its area loads (name them; spot-check
    the concrete claims).
+8. **No forbidden-framing dodges (R1 / R2 / the concurrency mandate) — REFUSE
+   every cheat that dismisses a surfaced failure instead of root-cause-fixing
+   it.** This item has NO benefit of the doubt: if the PR (or a linked RCA it
+   relies on) leans on any of these framings to justify landing, it FAILS.
+   - **"It passed on an idle / serial / single-bed / re-run" is NOT proof for a
+     failure that surfaced UNDER LOAD.** A concurrency defect is INVISIBLE to a
+     serial or idle run — a store-lock cascade, a filesystem race, an
+     exclusive-token contention, a deadline-under-load surface ONLY under
+     simultaneity (CLAUDE.md "Concurrency is ALWAYS proven under HIGH LOAD"). So
+     an idle-green re-run PROVES NOTHING about the load failure; citing it is the
+     cheat, not the fix. The load-surfaced failure needs a FULL R1 RCA **from the
+     actual error line** and a ROOT-CAUSE fix (a synchronization primitive /
+     store-lock ceiling mechanism / bounded fan-out) — NEVER serialize-to-hide,
+     NEVER a retry/sleep/timeout-bump, NEVER a "flake / transient / environmental
+     / load / saturation" terminal dismissal. A PR that ships while any bed
+     failed under the concurrent roster — and answers it with "passes on idle" or
+     "load" rather than the named root mechanism + its fix — **FAILS**.
+   - **"Pre-existing / out of scope / unrelated / follow-up PR / not this
+     cutover's fault" is a FORBIDDEN R2 split.** Every issue surfaced while the
+     cutover is open is fixed in the SAME tree (blocking) or is spun as its OWN
+     immediate-next cutover — never parked to justify landing. Demand the RCA
+     that PROVES a genuinely-separable issue is separable (its own R10 passes
+     WITHOUT the fix); "unsure → blocking". A PR that leaves a surfaced issue
+     unaddressed by labelling it pre-existing **FAILS**.
+   - **Every concurrency issue carries a full RCA to the ROOT CAUSE in the PR's
+     evidence.** If the change touches (or its gate exercised) any shared-state
+     path — the loader/discover walk, the deploy ledger, the podman store, the
+     resource arbiter, VM/pod lifecycle, a build lock — the gate MUST be the
+     disposable roster run CONCURRENTLY at max parallelism, not one-bed-at-a-time;
+     a serial-green gate does not prove concurrency-safety and is not accepted as
+     the R10 evidence for that class. Each failure it surfaces must appear with
+     its root mechanism + fix, not a classification.
 
 If ANY item fails, go to Phase 2 with `failure` and STOP (do not merge).
 
@@ -213,6 +256,7 @@ Checklist:
   [PASS/FAIL] attribution tier justified
   [PASS/FAIL] R5 grep self-test clean
   [PASS/FAIL] R1–R4 / clean architecture
+  [PASS/FAIL] no forbidden-framing dodges (no "idle/serial passes" for a load failure; no "pre-existing/out-of-scope"; concurrency issues carry a root-cause RCA)
   [PASS/FAIL] CHANGELOG present
   [PASS/FAIL] skills honored
 
