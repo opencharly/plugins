@@ -242,6 +242,19 @@ branch protection requires, and encodes "a fresh agent validated." Independence 
 context-level (a fresh sub-agent re-loading CLAUDE.md, adversarial), mechanically
 backed by the required status — never `gh pr merge --admin`, never a self-approve.
 
+**The `gh pr merge` allow-rule — enforcement lives in GitHub, not the client
+classifier.** `.claude/settings.json` `permissions.allow` carries
+`Bash(gh pr merge:*)`, so Claude Code's auto-mode permission classifier does NOT
+re-litigate each merge. The DETERMINISTIC authority is the required
+`charly/claude-validation` status that branch protection enforces SERVER-SIDE — an
+unvalidated PR physically cannot merge whether or not the command is allow-listed —
+so the allow-rule keeps enforcement in ONE place (GitHub branch protection) instead
+of duplicating it in the client classifier, which otherwise blocks the merge
+inconsistently and demands per-PR authorization. The independence check stays where
+it belongs: POSTING `charly/claude-validation` is deliberately NOT allow-listed, so
+a status post remains classifier-judged and is the fresh evaluator's job, never the
+author's.
+
 ## B6 — cross-repo landing when a change is referenced via `@github`
 
 The resolver (`EnsureRepoDownloaded`) fetches a producer repo from the REMOTE at
