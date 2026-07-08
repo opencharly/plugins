@@ -277,8 +277,12 @@ PASS and FAIL. The authoritative head SHA comes from the remote ref, NOT
 
 ```bash
 SHA=$(git ls-remote https://github.com/<owner>/<repo> refs/heads/<feat-branch> | cut -f1)
-# 1) the required status — the mechanical gate branch protection enforces
-gh api -X POST repos/<owner>/<repo>/statuses/$SHA \
+# 1) the required status — the mechanical gate branch protection enforces.
+#    Use `--method POST` (NOT `-X POST`): the committed `.claude/settings.json`
+#    allow-rule `Bash(gh api --method POST repos/opencharly:*)` matches that exact
+#    prefix, so the status post is deterministically permitted (no per-PR classifier
+#    judgement). The rule is POST-only, so it CANNOT touch branch protection (a PUT).
+gh api --method POST repos/<owner>/<repo>/statuses/$SHA \
   -f state=<success|failure> -f context=charly/claude-validation \
   -f description="pr-validator: <PASS|one-line reason>"
 # 2) ALWAYS a PR comment with the full findings + WHY it is / is not approved
