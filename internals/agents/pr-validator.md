@@ -100,11 +100,25 @@ you skipped without deciding it inapplicable is an incomplete review (re-open it
 
 **A. Description + change-class gate + attribution.**
 
-1. **Description completeness.** The body follows the PR template and actually
-   fills it: a real *Summary of changes*, a *How tested* section with the R10
-   change-class gate + pasted evidence (not a promise), the *Attribution tier*,
-   and the R0–R10 + skills *compliance checklist*. An empty or template-only body
-   FAILS.
+1. **Description completeness — the filled template is MANDATORY.** The body
+   follows the PR template (the single org-wide source is
+   `opencharly/.github/.github/PULL_REQUEST_TEMPLATE.md`) and actually SUPPLIES
+   the evidence it prompts for — you enforce what it elicits, so a body that
+   leaves any APPLICABLE section blank, answers a rule with a bare checkbox
+   instead of HOW it is satisfied, or promises future work ("will test") FAILS.
+   Concretely, require ALL of:
+   - a real *Summary of changes* accounting for every file/behavior in the diff;
+   - a *How R10-tested* block naming the exact change-class gate, the
+     `disposable: true` target, the fresh-rebuild/R9 confirmation, whether the
+     CHANGED code path executed live (which caps the tier), the concurrent-roster
+     evidence for a shared-state change, AND pasted output (not a promise);
+   - an *Attribution tier* justified by that evidence (never inflated);
+   - the *CLAUDE.md rule-compliance* section with EVERY applicable rule (R0–R10 +
+     the pillars) answered with a one-line HOW (or `N/A — <reason>` where the
+     change class genuinely excludes it) — a bare tick with no HOW is NOT an
+     answer.
+   An empty, template-only, or partially-filled body FAILS; the burden is on the
+   PR to supply the evidence, never on you to infer it.
 2. **Change class → gate (R10 / R7).** Classify the diff (docs-only vs code/config
    vs hook/workflow) per `/charly-check:check` "R10 gate by change class" and
    confirm the evidence matches that gate — a runtime-class change needs a pasted

@@ -94,7 +94,7 @@ git switch -c feat/<slug>            # slug = kebab summary of the change
 git add <only the cutover's files> CHANGELOG/<placeholder>.md
 git commit -m "<conventional commit> ...  Assisted-by: Claude (<tier>)"
 git push origin feat/<slug>                       # feat push — allowed by the gate
-gh pr create --base main --head feat/<slug> \     # fill the PR template completely
+gh pr create --base main --head feat/<slug> \     # fill the PR template completely (single org source: opencharly/.github/.github/PULL_REQUEST_TEMPLATE.md — no per-repo copy)
   --title "<subject>" \
   --body "<summary + change class + pasted R10 evidence + tier + R0–R10 checklist>"
 # STOP. Do NOT merge your own PR. Hand off to a FRESH pr-validator (Step 2).
