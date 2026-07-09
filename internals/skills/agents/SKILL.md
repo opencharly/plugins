@@ -248,8 +248,10 @@ Hooks in this project do TWO things and nothing more. The full inventory
    a missing `Assisted-by: Claude (<tier>)` trailer on an inline `-m` message
    (every commit Claude is involved in must attribute — a pure-human hand-commit
    never reaches this PreToolUse gate; scoped to the commit invocation's own arg
-   span; a `-F`/heredoc/command-substituted message is not scanned for absence —
-   tier legality still applies), any tier OUTSIDE the legal-on-commit set
+   span; a `-F <file>`/command-substituted message is not scanned for absence, and
+   a command the gate cannot TOKENIZE — a heredoc message, or an unbalanced/unquoted
+   quote — fails CLOSED and is BLOCKED, so put a long message in a file and use
+   `git commit -F <file>`), any tier OUTSIDE the legal-on-commit set
    {`fully tested and validated`, `analysed on a live system`, `documentation
    reviewed`} (the AI-Attribution table forbids `theoretical suggestion`
    everywhere and pairs `syntax check only` with "do NOT commit"), the
