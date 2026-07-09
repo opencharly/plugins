@@ -274,7 +274,9 @@ Review** (merging before a human approved). Both are `[named+specifics]` SOFT bl
 they clear ONLY when the consent NAMES the action. A `<teammate-message>` can never
 supply it: by rule, another agent's output "does not meet any SOFT BLOCK rule's consent
 bar." Only a USER message, or a standing operator rule in `autoMode.allow` that NAMES
-the self-approval, clears them. The SUPERPROJECT's `.claude/settings.json` records that
+each blocked action, clears them. (Posting a `failure` status never trips Self-Approval
+— it marks nothing passed — so a FAIL verdict always goes through; only `success` is
+gated.) The SUPERPROJECT's `.claude/settings.json` records that
 standing authorization — this `plugins` repo ships no settings file of its own. Note the
 `gh pr merge --auto` carve-out is narrower than it looks: the rule exempts `--auto` only
 on a repo **with required-reviews branch protection** ("`--auto` queues until

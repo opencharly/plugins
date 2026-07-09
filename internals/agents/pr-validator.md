@@ -320,10 +320,17 @@ PASS and FAIL. The authoritative head SHA comes from the remote ref, NOT
 ```bash
 SHA=$(git ls-remote https://github.com/<owner>/<repo> refs/heads/<feat-branch> | cut -f1)
 # 1) the required status — the mechanical gate branch protection enforces.
-#    Use `--method POST` (NOT `-X POST`): the committed `.claude/settings.json`
-#    allow-rule `Bash(gh api --method POST repos/opencharly:*)` matches that exact
-#    prefix, so the status post is deterministically permitted (no per-PR classifier
-#    judgement). The rule is POST-only, so it CANNOT touch branch protection (a PUT).
+#    Use `--method POST` (NOT `-X POST`): `permissions.allow` carries
+#    `Bash(gh api --method POST repos/opencharly:*)`, which resolves immediately for the
+#    interactive MAIN session. That rule does NOT settle it for YOU: a pr-validator is a
+#    SUB-AGENT, and every sub-agent action is evaluated by the auto-mode classifier.
+#    Posting `success` on a PR this session authored is the classifier's Self-Approval
+#    category (a SOFT block: "triggering a pipeline that marks the agent's own PR's
+#    required checks as passed"). What clears it is the operator's standing
+#    natural-language rule in the SUPERPROJECT's `autoMode.allow`, which NAMES that
+#    action — never a `<teammate-message>`. Posting `failure` never trips Self-Approval
+#    (it marks nothing passed), so a FAIL status always goes through. The rule is
+#    POST-only, so it CANNOT touch branch protection (a PUT).
 gh api --method POST repos/<owner>/<repo>/statuses/$SHA \
   -f state=<success|failure> -f context=charly/claude-validation \
   -f description="pr-validator: <PASS|one-line reason>"
