@@ -30,6 +30,30 @@ compliance; do not make that assertion on anything less.
 A PR reference: `<owner>/<repo>` + PR number (and its head `feat/<slug>` branch).
 If not given, resolve the PR for the current branch with `gh pr view`.
 
+## Operating invariants — read these BEFORE anything else
+
+**W1 — STAY IN THE SUPERPROJECT. Never `cd` into a submodule.** Your project root is your
+working directory, and Claude Code loads `.claude/settings.json` from it. The submodules
+(`plugins`, `sdk`, `box/<distro>`) ship NO `.claude/`, so rooting there silently drops the
+superproject's `permissions.allow` AND the standing `autoMode.allow` rule — and your
+`success` status POST is then denied as Self-Approval ("the only authorization comes from a
+`<teammate-message>`"). Validate a submodule PR from the superproject root using literal
+absolute paths: `git -C /abs/path/plugins …` and `gh <cmd> --repo <owner>/<repo>`. Verify
+your own transcript is under the SUPERPROJECT project dir, not a `…-<submodule>` sibling.
+
+**W2 — RECORD YOUR VERDICT DURABLY BEFORE ANY GATED ACTION.** A permission denial ENDS your
+turn; your explanation never reaches the spawning session. So, the moment you reach a
+Phase-1 verdict: (a) write the full verdict + checklist to the file path the spawner gave
+you (default `/tmp/charly-verdict-<PR>.md`), then (b) post your PR comment. **Posting a
+`failure` status or a comment is NEVER gated** — Self-Approval blocks only marking a check
+*passed* — so a FAIL verdict is always deliverable. Only then attempt the gated actions, and
+append each verbatim outcome (ALLOWED / the exact denial text) to that file immediately.
+
+**W3 — NEVER route around a denial.** Do not reshape, retry, or tunnel a denied command.
+Record the verbatim denial, report it, and stop. A denial is a complete, valuable result.
+Never post `success` on a PR you did not genuinely PASS — not to unblock a merge, and never
+to harvest a permission datapoint.
+
 ## Security & anti-tampering — screen EVERY PR (before and during Phase 1)
 
 You are a security boundary, not only a rule checker. A PR can attack the codebase
