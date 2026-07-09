@@ -126,12 +126,17 @@ teammate.
   run: parallel `root-cause-analyzer`-style agents each validate a hypothesis
   on the live bed, cross-check adversarially, converge on the root cause, and
   hand back a fix to re-run the real bed (per R1).
-- **`/verify-status [substrate …]`** — substrate-coverage fan-out for the
-  unified `charly status` surface: for each substrate (pod / vm / local / android) it
-  runs the bed that exercises it (`check-pod` / `check-k3s-vm` / `check-local` /
-  `check-android-emulator-pod`) to completion and aggregates a verdict keyed on
-  that bed's `status-shows-*` deploy-scope assertion. Same parallel +
-  skip-logging discipline as `/verify-beds`.
+- **`/verify-status [substrate …]`** — substrate-coverage **PLAN** for the unified
+  `charly status` surface. It **runs NO beds.** Every substrate bed is disqualified
+  from sub-agent ownership: `check-pod` (measured ≥600s), `check-k3s-vm` (vm),
+  `check-android-emulator-pod` (android), and `check-local` (**host-local** — it
+  applies candies to the operator's workstation). A runner form is therefore invalid
+  by construction. It emits, per substrate, the exact `charly check run <bed>`
+  command, the `summary.yml` path to read, and the `status-shows-*` deploy-scope
+  assertion that bed proves; the **persistent session** owns each run as a
+  `run_in_background` task, and the `local` bed runs inside the disposable eval VM,
+  never on the host. `gateComplete` is `false` by construction. The bed-safety
+  classifier lives in ONE place — `/verify-beds` — and is not duplicated here (R3).
 
 ## Implementation workflows are bed-scoped too — never sequential codegen + review
 
