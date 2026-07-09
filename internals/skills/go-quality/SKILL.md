@@ -194,7 +194,7 @@ unparam` a uniform-handler signature) — don't nolint-stack blindly.
 
 `go test ./...` + `golangci-lint run` + `task build:charly` are SMOKE, not the gate. The gate
 is `charly check run <bed>` on the bed that EXERCISES the change (cross-cutting tree-wide
-categories → fan EVERY matching bed out concurrently via `/verify-beds`, one `charly check run <bed>` per agent), disposable-only, fresh-rebuild, zero warnings, pasted proof. See
+categories → fan EVERY matching bed out concurrently BY OWNER: the SHORT beds via `/verify-beds`, one `charly check run <bed>` per agent, and every LONG bed — `vm`/`android`, or last run ≥600s — as its own persistent-session `run_in_background` task, since a sub-agent cannot own a bed that outlives its turn; `/verify-beds` defers those and refuses host-local beds, and `gateComplete: false` means the roster is partial), disposable-only, fresh-rebuild, zero warnings, pasted proof. See
 `/charly-check:check` "R10 gate by change class" and `/charly-internals:cutover-policy`.
 
 ## Cross-References
