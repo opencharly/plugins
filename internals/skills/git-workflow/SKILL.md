@@ -287,6 +287,33 @@ discipline is unchanged: **only a FRESH
 `pr-validator` (never the PR's author, never a teammate that authored the code) posts
 the status** — that is a context-level discipline, not an identity guarantee.
 
+**THE AUTONOMOUS-LANDING CONTRACT — spawn every `pr-validator` ROOTED IN THE
+SUPERPROJECT.** The autonomous loop depends on a standing `autoMode.allow` rule in the
+SUPERPROJECT's `.claude/settings.json` — an operator installs it, and committing it
+there is what shares it across a team and makes the loop autonomous by default. Claude
+Code resolves `.claude/settings.json` from the AGENT'S PROJECT ROOT, which is its
+working directory. A validator told to work *inside* `plugins/` or
+`sdk/` roots in that submodule — which ships no `.claude/` — and therefore silently
+loads NEITHER `permissions.allow` NOR `autoMode.allow`. Its `success` status POST is
+then denied as Self-Approval (*"the only authorization comes from a
+`<teammate-message>`"*), because the classifier never saw the standing rule. So:
+
+- **Spawn the validator with its working directory at the SUPERPROJECT root**, for a PR
+  in ANY repo (superproject, `sdk`, `plugins`, `box/<distro>`).
+- **Drive the submodule with a literal absolute path**: `git -C /abs/path/plugins …`,
+  `gh <cmd> --repo <owner>/<repo>`. NEVER `cd plugins && …` (B7 states the same rule for
+  the commit gate; it is equally load-bearing for PERMISSIONS).
+- Verify after the fact: the agent's transcript must live under
+  `~/.claude/projects/-<superproject-path-slug>/`, not the `…-plugins` sibling.
+
+**Proven by controlled experiment (single variable):** with the rule text unchanged, a
+`pr-validator` rooted in `plugins/` was DENIED the `success` POST; the same validator
+rooted in the superproject posted `success` and merged with zero denials. Scope was the
+entire cause. Do not "fix" a denial by editing the rule until you have confirmed the
+agent's project root. See `/charly-internals:agents` "Sub-agent operational invariants"
+for the durable-verdict-first protocol every validator must follow (a permission denial
+ENDS the agent's turn, so it records its verdict before attempting any gated action).
+
 ## B6 — cross-repo landing when a change is referenced via `@github`
 
 The resolver (`EnsureRepoDownloaded`) fetches a producer repo from the REMOTE at
