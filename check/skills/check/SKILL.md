@@ -105,10 +105,14 @@ token until then. Full model + RCA: `/charly-vm:vm` "GPU driver-mode switch" +
 tear down), `--no-rebuild` (skip step 6) — both scope-shrinking, governed by
 "Flag discipline" below. Per-run logs land in
 `.check/<bed>/<calver>/` (per-step `.log` files + `summary.yml`). To run a
-WHOLE ROSTER, fan the beds out CONCURRENTLY — one `charly check run <bed>`
-process per agent — via the `/verify-beds` workflow (or an agent team), which
-collapses wall-clock to ≈ the slowest single bed (see "Approximate wall-clock"
-below).
+WHOLE ROSTER, fan the beds out CONCURRENTLY, by OWNER: the SHORT beds via the
+`/verify-beds` workflow (one `charly check run <bed>` process per agent), and every
+LONG bed — a `vm`/`android` substrate, or one whose last run took ≥600s — as its OWN
+`run_in_background` task owned by the PERSISTENT session, because an ephemeral
+sub-agent cannot own a bed that outlives its turn. `/verify-beds` DEFERS the long beds
+(returning `deferredLongBeds[]`) and REFUSES host-local ones rather than running them;
+its `gateComplete: false` means the roster is partial. Either way wall-clock collapses
+to ≈ the slowest single bed (see "Approximate wall-clock" below).
 
 ### Flag discipline — the `iterate:`/bed config IS the test specification
 
@@ -120,8 +124,9 @@ class as dry-run-as-R10 (CLAUDE.md R10 flag-override clause). The catalog:
 `--plateau-iteration`, `--max-scenario`, `--tag`, `--skip-rebuild`,
 `--on-pod` / `--on-vm` / `--on-host`, `--keep-repo`, `--dry-run`, and the bed
 flags `--no-rebuild` (skips the R10 fresh-rebuild gate) and `--keep`.
-(Fanning the FULL ROSTER out concurrently via `/verify-beds` — one `charly
-check run <bed>` per agent — is scope-EXPANDING, not shrinking: it is in-spec
+(Fanning the FULL ROSTER out concurrently — the SHORT beds via `/verify-beds`,
+one `charly check run <bed>` per agent, and the LONG beds as persistent-session
+`run_in_background` tasks — is scope-EXPANDING, not shrinking: it is in-spec
 WITHOUT authorization when "R10 gate by change class" mandates the full
 fan-out for a cross-cutting change, and needs authorization only as a
 SUBSTITUTE for the class-mandated gate.) Internal-voice triggers — "tractable wall-clock", "for the
@@ -193,9 +198,10 @@ covering all four mechanisms) · `check-local` ~45s · `check-k3s-vm` ~5–7 min
 heavy feature beds (`check-sway-browser-vnc-pod` ~14 min incl. image build)
 longer. **`charly check run <bed>` runs exactly ONE bed, so a roster run is N
 of them — and running them SEQUENTIALLY would make wall-clock ≈ the SUM.** To
-collapse that to ≈ the slowest single bed, fan the beds out CONCURRENTLY at the
-AGENT layer — one `charly check run <bed>` process per agent/teammate
-(`/verify-beds` and an agent team both do this; see `/charly-internals:agents`
+collapse that to ≈ the slowest single bed, fan the beds out CONCURRENTLY — one
+`charly check run <bed>` process per owner: a per-agent process for the SHORT beds
+(`/verify-beds`, an agent team), and a persistent-session `run_in_background` task for
+each LONG bed, which no sub-agent can own (see `/charly-internals:agents`
 "Speed levers"). The dominant cost is
 the step-1 `charly box build`: a pod bed builds the image ONCE — the "fresh
 `charly update`" R10 step is a `systemctl restart` onto the already-built image, not
@@ -270,7 +276,7 @@ CLAUDE.md R10 carries the mandate; this matrix is the authoritative detail.
 |---|---|---|---|---|
 | **Documentation-only change class** — `*.md` (CLAUDE.md, `plugins/**/SKILL.md`, READMEs, CHANGELOG), comment-only code edits, or a submodule pointer bump to an all-documentation submodule commit; zero behavior change | markdown integrity, link checks | The non-runtime standards: adversarial consistency review, the R5 grep self-test, cross-reference validation, the `pre-commit-gate.sh`/`pre-push-gate.sh` gates | `documentation reviewed` | ANY bed run or image build — beds cannot fail on prose |
 | **Hook / workflow scripts** — `.claude/hooks/*.sh`, `.claude/workflows/*.js` | `bash -n` / async-body parse | Execute the changed script live: run the hook directly (paste its output); a workflow whose CONTROL FLOW changed runs against ONE bed matching the change. Prompt-string-only workflow edits: parse + the non-runtime standards | `fully tested and validated` | The full bed fan-out |
-| **`charly` Go code** | `go test ./...` + `go vet` + `task build:charly` (R9 freshness + `charly version` check) | `charly check run <bed>` for EACH bed whose kind matches a touched code path: box/candy/pod/DeployTarget mechanism → `check-pod`; `target: local` → `check-local`; VM / k8s → `check-k3s-vm`; a feature surface → its feature bed. Cross-cutting loader / resolver / IR / unified-schema changes → fan EVERY matching bed out CONCURRENTLY via `/verify-beds` (one `charly check run <bed>` per agent; in-spec for that class, not a scope override) | `fully tested and validated` | Beds whose substrate the change cannot reach |
+| **`charly` Go code** | `go test ./...` + `go vet` + `task build:charly` (R9 freshness + `charly version` check) | `charly check run <bed>` for EACH bed whose kind matches a touched code path: box/candy/pod/DeployTarget mechanism → `check-pod`; `target: local` → `check-local`; VM / k8s → `check-k3s-vm`; a feature surface → its feature bed. Cross-cutting loader / resolver / IR / unified-schema changes → fan EVERY matching bed out CONCURRENTLY, by owner: SHORT beds via `/verify-beds` (one `charly check run <bed>` per agent), every LONG bed (`vm`/`android`, or last run ≥600s) as a persistent-session `run_in_background` task — in-spec for that class, not a scope override; a `/verify-beds` result with `gateComplete: false` is a PARTIAL roster, never a green gate | `fully tested and validated` | Beds whose substrate the change cannot reach |
 | **Candy / box / pod / vm / k8s / local / android config** | `charly box validate` | Build + run a bed that COMPOSES the changed entity (a candy edit → a bed whose image stacks that candy); when no bed composes it, the R7 sequence on a disposable deploy: build → `charly check box` → deploy → `charly check live` → fresh `charly update` | `fully tested and validated` | Beds that do not compose the changed entity |
 | **`iterate:` / ai check config** | `charly box validate` | The affected `iterate:` bed run AS SPECIFIED (see "Flag discipline") | `fully tested and validated` | Unrelated beds |
 
@@ -387,7 +393,7 @@ check written once works unchanged when `charly.yml` remaps ports.
 |--------|---------|-------------|
 | Pure-box check (disposable, build-context) | `charly check box <image>` | Candy + box sections only, in `podman run --rm` (no host port mappings, no volumes attached) |
 | Live full-stack check (running deployment) | `charly check live <name> [-i instance]` | All three sections run via `podman exec` / SSH / nested chain, with full runtime variable resolution |
-| R10 bed (full sequence) | `charly check run <bed>` | Build → check image → deploy → check live → fresh update → tear down on a `disposable: true` deploy (ONE bed per invocation). Canonical R10 gate; for a whole roster fan beds out concurrently via `/verify-beds` |
+| R10 bed (full sequence) | `charly check run <bed>` | Build → check image → deploy → check live → fresh update → tear down on a `disposable: true` deploy (ONE bed per invocation). Canonical R10 gate; for a whole roster fan the SHORT beds out via `/verify-beds` and own each LONG bed (`vm`/`android`, or last run ≥600s) as a persistent-session `run_in_background` task |
 | AI iteration loop | `charly check run <bed>` | Drives an AI through plateau-bounded iterations against a bed carrying an `iterate:` block |
 | Validate authored tests at config time | `charly box validate` | Schema, context/variable consistency, id uniqueness |
 | Inspect effective spec | `charly box inspect <image>` | JSON includes merged check structure |

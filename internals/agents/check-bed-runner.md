@@ -99,6 +99,8 @@ FAILING-STEP LOG (tail, if any):
   deploy code (CLAUDE.md "Hard Cutover by Default": the commit is gated on a
   full final-code bed test, pasted). The bed may also be run anytime during development to verify —
   only the commit is gated, never the act of running it.
-- From the `/verify-beds` workflow, one instance per bed (in parallel).
+- From the `/verify-beds` workflow, one instance per SHORT bed (in parallel). A LONG bed
+  (`vm`/`android`, or last run ≥600s) is deferred by that workflow and owned by the
+  persistent session as a `run_in_background` task — a sub-agent cannot own it.
 - As a teammate role in a bed-scoped agent team — one bed-owner per bed.
 - Whenever a caller needs a single bed proved on a fresh rebuild.

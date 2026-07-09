@@ -103,12 +103,22 @@ teammate.
 
 ## The shipped workflows (`.claude/workflows/`)
 
-- **`/verify-beds [bed …]`** — the commit-gating full-live-test fan-out, also
-  usable for continuous verification throughout development. Runs each
-  check bed (default: all) **in parallel** via `parallel()`, bounded by
-  the runtime's 16-concurrent agent ceiling (KVM/libvirt are multi-tenant,
-  podman builds distinct image tags concurrently), and aggregates pass/fail.
-  Beds skipped for a missing host prereq are logged, never silently dropped.
+- **`/verify-beds [bed …]`** — the commit-gating fan-out for the beds a SUB-AGENT
+  CAN OWN. It runs the **SHORT** beds in parallel via `parallel()`, bounded by the
+  runtime's 16-concurrent agent ceiling (KVM/libvirt are multi-tenant, podman builds
+  distinct image tags concurrently), and aggregates pass/fail. It **DEFERS** every
+  LONG bed — a `vm`/`android` substrate, or any bed whose newest
+  `.check/<bed>/<calver>/summary.yml` records `total_seconds >= 600` — returning them
+  in `deferredLongBeds[]` with the exact command, because an `agent()` sub-agent cannot
+  own a bed that outlives its turn (see 4c below); the PERSISTENT session runs each as a
+  `run_in_background` task. It **REFUSES** every HOST-LOCAL bed (a `local:` deploy, or a
+  bed with a nested `local:` member, whose `host:` is `local`) — those apply candies to
+  the operator's workstation and belong in a disposable eval VM. Deferrals, refusals,
+  and missing-host-prereq skips are all logged and returned; **`gateComplete: false`
+  means the roster is PARTIAL and is not a green R10 gate.**
+  *An edited `.claude/workflows/*.js` is NOT what `Workflow({name})` runs — the registry
+  is snapshotted at session start. Drive an edited workflow with `Workflow({scriptPath})`,
+  which takes precedence.*
 - **`/audit-deploy-configs [image|deploy …]`** — validates + `charly check box`
   + optional `charly check live` + `deploy-verifier` over a set of deploy configs;
   aggregates a health report. Serves the "evaluate deployment configs, for you and your agents" goal.
@@ -116,12 +126,17 @@ teammate.
   run: parallel `root-cause-analyzer`-style agents each validate a hypothesis
   on the live bed, cross-check adversarially, converge on the root cause, and
   hand back a fix to re-run the real bed (per R1).
-- **`/verify-status [substrate …]`** — substrate-coverage fan-out for the
-  unified `charly status` surface: for each substrate (pod / vm / local / android) it
-  runs the bed that exercises it (`check-pod` / `check-k3s-vm` / `check-local` /
-  `check-android-emulator-pod`) to completion and aggregates a verdict keyed on
-  that bed's `status-shows-*` deploy-scope assertion. Same parallel +
-  skip-logging discipline as `/verify-beds`.
+- **`/verify-status [substrate …]`** — substrate-coverage **PLAN** for the unified
+  `charly status` surface. It **runs NO beds.** Every substrate bed is disqualified
+  from sub-agent ownership: `check-pod` (measured ≥600s), `check-k3s-vm` (vm),
+  `check-android-emulator-pod` (android), and `check-local` (**host-local** — it
+  applies candies to the operator's workstation). A runner form is therefore invalid
+  by construction. It emits, per substrate, the exact `charly check run <bed>`
+  command, the `summary.yml` path to read, and the `status-shows-*` deploy-scope
+  assertion that bed proves; the **persistent session** owns each run as a
+  `run_in_background` task, and the `local` bed runs inside the disposable eval VM,
+  never on the host. `gateComplete` is `false` by construction. The bed-safety
+  classifier lives in ONE place — `/verify-beds` — and is not duplicated here (R3).
 
 ## Implementation workflows are bed-scoped too — never sequential codegen + review
 
