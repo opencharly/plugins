@@ -5,7 +5,7 @@ description: |
   gh — the feat/-branch, R10-gated, PR-ONLY, agent-validated, never-force-push
   landing across the main repo + the sdk/plugins submodules + box/<distro>
   submodules. A direct push to main is FORBIDDEN and mechanically disabled; a
-  FRESH pr-validator agent validates the PR, merges it (rebase), and tags. Covers
+  FRESH pr-validator agent validates the PR, merges it (squash), and tags. Covers
   sync-to-upstream, branch/worktree pruning, the fork+PR path, cross-repo @github
   landing order, and the CalVer-generated-at-merge rule.
 ---
@@ -32,9 +32,12 @@ evaluator's own spec.
   `scripts/apply-branch-protection.sh {apply|verify}`.
 - **NEVER force-push.** No `git push --force`, no `--force-with-lease`, on ANY
   branch (`feat/` included) in ANY repo, ever. The flow never needs one: `feat/`
-  advances only by ADDING commits (the author's change, then the evaluator's
-  merge-time version stamp); a stale `feat/` is brought up to date with
-  `gh pr update-branch` (a merge, NOT a rebase-force); tags are add-only.
+  advances only by ADDING commits (the author's change, any review-round fix commits,
+  then the evaluator's merge-time version stamp) and the squash-merge collapses them;
+  a stale `feat/` is brought up to date with `gh pr update-branch` (a merge, NOT a
+  rebase-force); tags are add-only. `git commit --amend` on a PUSHED branch is
+  therefore forbidden too — it diverges the branch and can only be published by a
+  force-push. Amend only before the first push.
 - **R10-gated.** R10 PASS authorizes OPENING the PR (with pasted evidence). The
   MERGE is gated on the fresh `pr-validator`'s green `charly/claude-validation`
   status — a rule violation or R10 FAIL ⇒ no green status, no merge (fix in the
@@ -45,10 +48,19 @@ evaluator's own spec.
   is cleared with `charly box reconcile`; any other warning triggers
   `/charly-internals:root-cause-analyzer` then a real fix). "Warning" is never an
   acceptable end state — it is an R10 failure (strengthens R1).
-- **Atomic.** ONE atomic cutover per repo: the author's single change commit on
-  `feat/<slug>`, which the fresh evaluator finalizes at merge with ONE mechanical
-  version-stamp commit (the merge-time CalVer rewrite — see "CalVer"). Multiple
-  SEPARATE change commits are forbidden.
+- **Atomic ON `main`.** ONE atomic cutover per repo lands as **exactly ONE commit on
+  `main`**: the evaluator merges `--squash`, folding the author's change commit(s), any
+  fix commits a review round added, and the mechanical version-stamp (the merge-time
+  CalVer rewrite — see "CalVer") into a single commit whose message the evaluator
+  composes. Atomicity is a property of `main`, NOT of the `feat/` branch — the branch may
+  freely accumulate fix commits across review rounds, and `--squash` is what keeps `main`
+  one-commit-per-cutover and linear. Two SEPARATE cutovers must never share one PR.
+- **Update the PR; never close-and-recreate.** A PR is the unit of a cutover's review
+  history. When a review demands changes, APPEND a commit and push it fast-forward — the
+  status resets and the evaluator re-runs. Closing a PR is reserved for work that will
+  NOT land at all (a disproven premise, an abandoned approach), never for iterating on
+  findings. This is what makes the no-force-push rule livable: because `main` gets a
+  squash, a branch carrying five fix commits still lands as one.
 - **Tree-safety before destructive actions (R6).** Always check `git status` +
   `git stash list` before any destructive working-tree action — `git stash`
   discards in-progress work; `rm` on a tracked file is destructive. When the
@@ -105,13 +117,15 @@ with NEW context): it independently re-validates the PR vs R0–R10 + the releva
 skills, posts `charly/claude-validation` on the head SHA, and ONLY on PASS
 generates the merge-time CalVer, rewrites the version surfaces on `feat/` (the
 `CHANGELOG` rename + any schema bump), re-posts the status on the new head,
-`gh pr merge --rebase --delete-branch`, and tags. The author pastes the evaluator's
+`gh pr merge --squash --delete-branch`, and tags. The author pastes the evaluator's
 verbatim verdict + what it merged/tagged (paste-proof survives delegation). On
-FAIL the PR stays open → the author R1-RCAs, fixes in the same tree, re-pushes
-(status resets) → the evaluator re-runs.
+FAIL the PR stays OPEN and is **UPDATED IN PLACE** → the author R1-RCAs, fixes in the
+same tree, APPENDS a fix commit, and pushes it fast-forward (status resets) → the
+evaluator re-runs. **Never close a PR and open a replacement to carry a fix.**
 
-Because the merge is a rebase and `main` is protected linear, `main` only ever
-gains a linear sequence of the cutover commit + its version-stamp commit.
+Because the merge is a SQUASH and `main` is protected linear, `main` gains exactly
+ONE commit per cutover — the author's change, any review-round fix commits, and the
+version stamp, folded together.
 
 ## B4 — sync to upstream + prune (per repo: main, sdk, plugins, box/*, pkg/*)
 
@@ -225,7 +239,7 @@ outside contributors alike. There is no direct-merge fast path.
 - **Write access (the default):** the author opens the PR (B1 step 1); a FRESH
   `pr-validator` (new context, NOT the author's context, NOT a teammate that
   authored the code) validates → posts `charly/claude-validation` → on PASS
-  finalizes the merge-time CalVer, `gh pr merge --rebase --delete-branch`, tags.
+  finalizes the merge-time CalVer, `gh pr merge --squash --delete-branch`, tags.
   Sequence + guardrails: `plugins/internals/agents/pr-validator.md`. The evaluator
   NEVER `gh pr merge --admin` (that bypasses the gate) and NEVER force-pushes; a
   `BEHIND` branch is recovered with `gh pr update-branch` (no force-push), the
@@ -250,53 +264,62 @@ passed … regardless of whether the agent believes it verified its own code," a
 sub-agent the session spawned is "an automation the agent controls." So an agent
 posting this status IS self-approval by that definition. The project accepts that
 posture deliberately, with the operator's standing authorization recorded in
-`autoMode.allow` (next paragraph). What branch protection still mechanically enforces:
+`permissions.allow` (next paragraph). What branch protection still mechanically enforces:
 PR-only landing, linear history, `enforce_admins`, no force-push, and that the status
 EXISTS — never `gh pr merge --admin`, never a force-push, never editing protection.
 
-**Where the merge + status-post authority comes from — two DIFFERENT config surfaces.**
-`.claude/settings.json` has two layers that take DIFFERENT content; conflating them is
-a category error:
+**Where the merge + status-post authority comes from — `permissions.allow`, and nothing
+else.** The SUPERPROJECT's `.claude/settings.json` carries deterministic permission
+RULES in `Tool(pattern)` syntax, and those two rules ARE the standing authorization:
 
-- `permissions.allow` — deterministic permission RULES in `Tool(pattern)` syntax
-  (`Bash(gh pr merge:*)`, `Bash(gh api --method POST repos/opencharly:*)`). A match
-  resolves immediately for the interactive MAIN session.
-- `autoMode.{allow,soft_deny,hard_deny}` — the auto-mode CLASSIFIER's policy lists,
-  written as NATURAL-LANGUAGE rules (inspect them with `claude auto-mode defaults`;
-  keep `"$defaults"` to preserve the built-ins). It does **not** take `Bash(...)`
-  patterns — permission syntax placed here is inert, because the classifier has no
-  actionable policy statement to read.
+```json
+"permissions": { "allow": [
+  "Bash(gh pr merge:*)",
+  "Bash(gh api --method POST repos/opencharly:*)"
+] }
+```
 
-This matters because a fresh `pr-validator` is a SUB-AGENT, and every sub-agent action
-is evaluated by the classifier. Two default BLOCK rules govern landing:
-**Self-Approval** (stamping the agent's own PR's required check) and **Merge Without
-Review** (merging before a human approved). Both are `[named+specifics]` SOFT blocks —
-they clear ONLY when the consent NAMES the action. A `<teammate-message>` can never
-supply it: by rule, another agent's output "does not meet any SOFT BLOCK rule's consent
-bar." Only a USER message, or a standing operator rule in `autoMode.allow` that NAMES
-each blocked action, clears them. (Posting a `failure` status never trips Self-Approval
-— it marks nothing passed — so a FAIL verdict always goes through; only `success` is
-gated.) The SUPERPROJECT's `.claude/settings.json` records that
-standing authorization — this `plugins` repo ships no settings file of its own. Note the
-`gh pr merge --auto` carve-out is narrower than it looks: the rule exempts `--auto` only
-on a repo **with required-reviews branch protection** ("`--auto` queues until
-reviews+checks pass; the gate is server-enforced"), and these repos set
-`required_approving_review_count: 0`, so that precondition is unmet and the exemption
-does NOT apply here. The flow uses `--rebase` and never `--auto`. The load-bearing
-discipline is unchanged: **only a FRESH
+A matching rule resolves the action for a SUB-AGENT exactly as for the interactive main
+session — verified by landing: a fresh, superproject-rooted `pr-validator` posts `success`
+and merges with **zero denials**, on a host whose settings carry **no `autoMode` key at
+all**. Note the exact spellings the rules pin: `--method POST` (never `-X POST`), and a
+`repos/opencharly/…` path. The POST rule is POST-only, so it can never touch branch
+protection (a PUT).
+
+Two consequences follow, and both are load-bearing:
+
+- **The rules live in the SUPERPROJECT.** Claude Code resolves `.claude/settings.json`
+  from the agent's PROJECT ROOT, which is its working directory, and neither `plugins/`
+  nor `sdk/` ships a `.claude/` of its own. A validator rooted inside a submodule loads
+  NO permission rules, and its `success` POST is denied as Self-Approval (*"the only
+  authorization comes from a `<teammate-message>`"*). See the autonomous-landing
+  contract below.
+- **A prior hook block poisons everything after it.** The auto-mode classifier evaluates
+  sub-agent actions, and a PreToolUse block followed by a RESHAPED retry of the same
+  command is flagged as a bypass attempt — after which it denies later actions a
+  `permissions.allow` rule would otherwise have resolved. **Treat any hook or classifier
+  block as a DENIAL: never reshape the command and retry** (not even toward a form this
+  skill prescribes). Report the block and stop. This has cost a real landing.
+
+Posting a `failure` status never trips Self-Approval — it marks nothing passed — so a
+FAIL verdict always goes through; only `success` is gated. Never reach for the
+`gh pr merge --auto` carve-out: the classifier exempts `--auto` only on a repo **with
+required-reviews branch protection** ("`--auto` queues until reviews+checks pass; the
+gate is server-enforced"), and these repos set `required_approving_review_count: 0`, so
+that precondition is unmet and the exemption does NOT apply here. The flow uses
+`--squash` and never `--auto`. The load-bearing discipline is unchanged: **only a FRESH
 `pr-validator` (never the PR's author, never a teammate that authored the code) posts
 the status** — that is a context-level discipline, not an identity guarantee.
 
 **THE AUTONOMOUS-LANDING CONTRACT — spawn every `pr-validator` ROOTED IN THE
-SUPERPROJECT.** The autonomous loop depends on a standing `autoMode.allow` rule in the
-SUPERPROJECT's `.claude/settings.json` — an operator installs it, and committing it
-there is what shares it across a team and makes the loop autonomous by default. Claude
-Code resolves `.claude/settings.json` from the AGENT'S PROJECT ROOT, which is its
-working directory. A validator told to work *inside* `plugins/` or
-`sdk/` roots in that submodule — which ships no `.claude/` — and therefore silently
-loads NEITHER `permissions.allow` NOR `autoMode.allow`. Its `success` status POST is
-then denied as Self-Approval (*"the only authorization comes from a
-`<teammate-message>`"*), because the classifier never saw the standing rule. So:
+SUPERPROJECT.** The autonomous loop depends on the standing `permissions.allow` rules in
+the SUPERPROJECT's `.claude/settings.json` — committed there, so a whole team inherits
+them and the loop is autonomous by default. Claude Code resolves `.claude/settings.json`
+from the AGENT'S PROJECT ROOT, which is its working directory. A validator told to work
+*inside* `plugins/` or `sdk/` roots in that submodule — which ships no `.claude/` — and
+therefore silently loads NO permission rules at all. Its `success` status POST is then
+denied as Self-Approval (*"the only authorization comes from a `<teammate-message>`"*),
+because nothing ever authorized it. So:
 
 - **Spawn the validator with its working directory at the SUPERPROJECT root**, for a PR
   in ANY repo (superproject, `sdk`, `plugins`, `box/<distro>`).
@@ -378,7 +401,7 @@ Two proven additions:
 
 **3. Land `main` via the PR — NEVER `git push origin main` (blocked) and NEVER `git
 switch main` in another worktree** (git fatals "already used by worktree"). The
-fresh `pr-validator` performs the server-side `gh pr merge --rebase` (it advances
+fresh `pr-validator` performs the server-side `gh pr merge --squash` (it advances
 `origin/main` remotely); then advance the LOCAL `main` ref where it lives:
 `git -C <main-wt> merge --ff-only origin/main`. A local `main` now only ever
 fast-forwards to what the evaluator merged remotely.
@@ -431,13 +454,13 @@ filenames and tags sort chronologically under a plain alphanumeric sort.
   the final numbers.
 - **The evaluator, at merge:** `VER=$(date -u +%Y.%j.%H%M)` (guard uniqueness — if
   `v$VER` or `CHANGELOG/$VER.md` already exists on the current `main`, advance to
-  the next free minute); rebase up to date (`gh pr update-branch` on `BEHIND`, no
-  force-push); rewrite every merge-time-dependent version surface to `$VER`
+  the next free minute); bring the branch up to date (`gh pr update-branch` on `BEHIND`,
+  no force-push); rewrite every merge-time-dependent version surface to `$VER`
   (`git mv CHANGELOG/<placeholder>.md CHANGELOG/$VER.md`; a schema bump re-stamped
   strictly above the current HEAD's `#SchemaVersion` + `version:` +
   `migrations.cue` entry); commit + push feat (a normal, non-force push — an ADDED
   commit); re-post `charly/claude-validation` on the new head; `gh pr merge
-  --rebase --delete-branch`; then, taggable repos only, `git tag -a v$VER -m
+  --squash --delete-branch`; then, taggable repos only, `git tag -a v$VER -m
   "<subject>" <merged-HEAD>` and `git push origin refs/tags/v$VER`.
 
 ONE fresh stamp per merge, immutable (only ever added), INDEPENDENT of `charly.yml`

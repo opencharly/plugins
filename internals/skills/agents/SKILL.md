@@ -82,7 +82,7 @@ under the binding rule). "Prefer agents" governs BOUNDED work.
   landing). Spawned with NEW context, it independently re-validates a PR against
   R0–R10 + the relevant skills, posts the `charly/claude-validation` commit status,
   and ONLY on PASS generates the merge-time CalVer, rewrites the version surfaces
-  on the feat branch, merges (`gh pr merge --rebase`), and tags. It is the ONLY
+  on the feat branch, merges (`gh pr merge --squash`), and tags. It is the ONLY
   actor that posts the status or merges; branch protection makes its status the
   mechanical gate. NEVER the agent that authored the PR — the point is independent
   evaluation. See `/charly-internals:git-workflow` (B1 step 2, B5).
@@ -169,7 +169,7 @@ landing works at all. Violating any one silently breaks the loop.
 
 **1. A sub-agent's PROJECT ROOT is its working directory — never `cd` into a
 submodule.** Claude Code resolves `.claude/settings.json` (and therefore
-`permissions.allow` AND `autoMode.allow`) from the agent's project root, and keys
+`permissions.allow`) from the agent's project root, and keys
 its transcript directory the same way (`~/.claude/projects/<cwd-with-slashes-as-dashes>/`).
 A sub-agent told to work *inside* `plugins/` or `sdk/` roots there — and those
 submodules ship **no `.claude/`** — so it silently loses the SUPERPROJECT's committed
