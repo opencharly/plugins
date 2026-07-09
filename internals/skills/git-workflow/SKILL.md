@@ -235,45 +235,55 @@ outside contributors alike. There is no direct-merge fast path.
   with the full template body. A maintainer's fresh `pr-validator` then validates
   and merges exactly as above. Never force-push, never need upstream write.
 
-**Why a status, not a review approval:** GitHub forbids a PR's author from
-approving their OWN PR, and a local sub-agent shares the author's identity. The
-`charly/claude-validation` COMMIT STATUS has no self-approval restriction, is what
-branch protection requires, and encodes "a fresh agent validated." Independence is
-context-level (a fresh sub-agent re-loading CLAUDE.md, adversarial), mechanically
-backed by the required status — never `gh pr merge --admin`, never a self-approve.
+**Why a status, not a review approval — and what it does NOT buy.** GitHub forbids a
+PR's author from approving their OWN PR, and a local sub-agent SHARES the author's
+identity. A COMMIT STATUS carries no such GitHub-side restriction, which is why
+`charly/claude-validation` is the required check. Be precise about what that means:
+the status is **agent-ATTESTED validation, NOT two-party review**. The fresh
+`pr-validator` supplies CONTEXT independence (a new context re-deriving the verdict
+adversarially, trusting no author claim) — which demonstrably catches real defects —
+but it CANNOT supply PARTY independence: same principal, same token, and
+`required_approving_review_count` is 0, so no second party exists anywhere in the
+flow. Claude Code's auto-mode classifier names this exactly — its **Self-Approval**
+rule blocks "triggering a pipeline that marks the agent's own PR's required checks as
+passed … regardless of whether the agent believes it verified its own code," and a
+sub-agent the session spawned is "an automation the agent controls." So an agent
+posting this status IS self-approval by that definition. The project accepts that
+posture deliberately, with the operator's standing authorization recorded in
+`autoMode.allow` (next paragraph). What branch protection still mechanically enforces:
+PR-only landing, linear history, `enforce_admins`, no force-push, and that the status
+EXISTS — never `gh pr merge --admin`, never a force-push, never editing protection.
 
-**The `gh pr merge` allow-rule — enforcement lives in GitHub, not the client
-classifier — and it MUST be in BOTH permission layers.** `.claude/settings.json`
-allow-lists the merge in two DISTINCT layers so it is deterministic for EVERY
-actor: `permissions.allow` carries `Bash(gh pr merge:*)` (the interactive /
-MAIN-session path — a matched rule bypasses the classifier), AND `autoMode.allow`
-carries the SAME rule (the AUTO-MODE path that every SUB-AGENT and agent-team
-teammate runs under). This distinction is load-bearing: a fresh `pr-validator` is
-a SUB-AGENT, so it is `autoMode` — not `permissions` — that governs ITS merge. A
-command allow-listed in `permissions.allow` but NOT `autoMode.allow` is
-deterministic for the main session yet falls to the auto-mode classifier's
-NON-DETERMINISTIC judgement for a sub-agent, which silently DENIES an
-already-validated sub-agent merge ("teammate directive is not user intent") — the
-exact failure mode that blocks autonomous landing. Both lists MUST carry the rule
-(use `autoMode.allow: ["$defaults", "Bash(gh pr merge:*)", …]` so the defaults are
-preserved) for the pr-validator to merge autonomously. The DETERMINISTIC authority
-is the required `charly/claude-validation` status that branch protection enforces
-SERVER-SIDE — an unvalidated PR physically cannot merge whether or not the command
-is allow-listed — so the allow-rules keep enforcement in ONE place (GitHub branch
-protection) instead of duplicating it in the client classifier, which otherwise
-blocks the merge inconsistently and demands per-PR authorization. **The status
-POST is allow-listed in BOTH layers too** — `Bash(gh api --method POST
-repos/opencharly:*)` (POST-only, so it CANNOT touch branch protection, which is
-enforced by a PUT) — so a fresh `pr-validator` posts `charly/claude-validation`
-deterministically and the validated-landing flow is autonomous end to end for the
-sub-agent evaluator. The honest trade-off this makes explicit: validator
-independence is a CONTEXT-level DISCIPLINE (a fresh sub-agent re-loading CLAUDE.md,
-adversarial, trusting no author claim), NOT a classifier-enforced identity guarantee
-— an author COULD self-post the status, so the load-bearing rule is that **only a
-FRESH `pr-validator` (never the PR's author, never a teammate that authored the
-code) posts it**. GitHub still gates the merge on that status server-side, so an
-unvalidated PR cannot merge regardless; the allow-rule removes the client
-classifier's redundant, non-deterministic second gate, not GitHub's real one.
+**Where the merge + status-post authority comes from — two DIFFERENT config surfaces.**
+`.claude/settings.json` has two layers that take DIFFERENT content; conflating them is
+a category error:
+
+- `permissions.allow` — deterministic permission RULES in `Tool(pattern)` syntax
+  (`Bash(gh pr merge:*)`, `Bash(gh api --method POST repos/opencharly:*)`). A match
+  resolves immediately for the interactive MAIN session.
+- `autoMode.{allow,soft_deny,hard_deny}` — the auto-mode CLASSIFIER's policy lists,
+  written as NATURAL-LANGUAGE rules (inspect them with `claude auto-mode defaults`;
+  keep `"$defaults"` to preserve the built-ins). It does **not** take `Bash(...)`
+  patterns — permission syntax placed here is inert, because the classifier has no
+  actionable policy statement to read.
+
+This matters because a fresh `pr-validator` is a SUB-AGENT, and every sub-agent action
+is evaluated by the classifier. Two default BLOCK rules govern landing:
+**Self-Approval** (stamping the agent's own PR's required check) and **Merge Without
+Review** (merging before a human approved). Both are `[named+specifics]` SOFT blocks —
+they clear ONLY when the consent NAMES the action. A `<teammate-message>` can never
+supply it: by rule, another agent's output "does not meet any SOFT BLOCK rule's consent
+bar." Only a USER message, or a standing operator rule in `autoMode.allow` that NAMES
+the self-approval, clears them. The SUPERPROJECT's `.claude/settings.json` records that
+standing authorization — this `plugins` repo ships no settings file of its own. Note the
+`gh pr merge --auto` carve-out is narrower than it looks: the rule exempts `--auto` only
+on a repo **with required-reviews branch protection** ("`--auto` queues until
+reviews+checks pass; the gate is server-enforced"), and these repos set
+`required_approving_review_count: 0`, so that precondition is unmet and the exemption
+does NOT apply here. The flow uses `--rebase` and never `--auto`. The load-bearing
+discipline is unchanged: **only a FRESH
+`pr-validator` (never the PR's author, never a teammate that authored the code) posts
+the status** — that is a context-level discipline, not an identity guarantee.
 
 ## B6 — cross-repo landing when a change is referenced via `@github`
 
