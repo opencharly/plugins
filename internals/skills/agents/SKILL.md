@@ -288,7 +288,10 @@ Hooks in this project do TWO things and nothing more. The full inventory
    (every commit Claude is involved in must attribute — a pure-human hand-commit
    never reaches this PreToolUse gate; scoped to the commit invocation's own arg
    span; a `-F`/heredoc/command-substituted message is not scanned for absence —
-   tier legality still applies), any tier OUTSIDE the legal-on-commit set
+   tier legality still applies; and a command the gate cannot TOKENIZE — an
+   unbalanced or unquoted quote, e.g. an apostrophe in a heredoc body — fails
+   CLOSED and is blocked, so balance the quotes or use `git commit -F <file>`),
+   any tier OUTSIDE the legal-on-commit set
    {`fully tested and validated`, `analysed on a live system`, `documentation
    reviewed`} (the AI-Attribution table forbids `theoretical suggestion`
    everywhere and pairs `syntax check only` with "do NOT commit"), the
