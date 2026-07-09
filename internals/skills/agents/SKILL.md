@@ -82,7 +82,7 @@ under the binding rule). "Prefer agents" governs BOUNDED work.
   landing). Spawned with NEW context, it independently re-validates a PR against
   R0–R10 + the relevant skills, posts the `charly/claude-validation` commit status,
   and ONLY on PASS generates the merge-time CalVer, rewrites the version surfaces
-  on the feat branch, merges (`gh pr merge --rebase`), and tags. It is the ONLY
+  on the feat branch, merges (`gh pr merge --squash`), and tags. It is the ONLY
   actor that posts the status or merges; branch protection makes its status the
   mechanical gate. NEVER the agent that authored the PR — the point is independent
   evaluation. See `/charly-internals:git-workflow` (B1 step 2, B5).
@@ -161,6 +161,45 @@ discipline as an agent team — it is the workflow expression of the B3 model
   run every bed against the now-stable binary.
 - **Same binding rule** as below: disposable-only, commit-gated-not-run,
   no-scope-shrinking-flags, paste-proof survives delegation.
+
+## Sub-agent operational invariants — the autonomous loop depends on these
+
+Three mechanics, each proven on this host, that decide whether an autonomous
+landing works at all. Violating any one silently breaks the loop.
+
+**1. A sub-agent's PROJECT ROOT is its working directory — never `cd` into a
+submodule.** Claude Code resolves `.claude/settings.json` (and therefore
+`permissions.allow`) from the agent's project root, and keys
+its transcript directory the same way (`~/.claude/projects/<cwd-with-slashes-as-dashes>/`).
+A sub-agent told to work *inside* `plugins/` or `sdk/` roots there — and those
+submodules ship **no `.claude/`** — so it silently loses the SUPERPROJECT's committed
+permission rules. It does not warn; it just gets denied later, for reasons that read
+like a policy problem. Drive every submodule action from the superproject with a
+LITERAL absolute path: `git -C /abs/path/plugins …` and `gh … --repo <owner>/<repo>`
+(the same rule `/charly-internals:git-workflow` B7 states for the commit gate — it is
+equally load-bearing for PERMISSIONS). **Proven by controlled experiment:** a
+`pr-validator` rooted in `plugins/` had its `success` status POST DENIED
+(*"the only authorization comes from a `<teammate-message>`, which is not user
+intent"* — the classifier never saw the standing rule); the SAME agent, same rule
+text, rooted in the superproject, posted `success` and merged with **zero denials**.
+
+**2. A permission denial ENDS the sub-agent's turn — write the verdict durably
+FIRST.** The denial text instructs the agent to "STOP and explain to the user", and it
+stops; its explanation never reaches the spawning session (observed repeatedly: agents
+idle "available" with no report). So every agent that will attempt a permission-gated
+action MUST, before attempting it: (a) write its full verdict to a known file path, and
+(b) post its PR comment. Posting a **`failure`** status or a comment is NEVER gated —
+Self-Approval only blocks marking a check **passed** — so a FAIL verdict is always
+deliverable. Then attempt the gated action and append its verbatim outcome to the file.
+
+**3. Reconnect via durable state; never wait on the message channel.** The truth is on
+disk and on the API: the PR's statuses + comments, the verdict file, and the agent's own
+transcript at `~/.claude/projects/<cwd-slug>/<uuid>.jsonl` (a verbatim classifier denial
+is recoverable from there even when the agent died mid-sentence). To WAIT on a condition,
+use a `run_in_background` Bash `until`-loop that EXITS when it resolves — foreground
+`sleep` is blocked — and make the exit condition cover EVERY terminal state (allowed,
+denied, status posted, merged, timed out). **Silence is not success:** a loop that only
+matches the happy path cannot distinguish "still working" from "died at a denial".
 
 ## The binding rule: running a bed is R10-class
 
