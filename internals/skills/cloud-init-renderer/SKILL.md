@@ -10,7 +10,7 @@ description: |
 
 # cloud-init-renderer
 
-Host-side renderer producing NoCloud seed ISOs for cloud_image VMs (and bootc VMs that include the `cloud-init` layer). Pure transformation — given `VmSpec` + `VmCloudInit`, produces three files (user-data, meta-data, network-config) and packages them into a FAT-labeled `cidata` ISO via xorriso.
+Host-side renderer producing NoCloud seed ISOs for cloud_image VMs (and bootc VMs that include the `cloud-init` layer). Pure transformation — given `VmSpec` + `VmCloudInit`, produces three files (user-data, meta-data, network-config) and packages them into an ISO 9660 image labeled `CIDATA` via xorriso.
 
 Lives **host-side**, in the `charly` binary. The **guest-side** `/charly-distros:cloud-init` layer is complementary: it puts the cloud-init package into the bootc guest OS so that guest reads the seed ISO. The two sides cooperate across the host/guest boundary.
 
@@ -110,7 +110,12 @@ User-supplied fields **extend** defaults; they don't replace them. Prevents the 
 func WriteSeedISO(userData, metaData, networkConfig string, outputPath string) error
 ```
 
-Writes a FAT-labeled `cidata` ISO. Tool preference order:
+Writes an ISO 9660 image whose volume identifier is `CIDATA` (the shared
+`vmshared.cloudInitVolumeID`). It MUST be uppercase: ISO 9660 / ECMA 119
+d-characters are `A-Z 0-9 _` only, so a lowercase label makes xorriso warn on
+every VM boot. cloud-init still finds it — its NoCloud datasource searches both
+`LABEL=<fs_label>.upper()` and `.lower()`, with `fs_label` defaulting to
+`cidata`. Tool preference order:
 
 1. `xorriso` (preferred — modern, scriptable).
 2. `genisoimage` (legacy but widely available).
