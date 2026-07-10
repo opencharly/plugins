@@ -491,6 +491,41 @@ charly vm build <name> --transport containers-storage
 
 `--transport containers-storage` forces `bootc install` to pull from the machine's local store. Worked example: `/charly-openclaw:openclaw-desktop` "Two-level nested-virtualization proof".
 
+### `charly vm destroy <name>` takes the VM ENTITY name, and no-ops silently on a miss
+
+The libvirt domain is `charly-<vm-entity>`, NOT `charly-<bed-name>`. A `vm:` bed named
+`check-charly-vm` whose node is `vm: {from: charly-vm}` runs the domain **`charly-charly-vm`**.
+So orphan cleanup passes the ENTITY (`charly vm destroy charly-vm`), never the bed name.
+
+**`charly vm destroy` on a name with no domain exits 0 and prints `Destroyed VM charly-<name>`.**
+It is a silent no-op success — passing a bed name looks like it worked and leaves the real
+domain running. Always confirm with `charly vm list` afterwards, never with the exit code.
+
+```
+$ charly vm destroy definitely-not-a-vm-xyz ; echo "exit=$?"
+Destroyed VM charly-definitely-not-a-vm-xyz
+exit=0
+```
+
+### `charly bundle add vm:<vm> <localpkg-candy>` exits 0 WITHOUT installing
+
+A `localpkg:` candy (the `charly` candy: `pkg/arch` via makepkg + `pacman -U`) needs the
+package built from local source, which only the check-bed runner does (it sets
+`--dev-local-pkg` automatically — see `/charly-check:check`). A bare `charly bundle add
+vm:<vm> charly` returns **rc=0** and prints:
+
+```
+guest charly absent/outdated; host charly provided at /tmp/charly-<ver> for deploy use
+```
+
+That line means the deploy **staged** the host binary into the guest for its own use — NOT
+that `opencharly-git` was installed, and NOT that `charly` is on the guest's PATH. Do not read
+rc=0 as "installed"; check `pacman -Q opencharly-git` in the guest. The bed that genuinely
+proves the localpkg deploy path is `check-charly-vm`.
+
+(This also means a nested `local:` child of a `vm:` bed needs **no** charly in the guest — the
+vm deploy stages what it needs. See `/charly-core:deploy` "Deploy-into nesting".)
+
 ### `charly vm stop` state-sync race under QEMU backend
 
 Under the QEMU backend, `charly vm stop <name>` returns success + exit 0, but `charly vm list -a` still reports the VM as `running` until `charly vm destroy` runs. Libvirt backend unaffected. Workaround: proceed to `charly vm destroy` rather than treating residual "running" as a stop failure.

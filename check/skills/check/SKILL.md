@@ -104,7 +104,25 @@ token until then. Full model + RCA: `/charly-vm:vm` "GPU driver-mode switch" +
 `charly check run <bed>` runs exactly ONE bed. Flags: `--keep` (don't
 tear down), `--no-rebuild` (skip step 6) — both scope-shrinking, governed by
 "Flag discipline" below. Per-run logs land in
-`.check/<bed>/<calver>/` (per-step `.log` files + `summary.yml`). To run a
+`.check/<bed>/<calver>/` (per-step `.log` files + `summary.yml`).
+
+**`summary.yml`'s `ok:` does NOT distinguish a PASS from a PREREQ SKIP.** A bed charly skips
+for an absent host prereq (exit code **3**) still writes a summary recording success:
+
+```yaml
+bed: check-cachyos-gpu-vm
+steps:
+  - {name: prereq-gpu-skipped, duration_seconds: 0, ok: true}
+total_seconds: 0
+ok: true                     # ← a SKIP, not a pass
+```
+
+So `ok: true` + `total_seconds: 0` + a single `prereq-*-skipped` step IS the skip signature.
+The authoritative discriminator is the **process exit code 3** (charly also prints a
+`SKIPPED — …` line); never count a bed as passed from `summary.yml` alone. `/verify-beds`
+keys on the exit code for exactly this reason.
+
+To run a
 WHOLE ROSTER, fan the beds out CONCURRENTLY, by OWNER: the SHORT beds via the
 `/verify-beds` workflow (one `charly check run <bed>` process per agent), and every
 LONG bed — a `vm`/`android` substrate, or one whose last run took ≥600s — as its OWN
@@ -193,10 +211,17 @@ second bed at deploy via `CheckPortAvailability`).
 
 ### Approximate wall-clock (10-CPU 32-GB reference host)
 
-`check-pod` ~110s (one build → deploy → check → fresh-update → teardown cycle
-covering all four mechanisms) · `check-local` ~45s · `check-k3s-vm` ~5–7 min · the
-heavy feature beds (`check-sway-browser-vnc-pod` ~14 min incl. image build)
-longer. **`charly check run <bed>` runs exactly ONE bed, so a roster run is N
+`check-pod` ~110s IDLE but **842s measured under a concurrent roster** (one build →
+deploy → check → fresh-update → teardown cycle covering all four mechanisms) ·
+`check-local` ~45s · `check-sidecar-pod` ~180–290s · `check-k3s-vm` ~5–7 min ·
+`check-openclaw-full-pod` ~1414s · the heavy feature beds
+(`check-sway-browser-vnc-pod` ~2477s ≈ 41 min incl. image build) longer.
+
+**These are LOAD-DEPENDENT, and the idle figures mislead.** A bed's own newest
+`.check/<bed>/<calver>/summary.yml` `total_seconds:` is the only honest number, and it is
+what `/verify-beds` reads to decide whether a bed is too long for a sub-agent to own
+(≥600s ⇒ deferred to the persistent session). Under a 16-way roster, several pod beds cross
+that line even though they finish in ~2 min idle. **`charly check run <bed>` runs exactly ONE bed, so a roster run is N
 of them — and running them SEQUENTIALLY would make wall-clock ≈ the SUM.** To
 collapse that to ≈ the slowest single bed, fan the beds out CONCURRENTLY — one
 `charly check run <bed>` process per owner: a per-agent process for the SHORT beds
@@ -228,7 +253,12 @@ image`), never the full run. (3) **Reconnect via durable state** —
 `.check/<bed>/<calver>/summary.yml` + the live domain ARE the truth: "done" =
 summary.yml present; "alive" = the orchestrator is in the process table; clean up
 an orphan (`running` domain, no live orchestrator) with `charly vm destroy <entity>`
-(or `charly remove <name>` for a pod) before re-running. See `/charly-internals:agents` "The binding rule".
+(or `charly remove <name>` for a pod) before re-running. **`<entity>` is the `kind: vm`
+entity name, NOT the bed name** — a `vm:` bed `check-charly-vm` with `from: charly-vm` runs
+the domain `charly-charly-vm`, so `charly vm destroy check-charly-vm` targets a domain that
+does not exist, **exits 0, prints `Destroyed VM …`, and leaves the orphan running**. Confirm
+with `charly vm list`, never with the exit code (`/charly-vm:vm` "destroy takes the ENTITY
+name"). See `/charly-internals:agents` "The binding rule".
 
 ### Prereq for the vm bed
 
