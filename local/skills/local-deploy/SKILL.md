@@ -38,11 +38,58 @@ For VM destinations, `charly vm create <name>` writes a managed Host stanza into
 | Tear down | `charly bundle del <name>` |
 | Tear down, keep repo changes | `charly bundle del <name> --keep-repo-changes` |
 
+## Three DIFFERENT remote surfaces — do not conflate them
+
+charly exposes three distinct mechanisms. Picking the wrong one silently changes which
+executor runs, and therefore what a check bed actually proves.
+
+| Mechanism | What it is | Executor | Where the work happens |
+|---|---|---|---|
+| `local: {host: user@machine}` | a **deploy field** — apply candies TO a remote machine | `SSHExecutor` | that machine (driven from here) |
+| a `local:` node **nested under** a `vm:`/`pod:` node | **tree position** — deploy INTO the enclosing venue; the child carries NO `host:` | `NestedExecutor` over the parent venue | inside the enclosing deployment |
+| `charly --host <alias\|user@host[:port]> <verb>` | a **global CLI flag** — re-exec the whole COMMAND remotely | n/a (a fresh `charly` runs there) | on the remote machine |
+
+**`charly --host` is a command-transport flag, not a deploy field** (`charly/host_exec.go`).
+It shells out to `ssh <target> charly <argv>` and propagates the exit code; stdin/stdout/stderr
+pipe straight through, so `~/.ssh/config`, agent forwarding, and ControlMaster all apply.
+
+- Alias resolution: a value containing `@` or `.` is used verbatim; otherwise
+  `charly settings set hosts.<alias> <target>` is consulted, and failing that the raw string
+  is handed to `ssh(1)` (so a `Host` stanza — e.g. the `charly-<vmname>` alias that
+  `charly vm create` writes — just works).
+- `settings`, `version`, and `ssh` are **LocalOnly**: they manage the local installation and
+  are never re-execed.
+- `buildRemoteArgv` **strips `--host`, `--dir`/`-C`, and `--repo`** before shipping argv, so
+  the remote `charly` starts in the SSH cwd and must locate its project itself — via its own
+  cwd, or `CHARLY_PROJECT_DIR` / `CHARLY_PROJECT_REPO` in the remote environment. Note that
+  `ssh host cmd` is a NON-interactive shell: it sources neither `/etc/profile` nor `~/.bashrc`.
+  `/etc/environment` DOES reach it (pam_env, via `UsePAM`), so that is where such a variable
+  belongs on the guest.
+
+**To run a `local:` check bed inside a VM, use NESTING** — it keeps the `local:` authoring
+shape (same template, same candies, same `plan:`) and confines every write to the guest, and
+the enclosing bed owns its lifecycle. Canonical example: `check-arch-vm` → `arch-host` in
+`box/arch/charly.yml`. See `/charly-core:deploy` "Deploy-into nesting".
+
+**But be precise about what moving a bed COSTS.** `ShellExecutor` runs only for a TOP-LEVEL
+`local:` deploy with `host: local` (or absent). **All three remote surfaces above bypass it** —
+nesting included: a nested child runs on `NestedExecutor` over the parent venue (for a `vm:`
+parent, the guest `SSHExecutor`), and `RootExecutorForDeployNode` explicitly "does NOT handle
+the nested-inside-a-parent case" (`sdk/deploykit/deploy_chain.go`). So relocating a
+`host: local` bed — by nesting, by a `host:` retarget, or by `charly --host` — **deletes its
+`ShellExecutor` + `HostDeployTarget` coverage**. `check-local` declares itself the *"sole proof
+of the kind:local layer-application path via ShellExecutor + HostDeployTarget"*; that coverage
+cannot be relocated, only replaced deliberately by another top-level `host: local` bed.
+
 ## `host:` destination semantics
 
 A host/remote deploy MUST be authored as the `host:` FIELD on a `local:` deploy — `local: {from: <template>, host: <user@machine>}`. The `host:` field is a SCALAR on the `local:` substrate node; there is NO standalone `host:` venue KIND, and authoring a `host:` node is a hard load error.
 
 Reserved literal: `local`. Anything else (including `localhost`, `127.0.0.1`) goes through SSH.
+
+**A top-level `local:` deploy with `host: local` (or `host:` absent) writes to the OPERATOR'S
+machine** — including one marked `disposable: true`, which makes it a check bed a roster will
+discover and run. Nest it under a disposable `vm:` bed when the writes must stay in a guest.
 
 ```yaml
 # Each deployment is a name-first deploy: the `local:` substrate kind at

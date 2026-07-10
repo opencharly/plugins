@@ -260,11 +260,16 @@ Therefore, for ANY agent or workflow that runs them:
     (`charly check box`), never the full run.
   - **Reconnect via durable state, never a held process handle.**
     `.check/<bed>/<calver>/summary.yml` (overall `ok:` + per-step status) + the
-    live domain/container ARE the source of truth: "done + verdict" =
-    `summary.yml` exists; "still alive" = the `charly check run` orchestrator is in
-    the process table. On a suspected orphan — a `running` domain with NO live
-    orchestrator — `charly vm destroy <entity>` (or `charly remove <name>`) before
-    re-running. You re-derive state from disk; you never "lose" a run.
+    live domain/container ARE the source of truth: "done" = `summary.yml` exists;
+    "still alive" = the `charly check run` orchestrator is in the process table.
+    **But `ok: true` is NOT proof of a pass** — a bed charly SKIPPED for an absent
+    host prereq writes `ok: true`, `total_seconds: 0`, and a lone `prereq-*-skipped`
+    step; the exit code is the discriminator (**3 = skipped**). See
+    `/charly-check:check`. On a suspected orphan — a `running` domain with NO live
+    orchestrator — `charly vm destroy <entity>` (the `kind: vm` ENTITY name, NOT the
+    bed name: a wrong name exits 0, prints `Destroyed VM …`, and leaves the orphan
+    running — confirm with `charly vm list`), or `charly remove <name>` for a pod,
+    before re-running. You re-derive state from disk; you never "lose" a run.
   - **Paste-proof survives (R10 paste-proof).** The owner reports the verbatim
     `summary.yml` verdict + exit code; the lead pastes it.
 

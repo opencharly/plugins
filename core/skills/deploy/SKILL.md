@@ -1012,6 +1012,65 @@ check-gpu-bed:
   be both preemptible and disposable. Full reference: `/charly-internals:disposable`
   "The resource-arbitration axis".
 
+## Deploy-into nesting — run a `local:` deploy INSIDE a VM (or pod)
+
+A resource node placed **under another resource node** deploys **INTO** that node's venue.
+Nesting is **tree position** — there is no `nested:` field, and the child carries **no `host:`
+field**. The executor is derived from the tree: `kit.NestedExecutor{Parent, Jump}` composes
+onto the parent's venue (`Venue()` → `nested:<jump>/ssh://arch@…`), so a `local:` child of a
+`vm:` node runs its layer-application **in the guest**, driven from the host. The child is
+addressed by dotted path (`<parent>.<child>`).
+
+**This is how you run `local:`-target testing inside a VM instead of on the operator's
+machine** — no `host:` retarget, no `charly --host`, no charly on the guest's PATH (the vm
+deploy stages the host binary into the guest for its own use).
+
+Canonical worked example — `check-arch-vm` in `box/arch/charly.yml` (a `vm:` bed with a
+nested `local:` child whose checks assert the ledger in the GUEST's home):
+
+```yaml
+check-arch-vm:
+  vm:
+    from: arch
+    disposable: true
+  arch-host:                       # tree position ⇒ deploys INTO the VM above
+    local:                         # NO host: field — the venue comes from the parent
+      disposable: true
+      add_candy:
+        - '@github.com/opencharly/charly/candy/direnv:v2026.183.1359'
+      plan:
+        - check: command=test -d /home/arch/.config/opencharly/installed/deploys
+          id: ah-ledger-deploys-dir       # the ledger lands in the GUEST, not the host
+          context: [runtime]
+          command: "test -d /home/arch/.config/opencharly/installed/deploys"
+        - check: command=direnv --version
+          id: ah-direnv-version
+          context: [runtime]
+          command: "direnv --version"
+```
+
+Contrast the three ways a `local:` deploy reaches a machine — they are NOT interchangeable:
+
+| Shape | Executor | Where the layers land |
+|---|---|---|
+| `local: {host: local}` (or `host:` absent), **top-level** | `ShellExecutor` | this machine, direct shell |
+| `local: {host: user@machine}`, **top-level** | `SSHExecutor` | that remote machine |
+| `local:` **nested under** a `vm:`/`pod:` node | `NestedExecutor` over the parent venue | inside the enclosing deployment |
+
+A top-level `local:` bed marked `disposable: true` therefore applies its candies to the
+OPERATOR'S workstation. Nest it under a disposable `vm:` bed to keep the same `local:`
+authoring shape while writing only inside the guest.
+
+**What nesting does NOT preserve.** `ShellExecutor` runs ONLY for the table's FIRST row — a
+top-level `local:` deploy whose `host:` is `local` or absent. A nested child runs on
+`NestedExecutor` over the parent's venue — for a `vm:` parent, the guest `SSHExecutor` — and
+`RootExecutorForDeployNode` explicitly "does NOT handle the nested-inside-a-parent case"
+(`sdk/deploykit/deploy_chain.go`). So **the other two rows — a top-level `host:` retarget
+(`SSHExecutor`) and a nested child (`NestedExecutor`) — both bypass `ShellExecutor`**, nesting
+included. Relocating a `host: local` bed by either means deletes its `ShellExecutor` +
+`HostDeployTarget` coverage, which must then be replaced deliberately by another top-level
+`host: local` bed — never assumed to have moved with it.
+
 ## Sibling members — companion deployments brought up alongside
 
 A resource node placed directly **under a deploy** is a sibling **member** — a

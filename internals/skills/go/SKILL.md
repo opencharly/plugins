@@ -221,7 +221,7 @@ The `charly` binary self-execs in two distinct directions.
 
 | Action | Command | Description |
 |--------|---------|-------------|
-| Build | `task build:charly` | Compile to `bin/charly` and install as Arch package |
+| Build | `task build:charly` | Compile to `bin/charly` and install as Arch package. **Rewrites the TRACKED `pkg/arch/PKGBUILD` `pkgver=` stamp**, so it leaves the `pkg/arch` submodule dirty (` M PKGBUILD`) and, via the gitlink, the superproject too. Expected, not a stray artifact — `git -C pkg/arch checkout -- PKGBUILD` before staging a commit, or the pointer bump rides along uninvited |
 | Install | `task build:install` | Install charly as Arch package (uses pre-built binary) |
 | Run tests | `cd charly && go test ./...` | Run all tests |
 | Run specific test | `cd charly && go test -run TestName ./...` | Run single test |
