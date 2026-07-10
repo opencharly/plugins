@@ -1061,14 +1061,15 @@ A top-level `local:` bed marked `disposable: true` therefore applies its candies
 OPERATOR'S workstation. Nest it under a disposable `vm:` bed to keep the same `local:`
 authoring shape while writing only inside the guest.
 
-**What nesting does NOT preserve.** `ShellExecutor` runs ONLY for a top-level `local:` deploy
-whose `host:` is `local` or absent. A nested child runs on `NestedExecutor` over the parent's
-venue — for a `vm:` parent, the guest `SSHExecutor` — and `RootExecutorForDeployNode`
-explicitly "does NOT handle the nested-inside-a-parent case"
-(`sdk/deploykit/deploy_chain.go`). So **all three rows of the table above bypass
-`ShellExecutor`**, nesting included. Relocating a `host: local` bed deletes its
-`ShellExecutor` + `HostDeployTarget` coverage, which must then be replaced deliberately by
-another top-level `host: local` bed — never assumed to have moved with it.
+**What nesting does NOT preserve.** `ShellExecutor` runs ONLY for the table's FIRST row — a
+top-level `local:` deploy whose `host:` is `local` or absent. A nested child runs on
+`NestedExecutor` over the parent's venue — for a `vm:` parent, the guest `SSHExecutor` — and
+`RootExecutorForDeployNode` explicitly "does NOT handle the nested-inside-a-parent case"
+(`sdk/deploykit/deploy_chain.go`). So **the other two rows — a top-level `host:` retarget
+(`SSHExecutor`) and a nested child (`NestedExecutor`) — both bypass `ShellExecutor`**, nesting
+included. Relocating a `host: local` bed by either means deletes its `ShellExecutor` +
+`HostDeployTarget` coverage, which must then be replaced deliberately by another top-level
+`host: local` bed — never assumed to have moved with it.
 
 ## Sibling members — companion deployments brought up alongside
 
