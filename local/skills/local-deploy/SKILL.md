@@ -66,11 +66,20 @@ pipe straight through, so `~/.ssh/config`, agent forwarding, and ControlMaster a
   `/etc/environment` DOES reach it (pam_env, via `UsePAM`), so that is where such a variable
   belongs on the guest.
 
-**To run a `local:` check bed inside a VM, use NESTING, not `--host` and not a `host:`
-retarget.** Both of the latter switch the bed off `ShellExecutor`; nesting keeps the
-layer-application coverage while confining every write to the guest. Canonical example:
-`check-arch-vm` → `arch-host` in `box/arch/charly.yml`. See `/charly-core:deploy`
-"Deploy-into nesting".
+**To run a `local:` check bed inside a VM, use NESTING** — it keeps the `local:` authoring
+shape (same template, same candies, same `plan:`) and confines every write to the guest, and
+the enclosing bed owns its lifecycle. Canonical example: `check-arch-vm` → `arch-host` in
+`box/arch/charly.yml`. See `/charly-core:deploy` "Deploy-into nesting".
+
+**But be precise about what moving a bed COSTS.** `ShellExecutor` runs only for a TOP-LEVEL
+`local:` deploy with `host: local` (or absent). **All three remote surfaces above bypass it** —
+nesting included: a nested child runs on `NestedExecutor` over the parent venue (for a `vm:`
+parent, the guest `SSHExecutor`), and `RootExecutorForDeployNode` explicitly "does NOT handle
+the nested-inside-a-parent case" (`sdk/deploykit/deploy_chain.go`). So relocating a
+`host: local` bed — by nesting, by a `host:` retarget, or by `charly --host` — **deletes its
+`ShellExecutor` + `HostDeployTarget` coverage**. `check-local` declares itself the *"sole proof
+of the kind:local layer-application path via ShellExecutor + HostDeployTarget"*; that coverage
+cannot be relocated, only replaced deliberately by another top-level `host: local` bed.
 
 ## `host:` destination semantics
 
