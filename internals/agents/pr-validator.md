@@ -411,7 +411,14 @@ stamps collide and mis-order across concurrent PRs). Operate on the feat branch:
 3. **Rewrite every merge-time-dependent version surface to `$VER`** on the feat
    branch, then commit (carry the PR's validated `Assisted-by` trailer) and push
    the feat branch (a normal, non-force push — you are ADDING a commit):
-   - `git mv CHANGELOG/<placeholder>.md CHANGELOG/$VER.md`;
+   - `git mv CHANGELOG/<placeholder>.md CHANGELOG/$VER.md` **AND rewrite the H1
+     heading inside the file to match**: the first line is `# <placeholder> — …`;
+     rewrite it to `# $VER — …` (same title text, new date). The `git mv` renames
+     the FILE but never touches its H1, so skipping this leaves the heading at the
+     placeholder date — a filename↔H1 divergence (a recurring R1 incident). After
+     the rewrite, SELF-VERIFY for EVERY `CHANGELOG/*.md` you staged this phase:
+     `head -1 CHANGELOG/$VER.md` MUST byte-equal `# $VER — <title>` before you post
+     the final status (step 4);
    - if the PR bumps the schema, re-stamp `#SchemaVersion`
      (`sdk/schema/version.cue`) + `version:` + the `candy/plugin-migrate/migrations.cue`
      entry to be strictly greater than the CURRENT `main` HEAD's schema version;
