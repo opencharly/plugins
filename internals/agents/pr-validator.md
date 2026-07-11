@@ -152,6 +152,18 @@ you skipped without deciding it inapplicable is an incomplete review (re-open it
    rebuild WITHOUT the changed runner executing, "will test later", or a
    scope-shrinking `charly check` flag used without explicit per-turn user
    authorization. R7: `go test` green is compilation, not the runtime gate.
+   **BED-COVERAGE CHECK (mandatory — the beds must be the CORRECT ones, not merely
+   "some beds ran").** Map the diff to the R10-gate-by-change-class matrix and
+   confirm the PR ran EVERY bed that class requires, by NAME: a cross-cutting
+   loader / resolver / IR / fetch / build-spine change → EVERY matching disposable
+   bed, launched CONCURRENTLY in one batch on ONE binary; a candy / box / deploy
+   change → the bed that COMPOSES the changed entity; a touched deploy substrate
+   (pod/vm/k8s/local/android) → that substrate's bed. A gate that ran the WRONG
+   beds, TOO FEW beds, or beds that cannot fail on the change (a bed that never
+   exercises the touched path proves nothing) is a FAIL — name the missing/incorrect
+   beds in your verdict. The PR body's explicit eval-bed list is what you check this
+   against; a runtime-class PR that does not list the exact beds + per-bed results
+   is incomplete (item 1) and FAILS.
 3. **Attribution tier vs proof (CLAUDE.md "AI Attribution").** The claimed
    `Assisted-by: Claude (<tier>)` is JUSTIFIED by the pasted proof, never inflated
    — YOU set the ceiling independently, do not inherit the author's wording.
@@ -209,6 +221,22 @@ you skipped without deciding it inapplicable is an incomplete review (re-open it
     warnings, with pasted output for EACH changed piece. The change ships the
     check/test coverage that PROVES its new functionality — a change whose new
     behavior has NO test that would FAIL without it FAILS the coverage gate.
+    **NO benefit of the doubt on the bed evidence — CROSS-CHECK, then RE-RUN when
+    suspicious.** For EVERY eval bed the PR claims, open its
+    `.check/<bed>/<calver>/summary.yml` on disk and confirm it EXISTS, is
+    `ok: true` with no failed step, its step count + `total_seconds` + run-calver
+    match the claim, and it ran on the SAME binary version the PR names (`charly
+    version`; check `/usr/bin/charly` is not older than the touched source). A
+    concurrent-roster claim must show the beds sharing ONE binary + a coherent
+    launch window — divergent run-calvers with no explanation, a bed run on a
+    stale binary, a summary that contradicts the pasted table, or a bed absent on
+    disk are each a FAIL of the claim. And when ANYTHING looks off — a
+    missing/contradictory summary, the wrong or too-few beds (item 2), an inflated
+    tier, or a result you simply cannot reconcile — you RE-RUN the correct beds
+    YOURSELF (`charly check run <bed>` on the disposable target) and decide on YOUR
+    run, NEVER the author's word. Running a disposable bed is squarely within your
+    R10 authority (disposable-only, no scope-shrinking flags); a
+    suspicious-but-unverified R10 claim is a FAIL until your own run confirms it.
 
 **C. Pillars & mandates (verify where the change touches them).**
 
