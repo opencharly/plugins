@@ -406,8 +406,15 @@ stamps collide and mis-order across concurrent PRs). Operate on the feat branch:
 2. **Generate + guard the CalVer.** `VER=$(date -u +%Y.%j.%H%M)`. If the tag
    `v$VER` OR `CHANGELOG/$VER.md` already exists on the current `main` (a
    same-minute prior merge), advance to the next free minute. Taggable repos use
-   `v<YYYY.DDD.HHMM>`; `sdk` uses `v0.<YYYYDDD>.<HHMM>`; `plugins`/`pkg-*` are
-   tag-exempt (changelog only).
+   `v<YYYY.DDD.HHMM>` (the superproject/`box` form KEEPS the leading-zero HHMM);
+   `sdk` uses `v0.<YYYYDDD>.<HHMM with ALL leading zeros stripped>` — a Go-module
+   version is semver, and semver FORBIDS a leading-zero numeric segment, so a
+   morning merge MUST strip it: `0751`→`751`, `0733`→`733`, `0009`→`9`
+   (`HHMM=$(date -u +%H%M); SDK_MIN=$(echo "$HHMM" | sed 's/^0*//'); SDK_MIN=${SDK_MIN:-0}`;
+   the sdk tag is `v0.$(date -u +%Y%j).$SDK_MIN`). A leading-zero sdk tag
+   (e.g. `v0.2026192.0733`) is INVALID — it makes every consumer's `go.mod`
+   unparseable in module mode — so this stripping is mandatory, not cosmetic.
+   `plugins`/`pkg-*` are tag-exempt (changelog only).
 3. **Rewrite every merge-time-dependent version surface to `$VER`** on the feat
    branch, then commit (carry the PR's validated `Assisted-by` trailer) and push
    the feat branch (a normal, non-force push — you are ADDING a commit):

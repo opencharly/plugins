@@ -84,7 +84,8 @@ evaluator's own spec.
   Go tests for `charly` code) AND the live run exercised it. A change whose new
   functionality has no test that would FAIL without it is not landable.
 - **Tags only on `charly.yml` repos** — plus the sdk contract repo, which tags
-  under its own Go-module scheme `v0.<YYYYDDD>.<HHMM stripped>` (B2 step 0).
+  under its own Go-module scheme `v0.<YYYYDDD>.<HHMM with ALL leading zeros
+  stripped>` (B2 step 0; semver forbids a leading-zero segment — `0733`→`733`).
   `plugins` and `pkg/*` are tag-exempt.
 
 ## B1 — the two-step branch-per-change loop
@@ -466,7 +467,8 @@ filenames and tags sort chronologically under a plain alphanumeric sort.
 ONE fresh stamp per merge, immutable (only ever added), INDEPENDENT of `charly.yml`
 `version:` (the schema version, bumped only by a cutover raising `#SchemaVersion`).
 Taggable repos (superproject, `box/<distro>`) mint `v$VER`; `sdk` uses its
-Go-module `v0.<YYYYDDD>.<HHMM>` scheme; `plugins`/`pkg-*` stay tag-exempt (changelog
+Go-module `v0.<YYYYDDD>.<HHMM leading-zeros-stripped>` scheme (semver forbids a
+leading-zero segment — `0733`→`733`); `plugins`/`pkg-*` stay tag-exempt (changelog
 file only). A YAML schema/format change does BOTH: the schema bump AND the tag. See
 `/charly-build:migrate`.
 
