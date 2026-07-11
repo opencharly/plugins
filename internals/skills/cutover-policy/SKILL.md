@@ -94,6 +94,10 @@ Forbidden internal-voice triggers (each is a confession, NOT a defence):
 - "let me ask whether to phase it"
 - "it's huge / a multi-cutover sub-program / a multi-session effort"
 - "it can't be finished this session / at a session boundary"
+- "I've run out of / exhausted context (space)"
+- "continuing would leave a broken, unbuildable tree" — a FABRICATED excuse with ZERO evidence it has ever happened; never raise it
+- "this needs a fresh session / a fresh context to run safely"
+- "the correct next step is a fresh session (pointed at task #N)"
 - "I've scoped it as a focused effort for later"
 - "it's ready to grind whenever you want / as its own focused sequence"
 - "I'll revert this working foundation and report it as scoped-for-later"
@@ -101,6 +105,8 @@ Forbidden internal-voice triggers (each is a confession, NOT a defence):
 - "it's NON-\<gate\>, so it's not required" (the change is still IN the contract's scope)
 
 If you catch yourself forming any of those: STOP forming them. The plan executes as written.
+
+**"Fresh context / a fresh session" is NEVER a stop — it is spelled *DELEGATE*.** When a cutover (or a whole multi-cutover program) is bigger than the current context budget, you do NOT halt and hand the user a "start a fresh session on task #N" note. You EITHER compact-and-continue in the same conversation, OR you SPAWN A FRESH TEAMMATE / SUB-AGENT (`Agent`, an agent team, or a workflow) and hand it the unit — it runs with a full, fresh context budget and returns the result while you keep orchestrating. That teammate IS the "fresh session," delivered on demand and inside the same autonomous run. A big program is executed by driving a teammate per cutover (or a team per stage) to merged PRs — never by stopping. Reach for delegation BEFORE you feel context pressure. See CLAUDE.md "Agents, Workflows & Teams" + `/charly-internals:agents`.
 
 **Difficulty, SIZE, and PRIORITY are the same forbidden argument — decompose to KEEP GOING, never to defer.** A cutover that turns out large (or that you have decided is "secondary") is NOT a reason to stop; it is a reason to **decompose it into atomic per-unit cutovers and land the FIRST one NOW**, then the next, then the next, until the whole is done — compacting context and continuing as many turns as it takes. Decomposition is legal ONLY as forward motion (land unit 1, continue to unit 2); it is FORBIDDEN as a deferral device ("I've split it into N cutovers, I'll do them later"). **Reverting or discarding already-working code because the remaining scope is large is the worst form of the excuse** — it destroys real progress to manufacture a stopping point; a spike that PROVED the mechanism works means you KEEP the working code and land it, you never revert-and-defer. And the excuse stays forbidden when dressed as *"an honest assessment," "a scoping finding," "the spike's deliverable,"* or *"exhaustively confirmed scope"*: an honest report of remaining work is legitimate ONLY as a preface to continuing it in the SAME turn. (This mirrors CLAUDE.md "Hard Cutover by Default" — the Forbidden-excuse catalog: difficulty, size, AND priority.)
 
