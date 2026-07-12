@@ -70,6 +70,82 @@ re-read the flagged lines before fixing. Delegates' own claims about EACH OTHER'
 (file-ownership, "X already moved Y") are the highest-risk class: verify against the tree, not
 the message.
 
+## The default multi-agent execution model — a fast orchestrator driving capable teammates
+
+For any SUBSTANTIAL or multi-cutover program, the DEFAULT topology is a single
+**persistent ORCHESTRATOR** session coordinating **parallel capable-model
+TEAMMATES** (one per in-flight cutover) and **fresh capable-model
+`pr-validator`s** (one per ready PR). This is the proven default — not opt-in,
+not "when convenient"; solo/sequential execution is the EXCEPTION, reserved for
+trivial single-file or conversational work. The model COMPOSES the pieces this
+skill and `/charly-internals:git-workflow` already own (the bed-scoped partition,
+the fresh independent `pr-validator` two-step landing, delegation-is-fresh-
+context, concurrent landings) — it does not replace them, and the sections below
+LINK to each rather than restate it.
+
+### Model-tier split — fast orchestrator, capable workers
+
+The orchestrator's job is DISPATCH, not deep reasoning: partition the work by
+bed/file, schedule and OWN the long beds (`run_in_background`, see "Handling a
+long-running bed" under the binding rule), route each ready PR to a fresh
+validator, sequence the merge instants, run the per-merge delta re-gate, and
+rebase-broadcast to the siblings. The load-bearing correctness work —
+IMPLEMENTING a cutover and ADVERSARIALLY VALIDATING a PR — is where reasoning
+depth matters. So split the model tiers:
+
+- **Orchestrator → a FAST / cheap model.** Dispatch-heavy coordination does not
+  need the top tier, and a cheap model stays resident cheaply across the whole
+  program (the persistent session that owns every long bed and receives every
+  completion notification).
+- **Teammates + `pr-validator`s → the CAPABLE model.** Implementation and
+  independent adversarial validation carry the correctness of the change; run
+  them on the strongest model available.
+
+State the PRINCIPLE (fast orchestrator + capable workers), NOT the model names —
+the current instantiation is a **Fable** orchestrator driving **Opus-4.8**
+teammates and validators, a concrete example that rots as models change. Set the
+default teammate model in `/config` ("Default (leader's model)" inherits); a
+teammate or validator may still be spawned with an explicit capable `model:`
+regardless of the orchestrator's own tier.
+
+### Maximum parallelization is the DEFAULT
+
+Run every independent unit at once: multiple cutovers implemented concurrently
+(one teammate each, partitioned so no two share a bed's source — the
+"Bed-scoped parallel real-deployment testing" invariants below are the partition
+contract), multiple PRs validated concurrently (one fresh `pr-validator` each,
+independent contexts that couple only at the merge instant), first-ready-first-
+merged. There is no benefit to holding a ready PR for a sibling; the only
+inherent ordering is the merge instants and a real dependency DAG.
+
+### Concurrent landing — link, don't restate
+
+Landing stays concurrent WITH branch protection `strict: true` KEPT. The
+mechanism — after each merge, `gh pr update-branch` every still-open sibling PR,
+then a RISK-PROPORTIONAL DELTA RE-GATE (empty merged-delta ∩ branch-files →
+rebuild + `go test ./...` + lint + re-post status; non-empty → additionally
+re-run the affected beds; a full roster re-run only when the overlap hits the
+cutover's risky shared paths) — is owned by `/charly-internals:git-workflow`
+"Concurrent landings — N open cutovers do NOT serialize beyond git itself". The
+orchestrator DRIVES it; it is not restated here. Zero-overlap PRs (e.g. a
+test-only PR and a config PR) therefore never block each other.
+
+### The orchestrator RDDs every decision — bidirectionally
+
+"Verify every delegate decision" (above) is not a one-way audit. The orchestrator
+independently RE-DERIVES every teammate decision before accepting it — scope,
+mechanism, and coverage — by reading the code, running a bed, or observing live
+state, and CORRECTS under-scoping, over-scoping, and coverage gaps; it never
+rubber-stamps. Teammates likewise correct the orchestrator, so the verification
+is BIDIRECTIONAL ("fractal verification"), and it is load-bearing: it catches
+concurrency defects invisible to any serial run — a shared-domain collision (a
+defect of the class "Bed-scoped parallel real-deployment testing" below
+catalogs) surfaces only under simultaneity — as well as under-scoped bed
+rosters, coverage gaps in a drop-vs-nest call, and stale rebase bases, none of
+which a one-way audit reveals. The RDD instrument is identical for a delegated decision
+and for your own: a HIGH-RISK claim is proven on a live `disposable: true` bed,
+never accepted on a teammate's report alone.
+
 ## The charly agent roster (`plugins/internals/agents/`)
 
 **Executors** — they RUN `charly check` and return verbatim proof:
