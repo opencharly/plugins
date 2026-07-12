@@ -41,6 +41,25 @@ set + the broadest curated quality/idiom/duplication linters, uncapped (`max-iss
 orchestrating CLI its findings are dominated by the legitimate `exec.Command` pattern (the exact
 false-positive class below); vulnerability scanning is `govulncheck`'s separate job.
 
+## The pre-PR FORMATTER gate + the docstring/comment R5 sweep (both cost real review rounds)
+
+Before opening ANY Go PR, run BOTH of these — `golangci-lint run` alone catches NEITHER,
+and each has cost a CHANGES-REQUESTED review round in a real landing:
+
+1. **The formatter gate**: `gofmt -l .` (must print nothing) **AND**
+   `golangci-lint fmt --diff` (must print nothing) — the second catches
+   formatter-class drift (import grouping, gofumpt-style spacing) that plain
+   `golangci-lint run` does NOT report and `gofmt` does not fix.
+2. **The docstring/comment sweep (R5, claim-keyed)**: a refactor that MOVES or
+   DELETES a function must sweep its textual references, not just its call sites —
+   grep for (a) ORPHANED DOCSTRINGS: a doc-comment still describing a function that
+   moved elsewhere, and (b) STALE COMMENTS naming deleted/renamed identifiers or
+   aliases. The grep self-test is word-boundary (`\b<id>\b`) and every hit is READ —
+   a comment hit is as blocking as a code hit. The converse holds too: a comment
+   mention is NOT a live caller — verify a "caller" grep hit is a call site before
+   treating a symbol as used (a doc-comment reference once masqueraded as a caller
+   and nearly kept dead code alive).
+
 ## Running the audit
 
 ```bash
