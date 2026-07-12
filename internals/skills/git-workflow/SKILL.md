@@ -128,6 +128,32 @@ Because the merge is a SQUASH and `main` is protected linear, `main` gains exact
 ONE commit per cutover — the author's change, any review-round fix commits, and the
 version stamp, folded together.
 
+### Concurrent landings — N open cutovers do NOT serialize beyond git itself
+
+With several cutovers in flight (a multi-cutover program), **only two things are
+inherently ordered: the merge instants (git — seconds each) and any real dependency
+DAG between cutovers.** Everything else runs CONCURRENTLY, and no doc may mandate
+more serialization than that without a technical reason:
+
+- **Implementation** — one git worktree per cutover, per-worktree binaries for
+  verification (`/charly-internals:agents` "Per-worktree binaries", proven), bed
+  gates from multiple branches overlapping under the shared hardware ceiling.
+- **Validation** — fresh `pr-validator`s run CONCURRENTLY across all ready PRs
+  (each is an independent context; nothing couples them before the merge instant).
+- **After each merge** — every still-open PR goes `BEHIND` (all three repos set
+  `strict: true` require-up-to-date — KEPT deliberately: one shared Go package with
+  no CI on `main` means merging a stale-base green PR opens a semantic-conflict
+  blind spot; that is the technical reason, not doctrine). Recover with
+  `gh pr update-branch` (never force-push), then a **risk-proportional DELTA
+  RE-GATE** re-posts the per-commit status: compute the overlap
+  `git diff --name-only <old-main>..main` ∩ the branch's touched files —
+  EMPTY → rebuild + `go test ./...` + `golangci-lint run` + re-post (minutes);
+  NON-EMPTY → additionally re-run the cutover's primary beds; a full roster re-run
+  only when the overlap hits the cutover's risky paths. The ORIGINAL full R10
+  against the branch's final code remains mandatory before the FIRST validation —
+  the delta re-gate covers only the mechanical update-branch merge on top of an
+  already-R10'd `main`.
+
 ## B4 — sync to upstream + prune (per repo: main, sdk, plugins, box/*, pkg/*)
 
 - **Sync-before-start.** `git fetch origin --prune --tags`; ff local `main` to
