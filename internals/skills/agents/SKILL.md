@@ -70,6 +70,88 @@ re-read the flagged lines before fixing. Delegates' own claims about EACH OTHER'
 (file-ownership, "X already moved Y") are the highest-risk class: verify against the tree, not
 the message.
 
+## The default multi-agent execution model — a most-capable orchestrator driving cost-scaled teammates
+
+For any SUBSTANTIAL or multi-cutover program, the DEFAULT topology is a single
+**persistent ORCHESTRATOR** session coordinating **parallel TEAMMATES** (one per
+in-flight cutover) and **fresh `pr-validator`s** (one per ready PR) — with the
+model tiers split by leverage, not evenly (next subsection). This is the proven
+default — not opt-in,
+not "when convenient"; solo/sequential execution is the EXCEPTION, reserved for
+trivial single-file or conversational work. The model COMPOSES the pieces this
+skill and `/charly-internals:git-workflow` already own (the bed-scoped partition,
+the fresh independent `pr-validator` two-step landing, delegation-is-fresh-
+context, concurrent landings) — it does not replace them, and the sections below
+LINK to each rather than restate it.
+
+### Model-tier split — most-capable orchestrator, cost-scaled workers
+
+The orchestrator runs ×1 — ONE persistent session — and carries the
+HIGHEST-LEVERAGE reasoning: routing each ready PR to a fresh validator,
+sequencing the merge instants, running the per-merge delta re-gate, owning the
+long beds (`run_in_background`, see "Handling a long-running bed" under the
+binding rule), rebase-broadcasting to the siblings, and — above all — the
+independent RDD-VERIFICATION of EVERY teammate decision (the correctness
+backstop for the whole parallel run; next subsection). The teammates run ×N in
+parallel, each on a BOUNDED unit (one cutover, one PR) UNDER that verification.
+That ×1-vs-×N shape, not a "who reasons harder" split, decides the tiers:
+
+- **Orchestrator → the MOST-CAPABLE (most-expensive) model.** The premium is
+  paid ONCE (×1, resident across the whole program) and buys the top tier
+  exactly where the leverage is highest — the coordination and the
+  every-decision verification that backstop correctness for the entire run.
+- **Teammates + `pr-validator`s → a LESS-EXPENSIVE model.** They scale ×N with
+  the parallel width, each bounded to one cutover / one PR and backstopped by
+  the orchestrator's verification, so the cheaper tier carries the parallel bulk
+  affordably.
+
+The economics: a ×1 top-tier orchestrator + ×N cheaper-tier workers minimizes
+total cost while keeping the correctness reasoning at the top tier. State the
+PRINCIPLE (most-capable orchestrator + cost-scaled teammates) and the cost
+RATIO, NOT exact prices (they rot) — the current instantiation is a **Fable-5**
+orchestrator (~2× the teammate model's per-token cost) driving **Opus-4.8**
+teammates and validators. Set the default teammate model in `/config` to the
+CHEAPER tier; the lead/orchestrator runs the TOP tier (a teammate or validator
+may still be spawned with an explicit `model:` when a unit needs it).
+
+### Maximum parallelization is the DEFAULT
+
+Run every independent unit at once: multiple cutovers implemented concurrently
+(one teammate each, partitioned so no two share a bed's source — the
+"Bed-scoped parallel real-deployment testing" invariants below are the partition
+contract), multiple PRs validated concurrently (one fresh `pr-validator` each,
+independent contexts that couple only at the merge instant), first-ready-first-
+merged. There is no benefit to holding a ready PR for a sibling; the only
+inherent ordering is the merge instants and a real dependency DAG.
+
+### Concurrent landing — link, don't restate
+
+Landing stays concurrent WITH branch protection `strict: true` KEPT. The
+mechanism — after each merge, `gh pr update-branch` every still-open sibling PR,
+then a RISK-PROPORTIONAL DELTA RE-GATE (empty merged-delta ∩ branch-files →
+rebuild + `go test ./...` + lint + re-post status; non-empty → additionally
+re-run the affected beds; a full roster re-run only when the overlap hits the
+cutover's risky shared paths) — is owned by `/charly-internals:git-workflow`
+"Concurrent landings — N open cutovers do NOT serialize beyond git itself". The
+orchestrator DRIVES it; it is not restated here. Zero-overlap PRs (e.g. a
+test-only PR and a config PR) therefore never block each other.
+
+### The orchestrator RDDs every decision — bidirectionally
+
+"Verify every delegate decision" (above) is not a one-way audit. The orchestrator
+independently RE-DERIVES every teammate decision before accepting it — scope,
+mechanism, and coverage — by reading the code, running a bed, or observing live
+state, and CORRECTS under-scoping, over-scoping, and coverage gaps; it never
+rubber-stamps. Teammates likewise correct the orchestrator, so the verification
+is BIDIRECTIONAL ("fractal verification"), and it is load-bearing: it catches
+concurrency defects invisible to any serial run — a shared-domain collision (a
+defect of the class "Bed-scoped parallel real-deployment testing" below
+catalogs) surfaces only under simultaneity — as well as under-scoped bed
+rosters, coverage gaps in a drop-vs-nest call, and stale rebase bases, none of
+which a one-way audit reveals. The RDD instrument is identical for a delegated decision
+and for your own: a HIGH-RISK claim is proven on a live `disposable: true` bed,
+never accepted on a teammate's report alone.
+
 ## The charly agent roster (`plugins/internals/agents/`)
 
 **Executors** — they RUN `charly check` and return verbatim proof:
@@ -609,7 +691,15 @@ The playbook:
    265s window) from two trees, separate per-tree `.check/`/`.build/` outputs, zero
    cross-contamination, zero leftover deploys. Requirements: the worktree needs the
    `sdk` AND `pkg/arch` submodules inited (`task build:binary` reads
-   `pkg/arch/calver.sh`); NEVER `task build:charly` from a worktree (it installs to
+   `pkg/arch/calver.sh`) — but NOT the `box/<distro>` submodules for the ROOT
+   disposable roster: root `charly.yml` imports the distro namespaces
+   (arch/cachyos/fedora) via remote `@github.com/opencharly/distro-*` refs
+   (resolver-fetched into cache, pinned independently of the submodule pointers), so
+   the root check beds resolve from local `candy/` layers + registry base images +
+   the remote-fetch cache, NEVER the box/* working trees. (A `box/<distro>`'s OWN
+   in-submodule beds do need that submodule inited — box-specific work, not the
+   cross-cutting root roster a persistent session runs for a core cutover's R10.)
+   NEVER `task build:charly` from a worktree (it installs to
    the SHARED `/usr/bin/charly` and yanks every other tree's baseline). Scheduling
    rule when overlapping gates: the SAME bed name must never run twice at the same
    instant (bed→deploy names are deterministic — same `charly-<bed>` names collide);
