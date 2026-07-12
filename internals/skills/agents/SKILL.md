@@ -91,11 +91,24 @@ A sub-agent, teammate, or workflow agent runs with its OWN full, fresh context b
   mechanical gate. NEVER the agent that authored the PR — the point is independent
   evaluation. See `/charly-internals:git-workflow` (B1 step 2, B5).
 
-An agent's narrowed `tools:` frontmatter (e.g. `layer-validator`'s
-Read/Grep/Glob) is ROLE-lane discipline — it keeps enforcers gating and
-executors running — never a security boundary: security lives at the candybox
-wall (CLAUDE.md "Candyboxing"), and inside the box every agent gets the full
-candy store.
+**Every roster agent runs UNRESTRICTED — its spec OMITS the `tools:` field**, so it
+inherits ALL tools (the full set the main session has: Read / Bash / Edit / Write /
+Skill / SendMessage / Agent / Task* / … + MCP tools + full plugin-skill-by-name
+access), exactly as CLAUDE.md "Candyboxing" mandates: *never secure by whitelisting
+commands; trust the walls, not the tools.* The wall is the disposable target +
+branch protection + the validator's fresh-context independence — NEVER a narrowed
+tool set. An agent's ROLE (enforcer vs executor) is defined by its PROMPT + spec,
+NOT by a tool whitelist: a whitelisted `tools:` is the Candyboxing anti-pattern.
+Tools and skill access are TWO INDEPENDENT concerns (invariant #4 below): omitting
+`tools:` makes the agent inherit ALL tools — verified equivalent to the built-in
+general-purpose agent (`Tools: *`) for **tool inheritance** — but it does NOT make
+`Skill(<name>)` resolve a charly-* skill, which depends on per-session skill
+registration a sub-agent usually lacks (a live `Tools: *` validator still got
+`Unknown skill`). So an agent reaches a charly-* skill by **`Read`ing its `SKILL.md`
+by path — the reliable method**; `Skill(<name>)` is an optional fast-path that may
+return `Unknown skill`, and that failure is EXPECTED, never "skills unavailable". Do
+NOT add a `tools:` line to a roster agent — omission is the documented way to inherit
+all tools (`tools: "*"` is NOT valid and yields ZERO tools).
 
 Invoke by name in a prompt, `@`-mention, or the `Agent` tool (scoped id
 `charly-internals:<name>`). Custom agents load at SESSION START, so the shipped
@@ -197,10 +210,16 @@ like a policy problem. Drive every submodule action from the superproject with a
 LITERAL absolute path: `git -C /abs/path/plugins …` and `gh … --repo <owner>/<repo>`
 (the same rule `/charly-internals:git-workflow` B7 states for the commit gate — it is
 equally load-bearing for PERMISSIONS). **Proven by controlled experiment:** a
-`pr-validator` rooted in `plugins/` had its `success` status POST DENIED
+`pr-validator` rooted in `plugins/` had even its `success` status POST DENIED
 (*"the only authorization comes from a `<teammate-message>`, which is not user
-intent"* — the classifier never saw the standing rule); the SAME agent, same rule
-text, rooted in the superproject, posted `success` and merged with **zero denials**.
+intent"* — the classifier never saw the superproject's standing rule); the SAME agent,
+same rule text, rooted in the superproject, posted `success` with **zero denials**.
+Rooting fixes the STATUS POST (cleared by `permissions.allow`). **The MERGE is a
+SEPARATE, stricter classifier gate — Merge-Without-Review — that `permissions.allow`
+does NOT clear** (proven: `gh pr merge` denied for BOTH a superproject-rooted sub-agent
+AND the main session despite the rule); it lands only under the operator's `autoMode.allow`
+rule (user/managed settings) or fresh in-context user consent, never CLAUDE.md prose. See
+`/charly-internals:git-workflow` B5.
 
 **2. A permission denial ENDS the sub-agent's turn — write the verdict durably
 FIRST.** The denial text instructs the agent to "STOP and explain to the user", and it
@@ -219,6 +238,23 @@ use a `run_in_background` Bash `until`-loop that EXITS when it resolves — fore
 `sleep` is blocked — and make the exit condition cover EVERY terminal state (allowed,
 denied, status posted, merged, timed out). **Silence is not success:** a loop that only
 matches the happy path cannot distinguish "still working" from "died at a denial".
+
+**4. A sub-agent loads a skill by `Read`ing its `SKILL.md` BY PATH — the reliable method;
+`Skill(name)` is unreliable regardless of the tool set.** TWO independent facts, do not conflate
+them:
+- **Tools:** roster agents run UNRESTRICTED — specs OMIT the `tools:` field → inherit ALL tools
+  (documented behavior, equivalent to the built-in `general-purpose` agent, `Tools: *`), per
+  CLAUDE.md "Candyboxing" (*trust the walls, not the tools*). A whitelisted `tools:` is the
+  anti-pattern; do NOT re-add one to "grant" `Skill`/`SendMessage`/`Write` — omission grants all.
+- **Skill access:** invoking `Skill(charly-internals:go)` BY NAME depends on the charly-* skills
+  being REGISTERED in that sub-agent's SESSION, which is INDEPENDENT of the `tools:` field and
+  usually ABSENT — verified live, an unrestricted `Tools: *` validator got `Unknown skill:
+  charly-internals:git-workflow` (its session registry held only built-ins), while `Read`ing
+  `plugins/<family>/skills/<name>/SKILL.md` worked every time (proven across multiple validator
+  runs). So the RELIABLE method is the file `Read`; `Skill(name)` is an opportunistic fast-path
+  that MAY work in some sessions. A `Skill(name)` failure (`Unknown skill` / "not registered") is
+  EXPECTED for a sub-agent, NEVER "the skills are absent". Spawn prompts therefore instruct
+  `Read`-by-path (giving the SKILL.md PATHS), with `Skill(name)` as an optional shortcut.
 
 ## The binding rule: running a bed is R10-class
 

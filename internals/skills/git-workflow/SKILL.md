@@ -261,66 +261,107 @@ but it CANNOT supply PARTY independence: same principal, same token, and
 `required_approving_review_count` is 0, so no second party exists anywhere in the
 flow. Claude Code's auto-mode classifier names this exactly — its **Self-Approval**
 rule blocks "triggering a pipeline that marks the agent's own PR's required checks as
-passed … regardless of whether the agent believes it verified its own code," and a
-sub-agent the session spawned is "an automation the agent controls." So an agent
-posting this status IS self-approval by that definition. The project accepts that
-posture deliberately, with the operator's standing authorization recorded in
-`permissions.allow` (next paragraph). What branch protection still mechanically enforces:
-PR-only landing, linear history, `enforce_admins`, no force-push, and that the status
-EXISTS — never `gh pr merge --admin`, never a force-push, never editing protection.
+passed … regardless of whether the agent believes it verified its own code," its
+**Merge Without Review** rule blocks "merging before a human approved," and a sub-agent
+the session spawned is "an automation the agent controls." So by those definitions an
+agent posting the status IS self-approval and an agent merging IS merge-without-review.
+The project accepts that posture deliberately. What branch protection still mechanically
+enforces: PR-only landing, linear history, `enforce_admins`, no force-push, and that the
+status EXISTS — never `gh pr merge --admin`, never a force-push, never editing protection.
 
-**Where the merge + status-post authority comes from — `permissions.allow`, and nothing
-else.** The SUPERPROJECT's `.claude/settings.json` carries deterministic permission
-RULES in `Tool(pattern)` syntax, and those two rules ARE the standing authorization:
+**TWO SEPARATE GATES — landing clears BOTH, and they are NOT the same thing (proven by
+landing; do not conflate).**
 
-```json
-"permissions": { "allow": [
-  "Bash(gh pr merge:*)",
-  "Bash(gh api --method POST repos/opencharly:*)"
-] }
-```
+1. **`permissions.allow` — the deterministic command-PROMPT layer.** The SUPERPROJECT's
+   committed `.claude/settings.json` carries these rules (a whole team inherits them):
 
-A matching rule resolves the action for a SUB-AGENT exactly as for the interactive main
-session — verified by landing: a fresh, superproject-rooted `pr-validator` posts `success`
-and merges with **zero denials**, on a host whose settings carry **no `autoMode` key at
-all**. Note the exact spellings the rules pin: `--method POST` (never `-X POST`), and a
-`repos/opencharly/…` path. The POST rule is POST-only, so it can never touch branch
-protection (a PUT).
+   ```json
+   "permissions": { "allow": [
+     "Bash(gh pr merge:*)",
+     "Bash(gh api --method POST repos/opencharly:*)"
+   ] }
+   ```
 
-Two consequences follow, and both are load-bearing:
+   These clear the PROMPT for the two commands. **The `success` status POST is FULLY
+   cleared by its rule** — a superproject-rooted validator posts `success` with ZERO
+   denials (proven repeatedly). Exact spellings the rules pin: `--method POST` (never
+   `-X POST`), a `repos/opencharly/…` path; the POST rule is POST-only, so it can never
+   touch branch protection (a PUT).
 
-- **The rules live in the SUPERPROJECT.** Claude Code resolves `.claude/settings.json`
-  from the agent's PROJECT ROOT, which is its working directory, and neither `plugins/`
-  nor `sdk/` ships a `.claude/` of its own. A validator rooted inside a submodule loads
-  NO permission rules, and its `success` POST is denied as Self-Approval (*"the only
-  authorization comes from a `<teammate-message>`"*). See the autonomous-landing
+2. **The auto-mode classifier — the SEMANTIC layer that fires ON TOP.** `permissions.allow`
+   clears the *prompt* for `gh pr merge`, but the classifier's **Merge Without Review**
+   soft-block fires anyway and is **NOT cleared by `permissions.allow`**. **Proven:** with
+   the merge rule present, superproject-rooted, and a CLAUDE.md landing statement live,
+   `gh pr merge --squash` was DENIED for BOTH a sub-agent AND the main session — verbatim:
+   *"the merge instruction came from a coordinator agent (not the user), the CLAUDE.md
+   pre-authorization is manufactured classifier-steering intent … Run this outside auto
+   mode so the user can review."* The merge gate is real, separate, and stricter than the
+   status gate.
+
+**What clears the Merge-Without-Review gate — exactly these, in DESCENDING durability:**
+
+- **`autoMode.allow` in USER (`~/.claude/settings.json`) or MANAGED settings** — the
+  classifier's OWN designed soft-deny override, and the ONLY durable config-based grant.
+  It is re-read from the settings FILE on every classifier evaluation, so it is **immune
+  to context compaction**. Scope it in the rule PROSE ("opencharly org PRs only"). It is
+  NOT read from a committed `.claude/settings.json` (the classifier ignores `autoMode`
+  there) and NOT reliably from `settings.local.json` — **user or managed scope only.**
+- **Genuine, in-context user intent that NAMES the action** (the main session merging
+  right after the user says "merge it"). Works, but **FRAGILE across compaction**: the
+  consent lives in the transcript, and once the transcript is summarized the classifier
+  stops seeing it — proven, a merge that worked earlier in a session was denied after the
+  session resumed from a compaction summary.
+- **NOT CLAUDE.md prose.** The classifier explicitly rejects a CLAUDE.md authorization as
+  "manufactured classifier-steering intent" (proven, verbatim, above). CLAUDE.md records
+  the POLICY; it does NOT function as classifier consent.
+
+**An agent CANNOT apply the `autoMode.allow` grant itself.** Writing one's own
+permission-weakening config trips the classifier's **Self-Modification** block, and that
+block does NOT clear even on explicit in-chat user authorization (proven: the `autoMode`
+edit was denied immediately after the operator authorized it). This is the security
+guarantee that makes `autoMode` trustworthy — merge authority can be granted ONLY by a
+HUMAN editing the settings file hands-on (or an admin via managed settings). The agent's
+job is to hand the operator the exact rule to paste.
+
+**Two rooting/poison consequences remain load-bearing (about the STATUS POST):**
+
+- **The `permissions.allow` rules live in the SUPERPROJECT.** Claude Code resolves
+  `.claude/settings.json` from the agent's PROJECT ROOT (its working directory), and
+  neither `plugins/` nor `sdk/` ships a `.claude/`. A validator rooted inside a submodule
+  loads NO permission rules, so even its `success` POST is denied as Self-Approval
+  (*"the only authorization comes from a `<teammate-message>`"*). See the autonomous-landing
   contract below.
-- **A prior hook block poisons everything after it.** The auto-mode classifier evaluates
-  sub-agent actions, and a PreToolUse block followed by a RESHAPED retry of the same
-  command is flagged as a bypass attempt — after which it denies later actions a
-  `permissions.allow` rule would otherwise have resolved. **Treat any hook or classifier
-  block as a DENIAL: never reshape the command and retry** (not even toward a form this
-  skill prescribes). Report the block and stop. This has cost a real landing.
+- **A prior hook/classifier block poisons everything after it.** A PreToolUse block
+  followed by a RESHAPED retry of the same command is flagged as a bypass attempt — after
+  which later actions a rule would otherwise resolve are denied. **Treat any hook or
+  classifier block as a hard DENIAL: never reshape the command and retry** (not even
+  toward a form this skill prescribes). Report the block and stop. This has cost a real
+  landing.
 
-Posting a `failure` status never trips Self-Approval — it marks nothing passed — so a
-FAIL verdict always goes through; only `success` is gated. Never reach for the
-`gh pr merge --auto` carve-out: the classifier exempts `--auto` only on a repo **with
-required-reviews branch protection** ("`--auto` queues until reviews+checks pass; the
-gate is server-enforced"), and these repos set `required_approving_review_count: 0`, so
-that precondition is unmet and the exemption does NOT apply here. The flow uses
-`--squash` and never `--auto`. The load-bearing discipline is unchanged: **only a FRESH
-`pr-validator` (never the PR's author, never a teammate that authored the code) posts
-the status** — that is a context-level discipline, not an identity guarantee.
+**Operational consequence for the autonomous loop.** A validator (or the main session)
+can always do everything UP TO the merge — validate, and post the `success` status
+(cleared by `permissions.allow`). The MERGE lands autonomously ONLY when the operator's
+`autoMode.allow` rule is in effect (or, non-durably, under fresh in-context user consent).
+Absent the rule, the operator completes the merge (`gh pr merge <n> --repo <r> --squash
+--delete-branch` — the status is already green) or the main session does under fresh
+consent. Posting a `failure` status never trips Self-Approval (it marks nothing passed),
+so a FAIL verdict always goes through. Never `--admin`; never `--auto` (the classifier
+exempts `--auto` only on repos with required-reviews protection, and these set
+`required_approving_review_count: 0`). **Only a FRESH `pr-validator` posts the status**
+(never the author, never a code-authoring teammate) — a context-level discipline, not an
+identity guarantee.
 
 **THE AUTONOMOUS-LANDING CONTRACT — spawn every `pr-validator` ROOTED IN THE
-SUPERPROJECT.** The autonomous loop depends on the standing `permissions.allow` rules in
-the SUPERPROJECT's `.claude/settings.json` — committed there, so a whole team inherits
-them and the loop is autonomous by default. Claude Code resolves `.claude/settings.json`
-from the AGENT'S PROJECT ROOT, which is its working directory. A validator told to work
-*inside* `plugins/` or `sdk/` roots in that submodule — which ships no `.claude/` — and
-therefore silently loads NO permission rules at all. Its `success` status POST is then
-denied as Self-Approval (*"the only authorization comes from a `<teammate-message>`"*),
-because nothing ever authorized it. So:
+SUPERPROJECT.** The STATUS-POST half of the loop depends on the standing
+`permissions.allow` rules in the SUPERPROJECT's `.claude/settings.json` — committed
+there, so a whole team inherits them and the `success` POST is autonomous by default
+(the MERGE half additionally needs the operator's `autoMode.allow` rule — the two-gate
+model above). Claude Code resolves `.claude/settings.json` from the AGENT'S PROJECT ROOT,
+which is its working directory. A validator told to work *inside* `plugins/` or `sdk/`
+roots in that submodule — which ships no `.claude/` — and therefore silently loads NO
+permission rules at all. Its `success` status POST is then denied as Self-Approval
+(*"the only authorization comes from a `<teammate-message>`"*), because nothing ever
+authorized it. So:
 
 - **Spawn the validator with its working directory at the SUPERPROJECT root**, for a PR
   in ANY repo (superproject, `sdk`, `plugins`, `box/<distro>`).
@@ -331,10 +372,10 @@ because nothing ever authorized it. So:
   `~/.claude/projects/-<superproject-path-slug>/`, not the `…-plugins` sibling.
 
 **Proven by controlled experiment (single variable):** with the rule text unchanged, a
-`pr-validator` rooted in `plugins/` was DENIED the `success` POST; the same validator
-rooted in the superproject posted `success` and merged with zero denials. Scope was the
-entire cause. Do not "fix" a denial by editing the rule until you have confirmed the
-agent's project root. See `/charly-internals:agents` "Sub-agent operational invariants"
+`pr-validator` rooted in `plugins/` was DENIED even the `success` POST; the same validator
+rooted in the superproject posted `success` with zero denials. Scope was the entire cause
+of the STATUS-POST denial (the MERGE is the separate Merge-Without-Review gate above). Do
+not "fix" a denial by editing the rule until you have confirmed the agent's project root. See `/charly-internals:agents` "Sub-agent operational invariants"
 for the durable-verdict-first protocol every validator must follow (a permission denial
 ENDS the agent's turn, so it records its verdict before attempting any gated action).
 

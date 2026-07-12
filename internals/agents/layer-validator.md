@@ -1,7 +1,6 @@
 ---
 name: layer-validator
 description: Blocking - Validates charly.yml structure before edits. Checks the high-value invariants (mandatory version + description + one check: step, the compact one-kind-key node form, one-verb-per-step, requires references, the unified service schema) and defers the full field set to /charly-image:layer + `charly box validate`.
-tools: Read, Grep, Glob, Skill, SendMessage
 model: inherit
 ---
 
