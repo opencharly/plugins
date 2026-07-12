@@ -405,8 +405,10 @@ can enforce gates (exit 2 = block + feedback); the shipped
 
 ### Bed-scoped parallel real-deployment testing
 
-The **check bed is the unit of ownership, isolation, AND throughput** — it
-replaces the git worktree. `charly check run <bed>` runs exactly ONE bed; the
+The **check bed is the unit of ownership, isolation, AND throughput** within one
+source tree; across CUTOVERS, a **git worktree with its own built binary** is the
+gate-isolation unit (see "Per-worktree binaries" below — the two compose).
+`charly check run <bed>` runs exactly ONE bed; the
 old strictly-SEQUENTIAL roster sweep was removed precisely because its
 wall-clock ≈ the SUM of every bed, so running a roster means N concurrent
 `charly check run <bed>` processes — one per agent — and **every full
@@ -580,6 +582,25 @@ The playbook:
    the whole load. Same lesson for any shared-state read under concurrency: don't
    swallow the real error (it hides the class), and don't let one sibling's
    transient artifact fail an unrelated bed.
+4e. **Per-worktree binaries — bed gates from MULTIPLE branches overlap (PROVEN
+   2026-07-12, spikes S0+S0b).** The freshness guard (`main_freshness.go`) compares
+   `os.Executable()` against the cwd-walked source root, so a worktree with its own
+   `task build:binary` output is SELF-CONSISTENT: `PATH=$PWD/bin:$PATH charly check
+   run <bed>` runs the FULL R10 sequence (deploy-add → check-live → fresh update →
+   cleanup, external plugins included) on the worktree's binary WITHOUT ever
+   installing — `/usr/bin/charly` untouched. Proven concurrently ACROSS worktrees on
+   different branches: two DIFFERENT beds (check-substrate 79s inside check-group's
+   265s window) from two trees, separate per-tree `.check/`/`.build/` outputs, zero
+   cross-contamination, zero leftover deploys. Requirements: the worktree needs the
+   `sdk` AND `pkg/arch` submodules inited (`task build:binary` reads
+   `pkg/arch/calver.sh`); NEVER `task build:charly` from a worktree (it installs to
+   the SHARED `/usr/bin/charly` and yanks every other tree's baseline). Scheduling
+   rule when overlapping gates: the SAME bed name must never run twice at the same
+   instant (bed→deploy names are deterministic — same `charly-<bed>` names collide);
+   distinct beds are collision-free by construction (this section's isolation
+   invariants). Cross-gate concurrency shares the ONE store-lock ceiling (item 4)
+   and the exclusive-token chains (4b) — one global scheduler, per-bed mutex,
+   capacity ≈ the measured maxjobs.
 5. **The lead opens the single PR**, gated on the consolidated full final-code
    live test (the beds in parallel); a FRESH `pr-validator` (never a teammate that
    authored code) validates and merges it. Teammates never commit, push, or merge.
@@ -589,6 +610,20 @@ B→`{check-jupyter-pod, check-versa-pod}`, C→`{check-k3s-vm}` (VM, needs the
 libvirt user session), D→`{check-sway-browser-vnc-pod}` (heavy). All concurrent
 → multiple pods *and* a VM live at once; wall-clock ≈ the slowest chain, not
 the sum.
+
+### Agent lifecycle hygiene — stop what you spawned
+
+**The moment an agent's/validator's work is ACCEPTED (verdict delivered, PR merged,
+report pasted), STOP it — `TaskStop(<name>)` — which also frees its tmux pane.**
+Stale finished agents accumulate silently (one real session leaked 17 idle panes:
+pr-validators, guide agents, probes) until teammate spawning itself fails with
+"no space for a new pane". When that failure hits, the fix is CLEANUP — sweep with
+`tmux list-panes -a -F '#{session_name}:#{window_index}.#{pane_index}
+cmd=#{pane_current_command} title=#{pane_title}'` and kill idle agent panes
+highest-index-first (never pane .0 of any session) — NEVER a switch away from tmux
+teammate mode: the panes ARE the operator's live oversight of every agent, a
+standing operator requirement, and `teammateMode` is snapshotted at session start
+anyway (a mid-session settings flip does nothing).
 
 ### Speed levers (grounded in the real bed cycle)
 
