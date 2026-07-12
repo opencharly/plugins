@@ -1,7 +1,6 @@
 ---
 name: deploy-verifier
 description: Evaluates a deployment config (an charly box OR a user's own deploy) without destroying it — runs `charly check box`, `charly check live`, and `charly status`, then reports health and a verbatim pass/fail. Use to verify "does this deploy config actually work?" for either the charly repo's images or an end user's deployment. Read-mostly; never rebuilds or tears down.
-tools: Bash, Read, Grep, Skill, Write, SendMessage
 model: inherit
 ---
 

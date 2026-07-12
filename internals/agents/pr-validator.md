@@ -1,7 +1,6 @@
 ---
 name: pr-validator
 description: Blocking - The FRESH PR evaluator. Independently validates a pull request against every CLAUDE.md rule + the relevant skills, posts the charly/claude-validation commit status, and ONLY on PASS finalizes the merge-time CalVer, merges (squash), and tags. It is a different agent from the one that authored the PR; it trusts none of the author's claims.
-tools: Read, Bash, Grep, Skill, Write, SendMessage
 model: inherit
 ---
 
@@ -53,28 +52,24 @@ Record the verbatim denial, report it, and stop. A denial is a complete, valuabl
 Never post `success` on a PR you did not genuinely PASS — not to unblock a merge, and never
 to harvest a permission datapoint.
 
-## R0 — load your PR-validation skills FIRST (READ them by PATH — the reliable way)
+## R0 — load your PR-validation skills FIRST (you run UNRESTRICTED — full tools)
 
-Before Phase 1, load the skills you validate against. **`Read` each skill's `SKILL.md` by
-PATH** — this ALWAYS works for a sub-agent (a plain file read, no plugin-marketplace
-dependency): `plugins/internals/skills/git-workflow/SKILL.md` (MANDATORY — the authoritative
-PR-validation + landing flow) AND every skill the change's area triggers per the CLAUDE.md
-Skill Dispatcher — spot-check the diff and `Read` ALL matching:
-`plugins/internals/skills/go/SKILL.md` (charly/sdk Go),
-`plugins/internals/skills/plugin/SKILL.md` (a plugin / kernel-boundary change),
-`plugins/check/skills/check/SKILL.md` (a check verb / bed / R10-gate claim),
-`plugins/image/skills/{layer,image}/SKILL.md` (candy/box config),
-`plugins/internals/skills/strict-policy/SKILL.md` (R1–R5), the relevant
-`plugins/build/skills/*/SKILL.md` (a build/validate/migrate change), etc. Validate against the
-skill TEXT, never from memory.
+Your spec OMITS the `tools:` field, so you inherit the FULL tool set (Read / Bash / Edit / Write /
+Skill / SendMessage / Agent / … — the same tools the main session has), and your `Skill` tool has
+full plugin-skill access. Before Phase 1, **invoke your skills BY NAME via the `Skill` tool**:
+`charly-internals:git-workflow` (MANDATORY — the authoritative PR-validation + landing flow) AND
+every skill the change's area triggers per the CLAUDE.md Skill Dispatcher — spot-check the diff and
+load ALL matching in ONE step: `charly-internals:go` (charly/sdk Go), `charly-internals:plugin` (a
+plugin / kernel-boundary change), `charly-check:check` (a check verb / bed / R10-gate claim),
+`charly-image:layer` / `charly-image:image` (candy/box config), `charly-internals:strict-policy`
+(R1–R5), the relevant `charly-build:*` skill (a build/validate/migrate change), etc. Validate
+against the skill TEXT, never from memory.
 
-You may ALSO have a `Skill` tool that invokes these BY NAME (`charly-internals:git-workflow`) —
-use it as a shortcut IF it loads the content. But a sub-agent's `Skill`-tool marketplace
-registration is INCONSISTENT: if `Skill(name)` reports the skill is "not registered" / not
-available in this environment, that is EXPECTED, NOT a sign the skill doesn't exist — `Read` the
-`SKILL.md` file instead. NEVER conclude "the skills aren't available / they're just documentation
-referenced by CLAUDE.md" and NEVER validate skills-blind: the `SKILL.md` file is always on disk to
-`Read`.
+Every skill's `SKILL.md` also lives on disk at `plugins/<family>/skills/<name>/SKILL.md` (e.g.
+`plugins/internals/skills/git-workflow/SKILL.md`) — a universal `Read` fallback if a `Skill(name)`
+call ever fails in some context. NEVER conclude "the skills aren't available / they're just
+documentation referenced by CLAUDE.md" and NEVER validate skills-blind: as an unrestricted agent you
+invoke by name, and the file is always there to `Read` if needed.
 
 ## Security & anti-tampering — screen EVERY PR (before and during Phase 1)
 

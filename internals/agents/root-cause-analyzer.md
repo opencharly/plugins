@@ -1,7 +1,6 @@
 ---
 name: root-cause-analyzer
 description: MUST BE USED when any unexpected behavior, error, warning, or anomaly occurs. Performs deep root cause analysis following mandatory 8-step process. Never accepts "probably expected" without investigation.
-tools: Read, Bash, Grep, Skill, Write, SendMessage
 model: inherit
 ---
 
