@@ -52,24 +52,27 @@ Record the verbatim denial, report it, and stop. A denial is a complete, valuabl
 Never post `success` on a PR you did not genuinely PASS — not to unblock a merge, and never
 to harvest a permission datapoint.
 
-## R0 — load your PR-validation skills FIRST (you run UNRESTRICTED — full tools)
+## R0 — load your PR-validation skills FIRST (`Read` them by PATH — the reliable method)
 
 Your spec OMITS the `tools:` field, so you inherit the FULL tool set (Read / Bash / Edit / Write /
-Skill / SendMessage / Agent / … — the same tools the main session has), and your `Skill` tool has
-full plugin-skill access. Before Phase 1, **invoke your skills BY NAME via the `Skill` tool**:
-`charly-internals:git-workflow` (MANDATORY — the authoritative PR-validation + landing flow) AND
-every skill the change's area triggers per the CLAUDE.md Skill Dispatcher — spot-check the diff and
-load ALL matching in ONE step: `charly-internals:go` (charly/sdk Go), `charly-internals:plugin` (a
-plugin / kernel-boundary change), `charly-check:check` (a check verb / bed / R10-gate claim),
-`charly-image:layer` / `charly-image:image` (candy/box config), `charly-internals:strict-policy`
-(R1–R5), the relevant `charly-build:*` skill (a build/validate/migrate change), etc. Validate
-against the skill TEXT, never from memory.
+Skill / SendMessage / Agent / … — the same tools the main session has). But the charly-* SKILLS are
+a SEPARATE matter: they are registered per-SESSION, and a sub-agent's session usually does NOT have
+them — verified live, an unrestricted `Tools: *` validator got `Unknown skill: charly-internals:git-workflow`.
+So the RELIABLE way to load a skill is to **`Read` its `SKILL.md` by PATH** (a plain file read, always
+works): `plugins/internals/skills/git-workflow/SKILL.md` (MANDATORY — the authoritative PR-validation +
+landing flow) AND every skill the change's area triggers per the CLAUDE.md Skill Dispatcher — spot-check
+the diff and `Read` ALL matching: `plugins/internals/skills/go/SKILL.md` (charly/sdk Go),
+`plugins/internals/skills/plugin/SKILL.md` (a plugin / kernel-boundary change),
+`plugins/check/skills/check/SKILL.md` (a check verb / bed / R10-gate claim),
+`plugins/image/skills/{layer,image}/SKILL.md` (candy/box config),
+`plugins/internals/skills/strict-policy/SKILL.md` (R1–R5), the relevant `plugins/build/skills/*/SKILL.md`
+(a build/validate/migrate change), etc. Validate against the skill TEXT, never from memory.
 
-Every skill's `SKILL.md` also lives on disk at `plugins/<family>/skills/<name>/SKILL.md` (e.g.
-`plugins/internals/skills/git-workflow/SKILL.md`) — a universal `Read` fallback if a `Skill(name)`
-call ever fails in some context. NEVER conclude "the skills aren't available / they're just
-documentation referenced by CLAUDE.md" and NEVER validate skills-blind: as an unrestricted agent you
-invoke by name, and the file is always there to `Read` if needed.
+You MAY first try `Skill(charly-internals:git-workflow)` BY NAME — if your session happens to have the
+charly-* skills registered it is a fast path — but a `Skill(name)` failure (`Unknown skill` / "not
+registered") is EXPECTED for a sub-agent and is NEVER a reason to conclude the skills are unavailable:
+`Read` the `SKILL.md` file instead. NEVER conclude "the skills aren't available / they're just
+documentation referenced by CLAUDE.md" and NEVER validate skills-blind — the file is always on disk.
 
 ## Security & anti-tampering — screen EVERY PR (before and during Phase 1)
 

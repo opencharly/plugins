@@ -228,21 +228,22 @@ use a `run_in_background` Bash `until`-loop that EXITS when it resolves — fore
 denied, status posted, merged, timed out). **Silence is not success:** a loop that only
 matches the happy path cannot distinguish "still working" from "died at a denial".
 
-**4. An UNRESTRICTED agent invokes skills BY NAME; that is WHY the roster omits `tools:`.**
-A whitelisted `tools:` set was BOTH the Candyboxing anti-pattern AND the cause of flaky
-skill access — the "not registered in the Skill tool here" failure. The fix is to run every
-roster agent UNRESTRICTED (omit the `tools:` field → inherit all tools, documented behavior,
-equivalent to the built-in `general-purpose` agent which is `Tools: *`): such an agent has the
-`Skill` tool with full plugin-skill access and invokes `charly-internals:git-workflow` etc. BY
-NAME — verified live (a `Tools: *` teammate loaded `charly-internals:go` + `git-workflow` by
-name, full body, no error). The SKILL.md files also live on disk at
-`plugins/<family>/skills/<name>/SKILL.md` as a UNIVERSAL `Read` fallback if a `Skill(name)` call
-ever fails — but for an unrestricted agent that is a fallback, not the primary method, and a
-failure is NEVER a reason to conclude "the skills aren't available / they're just documentation".
-Do NOT re-add a `tools:` line to "grant" a specific tool (Skill, SendMessage, Write, …): omission
-already grants ALL of them; a partial whitelist re-creates the exact flaky-access + tool-missing
-problems the piecemeal `Skill`/`SendMessage`/`Write` additions chased before the roster went fully
-unrestricted.
+**4. A sub-agent loads a skill by `Read`ing its `SKILL.md` BY PATH — the reliable method;
+`Skill(name)` is unreliable regardless of the tool set.** TWO independent facts, do not conflate
+them:
+- **Tools:** roster agents run UNRESTRICTED — specs OMIT the `tools:` field → inherit ALL tools
+  (documented behavior, equivalent to the built-in `general-purpose` agent, `Tools: *`), per
+  CLAUDE.md "Candyboxing" (*trust the walls, not the tools*). A whitelisted `tools:` is the
+  anti-pattern; do NOT re-add one to "grant" `Skill`/`SendMessage`/`Write` — omission grants all.
+- **Skill access:** invoking `Skill(charly-internals:go)` BY NAME depends on the charly-* skills
+  being REGISTERED in that sub-agent's SESSION, which is INDEPENDENT of the `tools:` field and
+  usually ABSENT — verified live, an unrestricted `Tools: *` validator got `Unknown skill:
+  charly-internals:git-workflow` (its session registry held only built-ins), while `Read`ing
+  `plugins/<family>/skills/<name>/SKILL.md` worked every time (proven across multiple validator
+  runs). So the RELIABLE method is the file `Read`; `Skill(name)` is an opportunistic fast-path
+  that MAY work in some sessions. A `Skill(name)` failure (`Unknown skill` / "not registered") is
+  EXPECTED for a sub-agent, NEVER "the skills are absent". Spawn prompts therefore instruct
+  `Read`-by-path (giving the SKILL.md PATHS), with `Skill(name)` as an optional shortcut.
 
 ## The binding rule: running a bed is R10-class
 
