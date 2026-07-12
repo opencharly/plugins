@@ -508,6 +508,11 @@ stamps collide and mis-order across concurrent PRs). Operate on the feat branch:
    <merged-main-HEAD>`; `git push origin refs/tags/v$VER` (a tag push — allowed by
    the pre-push-gate). Only a SUPERPROJECT `v*` tag triggers `release-packages.yml`;
    a `plugins` / `pkg/*` tag fires NO workflow, so tagging them is harmless.
+   **SKIPPING any repo's tag is a DEFECT** — the pre-unification `plugins`/`pkg`
+   tag-exempt rule is RETIRED; never omit a tag on a stale "exempt" belief (doing so
+   once shipped a `plugins` merge un-tagged, backfilled add-only after the fact). The
+   orchestrator re-verifies each merge's tag and backfills a skip (see
+   `/charly-internals:git-workflow` "Every repo is tagged at merge").
 
 **Never force-push** (any branch, any repo). **Never `gh pr merge --admin`** (that
 would bypass the validation gate). **Never post `success` without completing

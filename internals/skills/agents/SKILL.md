@@ -54,6 +54,18 @@ under the binding rule). "Prefer agents" governs BOUNDED work.
 
 A sub-agent, teammate, or workflow agent runs with its OWN full, fresh context budget, independent of the orchestrating session's. That makes delegation the ANSWER to context pressure, not a reason to stop. When a cutover — or a whole multi-cutover program — is bigger than the context you have left, you do NOT halt and tell the user to "start a fresh session on task #N". You SPAWN a fresh teammate / sub-agent (`Agent`, an agent team, or a workflow), hand it the unit of work, and it executes end-to-end with fresh context while you keep orchestrating and land the result. **That teammate IS "a fresh session," delivered on demand, inside the same autonomous run.** A large program is executed by driving a teammate per cutover (or a team per stage) to merged PRs — one clean atomic cutover per teammate, orchestrated by the persistent session, never deferred to a future human-started session. Reach for delegation BEFORE you feel context pressure. "I need a fresh session / a fresh context / I've exhausted context / continuing would break the tree" are FORBIDDEN excuses (CLAUDE.md "Hard Cutover by Default" + `/charly-internals:cutover-policy`) — the autonomous loop never stops for context: it compacts-and-continues, decomposes, or delegates. The disposable-only + paste-proof + no-scope-shrinking-flags binding rules below apply to a delegated cutover exactly as to a directly-run one.
 
+**A handoff PRESERVES in-flight WIP via the WORKTREE + a handoff package — NEVER a
+"checkpoint commit."** When half-done work crosses a boundary (a teammate hands off, or a
+session delegates a mid-flight unit), the durable carrier is the non-destructive git
+WORKTREE — the uncommitted working tree on its `feat/<slug>` branch — plus a HANDOFF PACKAGE
+(the branch + absolute worktree path, the WIP state, the exact next steps, any captured
+patch). It is NEVER a "checkpoint commit": un-R10'd non-docs code CANNOT be committed at any
+honest tier — `syntax check only` pairs with "do NOT commit" and a runtime tier needs a live
+R10 that has not run, so the `pre-commit-gate` + attribution rules BLOCK it. The receiving
+agent reads the package, confirms the worktree (`git -C <path> status --short` lists the WIP),
+and continues from the working tree — the WIP was never at risk because nothing destructive
+touched it, and the worktree is exactly where a fresh context resumes.
+
 **Verify every delegate decision — a teammate/sub-agent report is a CLAIM (never-trust-verify
 applies to delegates exactly as to docs and memory).** Before ACCEPTING any decision, finding,
 or scope-change a delegate proposes, the ORCHESTRATOR verifies its 1–3 LOAD-BEARING claims
@@ -123,6 +135,31 @@ contract), multiple PRs validated concurrently (one fresh `pr-validator` each,
 independent contexts that couple only at the merge instant), first-ready-first-
 merged. There is no benefit to holding a ready PR for a sibling; the only
 inherent ordering is the merge instants and a real dependency DAG.
+
+### Slot budget — a persistent slot is a concurrent CUTOVER, not an agent
+
+The parallel width above is bounded by a FINITE resource: the persistent
+teammate SLOTS (the operator's live-oversight panes). Spend them by the right
+unit — a slot ≈ ONE concurrent INDEPENDENT cutover, NEVER a headcount of agents:
+
+- **Sequential sub-phases WITHIN one cutover do NOT each claim a slot.** The
+  owning session COMPACTS-AND-CONTINUES across its own phases (design → implement
+  → land) and delegates only MECHANICAL BULK (a wide sweep, a batch edit, a
+  fan-out search) to a TRANSIENT sub-agent that FREES its slot on return — never a
+  new PERSISTENT teammate per sub-phase. One cutover = one persistent owner, not
+  one-owner-per-phase.
+- **Validators and design-reserve agents are TRANSIENT / RECYCLABLE.** A fresh
+  `pr-validator` and any spun-up design/scout agent exist only for their role;
+  STOP them the instant the role completes so the slot returns to the pool — see
+  "Agent lifecycle hygiene — stop what you spawned" below.
+- **On slot EXHAUSTION, STOP STALE AGENTS — never downgrade the model.** When a
+  new teammate/validator cannot spawn, the fix is to reclaim slots from FINISHED
+  agents (lifecycle hygiene below), NEVER to switch to a headless / in-process
+  teammate mode: the panes ARE the operator's live oversight of every agent, a
+  standing requirement, so trading oversight for headroom is forbidden.
+
+State the PRINCIPLE (slots = concurrent cutovers; transient bulk frees its slot;
+stop-don't-downgrade on exhaustion), not the host-specific pane count.
 
 ### Concurrent landing — link, don't restate
 
