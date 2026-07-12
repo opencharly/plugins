@@ -83,10 +83,16 @@ evaluator's own spec.
   that PROVES its functionality (`check:` checks for new/changed layers & images,
   Go tests for `charly` code) AND the live run exercised it. A change whose new
   functionality has no test that would FAIL without it is not landable.
-- **Tags only on `charly.yml` repos** — plus the sdk contract repo, which tags
-  under its own Go-module scheme `v0.<YYYYDDD>.<HHMM with ALL leading zeros
-  stripped>` (B2 step 0; semver forbids a leading-zero segment — `0733`→`733`).
-  `plugins` and `pkg/*` are tag-exempt.
+- **Every repo is tagged at merge.** The superproject, every `box/<distro>`,
+  `plugins`, and `pkg/*` all mint `v<YYYY.DDD.HHMM>` on their own merged HEAD — the
+  tag marks the MERGE, decoupled from any `charly.yml` `version:` schema field, so a
+  repo needs no `charly.yml` to be tagged. The SOLE exception is the sdk contract
+  repo, which tags under its own Go-module scheme `v0.<YYYYDDD>.<HHMM with ALL
+  leading zeros stripped>` (B2 step 0) — **NOT an exemption but a hard Go-module
+  requirement**: `v<YYYY.DDD.HHMM>` is not a valid Go module version (semver forbids
+  a leading-zero segment — `0733`→`733` — and a `major ≥ 2` would force a `/vN`
+  module-path suffix that breaks every `import github.com/opencharly/sdk`), so the
+  stripped `v0.<…>` form is mandatory, not a choice.
 
 ## B1 — the two-step branch-per-change loop
 
@@ -187,7 +193,8 @@ merges + tags):
    module version — e.g. superproject `v2026.185.0751` ⇄ sdk `v0.2026185.751`) —
    whenever the cutover touched sdk content;
 1. each `box/<distro>` submodule — PR → evaluator merges + tags (it has `charly.yml`);
-2. `plugins` — PR → evaluator merges (**no tag**, no `charly.yml`);
+2. `plugins` — PR → evaluator merges **+ tags `v<YYYY.DDD.HHMM>`** (no `charly.yml`,
+   so no schema `version:` bump — but the tag marks the merge, same as every repo);
 3. the superproject — stage the now-MERGED submodule pointers (a touched sdk: the
    `sdk` gitlink bump PLUS the `charly/go.mod` require version — in-tree resolution
    rides `replace github.com/opencharly/sdk => ../sdk`, so the require version
@@ -513,7 +520,11 @@ Author-time stamps do not survive concurrency: with multiple PRs open and approv
 out of order, an author-time CalVer collides (same minute) and mis-orders (merge
 order ≠ author order). The evaluator generates it at merge and applies it to BOTH
 the changelog and the tag (the "one stamp for both" invariant, moved from
-author-landing to evaluator-merge). Every component is fixed-width zero-padded so
+author-landing to evaluator-merge). This holds for EVERY repo, `plugins` included:
+`plugins` is no CHANGELOG-exception — every `plugins` landing carries a
+`CHANGELOG/<YYYY.DDD.HHMM>.md` entry exactly like the superproject and
+`box/<distro>`, and now that `plugins` is tagged, the SAME finalized CalVer names
+that changelog file AND the `v<…>` tag. Every component is fixed-width zero-padded so
 filenames and tags sort chronologically under a plain alphanumeric sort.
 
 - **The author writes a PLACEHOLDER** `CHANGELOG/<placeholder>.md` (any valid
@@ -528,16 +539,17 @@ filenames and tags sort chronologically under a plain alphanumeric sort.
   strictly above the current HEAD's `#SchemaVersion` + `version:` +
   `migrations.cue` entry); commit + push feat (a normal, non-force push — an ADDED
   commit); re-post `charly/claude-validation` on the new head; `gh pr merge
-  --squash --delete-branch`; then, taggable repos only, `git tag -a v$VER -m
-  "<subject>" <merged-HEAD>` and `git push origin refs/tags/v$VER`.
+  --squash --delete-branch`; then tag the merged HEAD — `git tag -a v$VER -m
+  "<subject>" <merged-HEAD>` and `git push origin refs/tags/v$VER` (EVERY repo;
+  `sdk` substitutes its Go-module `v0.<…>` form).
 
 ONE fresh stamp per merge, immutable (only ever added), INDEPENDENT of `charly.yml`
 `version:` (the schema version, bumped only by a cutover raising `#SchemaVersion`).
-Taggable repos (superproject, `box/<distro>`) mint `v$VER`; `sdk` uses its
-Go-module `v0.<YYYYDDD>.<HHMM leading-zeros-stripped>` scheme (semver forbids a
-leading-zero segment — `0733`→`733`); `plugins`/`pkg-*` stay tag-exempt (changelog
-file only). A YAML schema/format change does BOTH: the schema bump AND the tag. See
-`/charly-build:migrate`.
+Every repo (superproject, `box/<distro>`, `plugins`, `pkg/*`) mints `v$VER` on its
+merged HEAD; `sdk` ALONE uses its Go-module `v0.<YYYYDDD>.<HHMM
+leading-zeros-stripped>` scheme (NOT an exemption — Go modules require semver, which
+forbids a leading-zero segment — `0733`→`733`). A YAML schema/format change does
+BOTH: the schema bump AND the tag. See `/charly-build:migrate`.
 
 ## After landing — cleanliness + report
 
