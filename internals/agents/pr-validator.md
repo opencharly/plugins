@@ -487,6 +487,17 @@ stamps collide and mis-order across concurrent PRs). Operate on the feat branch:
    ONE commit no matter how many fix commits the review rounds added. You compose the
    squash message: never let `gh` default it to the concatenated commit list, and never
    drop the attribution trailer.
+   **The merge is the classifier's Merge-Without-Review gate — SEPARATE from the `success`
+   POST and NOT cleared by `permissions.allow`.** It lands autonomously only when the
+   operator's `autoMode.allow` rule is in effect (`~/.claude/settings.json` or managed
+   settings, scoped to opencharly — the classifier IGNORES `autoMode` in a committed repo
+   `settings.json`). If the classifier DENIES the merge (verbatim: *"Merge Without Review …
+   run outside auto mode"*): you have ALREADY posted the green `success` status (step 4) and
+   finalized the CalVer (step 3), so the PR is merge-ready. Record the verdict + the exact
+   merge command in your durable report and STOP — do NOT retry (a reshaped retry is a bypass
+   the classifier poisons). The operator (or the main session under fresh in-context consent)
+   completes the merge; the green required status guarantees they land exactly what you
+   validated.
    If it fails "not mergeable / base branch policy" because another PR merged in
    between (branch went `BEHIND` again) → GOTO step 1. This loop keeps every
    version monotonic with real merge order.

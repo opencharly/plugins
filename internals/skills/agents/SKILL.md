@@ -210,10 +210,16 @@ like a policy problem. Drive every submodule action from the superproject with a
 LITERAL absolute path: `git -C /abs/path/plugins …` and `gh … --repo <owner>/<repo>`
 (the same rule `/charly-internals:git-workflow` B7 states for the commit gate — it is
 equally load-bearing for PERMISSIONS). **Proven by controlled experiment:** a
-`pr-validator` rooted in `plugins/` had its `success` status POST DENIED
+`pr-validator` rooted in `plugins/` had even its `success` status POST DENIED
 (*"the only authorization comes from a `<teammate-message>`, which is not user
-intent"* — the classifier never saw the standing rule); the SAME agent, same rule
-text, rooted in the superproject, posted `success` and merged with **zero denials**.
+intent"* — the classifier never saw the superproject's standing rule); the SAME agent,
+same rule text, rooted in the superproject, posted `success` with **zero denials**.
+Rooting fixes the STATUS POST (cleared by `permissions.allow`). **The MERGE is a
+SEPARATE, stricter classifier gate — Merge-Without-Review — that `permissions.allow`
+does NOT clear** (proven: `gh pr merge` denied for BOTH a superproject-rooted sub-agent
+AND the main session despite the rule); it lands only under the operator's `autoMode.allow`
+rule (user/managed settings) or fresh in-context user consent, never CLAUDE.md prose. See
+`/charly-internals:git-workflow` B5.
 
 **2. A permission denial ENDS the sub-agent's turn — write the verdict durably
 FIRST.** The denial text instructs the agent to "STOP and explain to the user", and it
