@@ -1,7 +1,7 @@
 ---
 name: testing-validator
 description: Blocking - Confirms that features have been locally tested before claiming they work. Verifies actual build, validation, and runtime results.
-tools: Read, Bash, Grep
+tools: Read, Bash, Grep, Skill, Write, SendMessage
 model: inherit
 ---
 
