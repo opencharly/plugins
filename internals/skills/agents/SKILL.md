@@ -462,12 +462,13 @@ Hooks in this project do TWO things and nothing more. The full inventory
    advances ONLY via an agent-validated PR merge; a bare `git push` with no
    refspec is left to the authoritative server-side branch protection), force-push
    (`git push --force` / `--force-with-lease` / `-f`, bundled forms included),
-   a RUNTIME-tier commit (`fully tested and validated` / `analysed on a live
-   system`) that stages no `CHANGELOG/<YYYY.DDD.HHMM>.md` entry in a repo that tracks a
-   `CHANGELOG/` (history -> each repo's per-repo per-CalVer `CHANGELOG/`; exempt: a
-   repo with no `CHANGELOG/`, and a commit whose staged diff is EXCLUSIVELY
-   submodule pointer bumps — fires only when an inline tier is parsed, like the
-   absent-trailer check),
+   a commit at ANY legal tier (`fully tested and validated` / `analysed on a
+   live system` / `documentation reviewed`) that stages no
+   `CHANGELOG/<YYYY.DDD.HHMM>.md` entry in a repo that tracks a `CHANGELOG/`
+   (history -> each repo's per-repo per-CalVer `CHANGELOG/`; exempt: a repo with
+   no `CHANGELOG/`, and a commit whose staged diff is EXCLUSIVELY submodule
+   pointer bumps — the pure-pointer-bump whose narrative lives in the submodule;
+   fires only when an inline tier is parsed, like the absent-trailer check),
    and a commit staging a `*.go` change whose touched MODULE is not
    `golangci-lint`-clean (the Go-lint criterion — the CONFIGURED `golangci-lint
    run`, never `--fix`/`--enable-only`, per touched module with `GOWORK=off` for
