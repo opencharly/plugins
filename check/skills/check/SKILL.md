@@ -275,7 +275,7 @@ resource — enabling it via systemctl sits outside the charly-CLI-only
 mandate's scope.)
 
 `charly check run check-k3s-vm` best-effort starts the unit before `charly vm create`
-(via `startLibvirtUserSession()` in `charly/vm.go`), and `resolveVmBackend()` now
+(via `startLibvirtUserSession()` in `charly/vm_backend_lifecycle.go`), and `resolveVmBackend()` now
 spawns it too **before** probing the socket — so a cold socket is never mistaken
 for "libvirt absent" (Arch/CachyOS ship no persistent `virtqemud.socket`; the
 socket appears only after an autospawn). **Never gauge libvirt readiness with

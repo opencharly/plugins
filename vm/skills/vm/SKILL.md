@@ -169,7 +169,7 @@ card it rebinds the whole group to vfio-pci and clears any stale poison marker.
 
 Implementation + full RCA: `candy/plugin-gpu/switch.go` (the switch primitive, cutover
 C9 — reached from core via the `charly/gpu_shim.go` driver-switch shims), the arbiter's
-poisoning in `candy/plugin-preempt` (`arbiter_support.go`), `charly/vm_gpu_cmd.go`
+poisoning in `candy/plugin-preempt` (`arbiter_support.go`), `candy/plugin-vm/vm_gpu_cmd.go`
 (status/recover/plan); the arbiter side is `/charly-internals:disposable`
 "resource-arbitration axis".
 
@@ -328,8 +328,8 @@ is missing, breaking every libvirt-RPC probe with a confusing
 timeout. `arch:` and `k3s-vm:` carry this pin (see `/charly-check:check`
 on disposable VM beds).
 
-Source: `charly/vm.go` (`resolveVmBackend`, `startLibvirtUserSession`),
-`charly/vm_libvirt.go`, `charly/vm_qemu.go`.
+Source: `charly/vm_backend_lifecycle.go` (`resolveVmBackend`, `startLibvirtUserSession`),
+`candy/plugin-vm/vm_libvirt.go`, `candy/plugin-vm/vm_qemu.go`.
 
 ## BIOS vs UEFI decision matrix
 

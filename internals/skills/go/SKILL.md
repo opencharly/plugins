@@ -191,7 +191,7 @@ The VM path spans the following module topology:
 | `candy/plugin-vm/libvirt_yaml_bridge.go` | `RenderDomainXML`/`BuildLibvirtDomainXML` pure functions (build a `libvirtxml.Domain` tree, marshal to XML) + `buildDomainDevices` device emission (passt backend, portForward attribute order, virtio-gpu default, SMBIOS credentials, `XMLPassthrough` merge) |
 | `sdk/vmshared/qemu_render.go` | `RenderQemuArgv` for direct-QEMU backend |
 | `sdk/vmshared/cloud_init_render.go` + `cloud_init_iso.go` | `RenderCloudInit` + `ResolveKeyInjectionChannels` + `composeUsers` (adopt-merge) + `WriteSeedISO` via xorriso/genisoimage/mkisofs |
-| `charly/vm_cloud_image.go` + `http_fetch.go` | `BuildCloudImage` pipeline: fetch URL + sha256 sidecar + resize + seed ISO render |
+| `charly/vm_cloud_image.go` + `sdk/kit/http_fetch.go` | `BuildCloudImage` pipeline: fetch URL (`FetchQcow2`, in sdk/kit) + sha256 sidecar + resize + seed ISO render |
 | `sdk/kit/charly_install.go` | `kit.EnsureCharlyInVenue` — the GENERIC "copy charly into a running venue" mechanism (container `podman cp` / VM-SSH `scp` / host `install`, all via `DeployExecutor.PutFile`): returns the `charly` invocation command, copying the host `os.Executable()` to a non-`$PATH` `/tmp/charly-<calver>` on absence/older (idempotent, never shadows a packaged charly). Used by nested from-image delegation, so an image need not bake the `charly` layer. `kit.EnsureCharlyInGuest` is the VM-deploy strategy wrapper (auto/scp/url/skip) layered on top |
 | `sdk/vmshared/ovmf_paths.go` | `ResolveOvmfPaths` (per-distro OVMF_CODE/VARS paths) + `EnsurePerVmNvram` + `ResolveOvmfForSpec` (bios-sentinel returning empty strings) |
 | `sdk/schema/vm.cue` + `cue_kind_vm.go` | `#Vm` — the closed CUE schema validating VmSpec + the `#LibvirtDomain`/`#VmCloudInit` subtrees (the Go VM/libvirt validators were deleted; CUE owns it via the per-kind registry) |
@@ -200,7 +200,7 @@ The VM path spans the following module topology:
 | `charly/deploy_substrate_lifecycle.go` + `charly/substrate_lifecycle_grpc.go` + `charly/vm_lifecycle_preresolve.go` | the generic `substrateLifecycle` interface + the `grpcSubstrateLifecycle` proxy + the vm `lifecyclePrepareHook` / `lifecyclePostTeardownHook` (the host-resolved DATA + residual ephemeral cleanup); the vm venue lifecycle itself lives in `candy/plugin-deploy-vm/lifecycle.go` |
 | `candy/plugin-deploy-vm/` | the out-of-process `deploy:vm` plugin — the plan WALK (`kit.WalkPlans` over the guest `SSHExecutor`) + the venue lifecycle (`lifecycle.go`, over `kit` + `HostBuild("cli")` + the served guest executor) |
 | `charly/bundle_add_cmd_vm.go` | host-side VM-only deploy helpers that REMAIN (`vmNameFromDeployName`, `sshReverseRunner`, `resolveVmSshUser` / `resolveVmSshPort`, `saveVmDeployState`, `removeVmDeployEntry`); `charly bundle add vm:<name>` itself dispatches through `dispatchNode` → `ResolveTarget` → `externalDeployTarget` |
-| `charly/vm_create_spec.go` + `vm_build.go` | CLI command wiring for `charly vm build/create` reading `kind: vm` entities |
+| `candy/plugin-vm/vm_create_spec.go` + `charly/vm_build.go` | `charly vm create` CLI wiring (in the `command:vm` plugin) + the VM-disk build ENGINE (stays core, reached via `HostBuild("vm-build")`) reading `kind: vm` entities |
 | `sdk/vmshared/libvirt_helpers.go` + `libvirt_yaml_listen.go` | helpers shared by the libvirt YAML bridge + `qemu_render` argv emitter (`VmRuntimeParams`); structured `<listen>` support for `LibvirtGraphics` |
 
 **`unified.go` VM support** (C2-substrate): `"vm"` is NO LONGER a `spec.KindWords` kind — the 5 substrate kinds (pod/vm/k8s/local/android) were externalized to the compiled-in **candy/plugin-substrate** (`kind:pod/vm/k8s/local/android`, `Structural:true`), so `vm` LEFT `spec.KindWords` + the `#Node` disjunction (no `#VmArm`) but STAYS in `spec.ResourceKinds` (member nesting) and its `#VmValue` def is KEPT for the host-side value gate. A `vm:` node resolves via `recognizedKind` (the compiled-in provider) → `runPluginKind` → `foldSubstrateKind`, which host-decodes the CANONICAL node via the core loader (`buildBundleNode` for a deploy shape → `uf.Bundle`, `decodeNodeValue` for a bare template → `uf.VM` `map[string]*VmSpec` — the C2-substrate TEMPLATE fold arm), validates its value against the KEPT `#VmValue` def (`validateKindValueCUE`), threads it to plugin-substrate's `OpLoad` via `op.Env` (`spec.StructuralKindLoadEnv.Standalone`), and folds the plugin's ECHO into the typed map. `VmSpec = spec.Vm` is the generated param alias. `#NodeDoc` is the sole STRUCTURE gate; a residual legacy `vm:`-keyed (or `vms:`-plural) document is hard-rejected by `classifyDoc` with a `charly migrate` hint (`rootShapeKeySet` unions `spec.ResourceKinds` so the substrate words stay legacy-detectable).
@@ -319,7 +319,7 @@ Provider/registry/SDK internals are owned by **`/charly-internals:plugin`**; the
 | `data.go` | Volume data seeding (`provisionData`, `seedKind`, `SeederHelperImage`) for bind-backed + named-volume targets, driven by `charly config --seed`/`--force-seed` |
 | `hooks.go` | Lifecycle hooks (`post_enable`, `pre_remove`) collection and execution |
 | `remote_image.go` | Remote image ref resolution, pull-or-build |
-| `vm.go` | VM lifecycle: create, start, stop, destroy, list, console, ssh |
+| `candy/plugin-vm/vm.go` | VM lifecycle: create, start, stop, destroy, list, console, ssh (the compiled-in `command:vm` plugin) |
 | `vm_build.go` | VM disk image builds (qcow2, raw via bootc install) |
 | `candy/plugin-vm/vm_libvirt.go` | Libvirt backend: VM operations via session-level libvirt |
 | `candy/plugin-vm/vm_qemu.go` | QEMU backend: direct VM operations via qemu-system |
@@ -338,7 +338,7 @@ Provider/registry/SDK internals are owned by **`/charly-internals:plugin`**; the
 | `transfer.go` | Cross-engine image transfer |
 | `runtime_config.go` | `~/.config/charly/config.yml`, `secret_backend` key, credential maps |
 | `network.go` | Shared "charly" container network management |
-| `machine.go` | Podman machine management (rootful VM builds) |
+| `candy/plugin-vm/machine.go` | Podman machine management (rootful VM builds; in the `command:vm` plugin) |
 
 ### Configuration
 

@@ -149,7 +149,7 @@ the parent dir. (The same channel is also contributed as a raw snippet by the
 
 ## Firmware plumbing (D17)
 
-`buildDomainOS` (in `libvirt_yaml_bridge.go`, called from `BuildLibvirtDomainXML`) reads `spec.Firmware`. The OVMF paths are resolved UPSTREAM by the CLI layer (`vm_create_spec.go` calls `ResolveOvmfForSpec` — see `/charly-internals:ovmf`) and passed into the renderer via `VmRuntimeParams.OVMFCodePath` / `.NVRAMPath`; the renderer itself never touches the host filesystem. For `firmware: uefi-insecure` / `uefi-secure` it sets `<os firmware='efi'>` with the matching secure-boot `<feature>` toggles, then emits a `<loader>`/`<nvram>` only when the runtime params are non-empty. Emits:
+`buildDomainOS` (in `libvirt_yaml_bridge.go`, called from `BuildLibvirtDomainXML`) reads `spec.Firmware`. The OVMF paths are resolved UPSTREAM by the CLI layer (`candy/plugin-vm/vm_create_orchestrate.go` calls `ResolveOvmfForSpec` — see `/charly-internals:ovmf`) and passed into the renderer via `VmRuntimeParams.OVMFCodePath` / `.NVRAMPath`; the renderer itself never touches the host filesystem. For `firmware: uefi-insecure` / `uefi-secure` it sets `<os firmware='efi'>` with the matching secure-boot `<feature>` toggles, then emits a `<loader>`/`<nvram>` only when the runtime params are non-empty. Emits:
 
 ```xml
 <os firmware='efi'>
