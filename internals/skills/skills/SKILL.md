@@ -208,6 +208,19 @@ Rule of thumb: **if it's useful to every contributor, it lives in git**
 (skills, CLAUDE.md, code). **If it's useful only to you, it lives in the
 Syncthing-synced half** (memory, personal settings).
 
+**A generalizable PROVEN insight saved only to memory is a knowledge LEAK — every
+other charly user (and every fresh validator/teammate, which never reads your
+memory) re-hits the same problem and re-derives the same fix.** So the moment an
+insight is PROVEN (a spike verdict, a discovered mechanism, an operational
+failure-mode + its fix), codify it into the OWNING committed skill IMMEDIATELY as
+a documentation-only cutover — never batch codification to a program-end docs
+phase, and never let memory be its only home. Memory keeps the operator-specific
+remainder: host facts (this box's hardware, enabled features), personal
+preferences, in-flight session state. The test: *would a stranger cloning the
+repo want this?* Yes → committed skill, now. Only you → memory. (Skills also
+survive context compaction — conversation context does not — which is the same
+reason insights can't live only in the transcript.)
+
 ## Skill↔code source-map sync audit
 
 Many skills carry a *source map* of the Go code — `Source:` frontmatter, file-listing

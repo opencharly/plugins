@@ -54,6 +54,22 @@ under the binding rule). "Prefer agents" governs BOUNDED work.
 
 A sub-agent, teammate, or workflow agent runs with its OWN full, fresh context budget, independent of the orchestrating session's. That makes delegation the ANSWER to context pressure, not a reason to stop. When a cutover — or a whole multi-cutover program — is bigger than the context you have left, you do NOT halt and tell the user to "start a fresh session on task #N". You SPAWN a fresh teammate / sub-agent (`Agent`, an agent team, or a workflow), hand it the unit of work, and it executes end-to-end with fresh context while you keep orchestrating and land the result. **That teammate IS "a fresh session," delivered on demand, inside the same autonomous run.** A large program is executed by driving a teammate per cutover (or a team per stage) to merged PRs — one clean atomic cutover per teammate, orchestrated by the persistent session, never deferred to a future human-started session. Reach for delegation BEFORE you feel context pressure. "I need a fresh session / a fresh context / I've exhausted context / continuing would break the tree" are FORBIDDEN excuses (CLAUDE.md "Hard Cutover by Default" + `/charly-internals:cutover-policy`) — the autonomous loop never stops for context: it compacts-and-continues, decomposes, or delegates. The disposable-only + paste-proof + no-scope-shrinking-flags binding rules below apply to a delegated cutover exactly as to a directly-run one.
 
+**Verify every delegate decision — a teammate/sub-agent report is a CLAIM (never-trust-verify
+applies to delegates exactly as to docs and memory).** Before ACCEPTING any decision, finding,
+or scope-change a delegate proposes, the ORCHESTRATOR verifies its 1–3 LOAD-BEARING claims
+itself — read the named file:line, run the grep/count, or (for a HIGH-RISK behavioral claim)
+demand/run the disposable-bed spike — and records the verification in the ruling; a claim it
+could not verify is flagged as unverified, never silently trusted. This is cheap (greps and
+reads) and it pays both ways: a confirmed claim puts the ruling on ground truth, and the
+misses are exactly the ones that would poison every dependent worker (live examples from one
+orchestration wave: an "additive" sdk move that was actually a cross-cutover type-graph hub; a
+hand-written wire type justified by a rationale the mandated `gengotypes` spike then overturned
+— while CONFIRMING the conclusion via the real inexpressible; two teammates defining the same
+wire type in two schema files within minutes). Validator findings get the same treatment —
+re-read the flagged lines before fixing. Delegates' own claims about EACH OTHER'S scope
+(file-ownership, "X already moved Y") are the highest-risk class: verify against the tree, not
+the message.
+
 ## The charly agent roster (`plugins/internals/agents/`)
 
 **Executors** — they RUN `charly check` and return verbatim proof:
