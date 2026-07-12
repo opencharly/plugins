@@ -197,6 +197,13 @@ is `charly check run <bed>` on the bed that EXERCISES the change (cross-cutting 
 categories → fan EVERY matching bed out concurrently BY OWNER: the SHORT beds via `/verify-beds`, one `charly check run <bed>` per agent, and every LONG bed — `vm`/`android`, or last run ≥600s — as its own persistent-session `run_in_background` task, since a sub-agent cannot own a bed that outlives its turn; `/verify-beds` defers those and refuses host-local beds, and `gateComplete: false` means the roster is partial), disposable-only, fresh-rebuild, zero warnings, pasted proof. See
 `/charly-check:check` "R10 gate by change class" and `/charly-internals:cutover-policy`.
 
+**A mechanical pre-commit backstop is separate from the R10 gate.** The `pre-commit-gate.sh`
+hook (`.claude/hooks/`) runs the CONFIGURED `golangci-lint run` on every module a commit's
+`*.go` change touches and BLOCKS a commit that is not lint-clean (fail-open when golangci-lint is
+absent) — so a lint-dirty commit can't land at all. That backstop does NOT replace the bed R10
+gate (a green linter still proves compilation, not behaviour); it just guarantees the `golangci-lint`
+smoke is green at commit time. Doctrine: `/charly-internals:agents` "Hooks doctrine".
+
 ## Cross-References
 
 - `/charly-internals:strict-policy` — R1–R5, RDD, the forbidden-pattern catalogs (the WHAT).

@@ -328,12 +328,20 @@ Hooks in this project do TWO things and nothing more. The full inventory
    advances ONLY via an agent-validated PR merge; a bare `git push` with no
    refspec is left to the authoritative server-side branch protection), force-push
    (`git push --force` / `--force-with-lease` / `-f`, bundled forms included),
-   and a RUNTIME-tier commit (`fully tested and validated` / `analysed on a live
+   a RUNTIME-tier commit (`fully tested and validated` / `analysed on a live
    system`) that stages no `CHANGELOG/<YYYY.DDD.HHMM>.md` entry in a repo that tracks a
    `CHANGELOG/` (history -> each repo's per-repo per-CalVer `CHANGELOG/`; exempt: a
    repo with no `CHANGELOG/`, and a commit whose staged diff is EXCLUSIVELY
    submodule pointer bumps — fires only when an inline tier is parsed, like the
-   absent-trailer check).
+   absent-trailer check),
+   and a commit staging a `*.go` change whose touched MODULE is not
+   `golangci-lint`-clean (the Go-lint criterion — the CONFIGURED `golangci-lint
+   run`, never `--fix`/`--enable-only`, per touched module with `GOWORK=off` for
+   `candy/plugin-*` candies; `unused` needs whole-package analysis so the gate
+   lints the MODULE, not just the changed files; fail-OPEN when golangci-lint is
+   absent or times out — the `pr-validator` remains the real gate; it exists so
+   dead/unused code cannot slip in the way the P10 VM-CLI sweep's 21 orphaned
+   symbols did).
 
 The honest division of labor: **hooks gate mechanical invariants; agents
 judge proof.** Whether a tier is *justified* by the evidence is a reasoning
