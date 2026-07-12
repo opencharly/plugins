@@ -454,8 +454,8 @@ stamps collide and mis-order across concurrent PRs). Operate on the feat branch:
    and the later squash-merge still yields a linear `main`).
 2. **Generate + guard the CalVer.** `VER=$(date -u +%Y.%j.%H%M)`. If the tag
    `v$VER` OR `CHANGELOG/$VER.md` already exists on the current `main` (a
-   same-minute prior merge), advance to the next free minute. Taggable repos use
-   `v<YYYY.DDD.HHMM>` (the superproject/`box` form KEEPS the leading-zero HHMM);
+   same-minute prior merge), advance to the next free minute. Every repo EXCEPT sdk
+   uses `v<YYYY.DDD.HHMM>` (this form KEEPS the leading-zero HHMM);
    `sdk` uses `v0.<YYYYDDD>.<HHMM with ALL leading zeros stripped>` — a Go-module
    version is semver, and semver FORBIDS a leading-zero numeric segment, so a
    morning merge MUST strip it: `0751`→`751`, `0733`→`733`, `0009`→`9`
@@ -463,7 +463,9 @@ stamps collide and mis-order across concurrent PRs). Operate on the feat branch:
    the sdk tag is `v0.$(date -u +%Y%j).$SDK_MIN`). A leading-zero sdk tag
    (e.g. `v0.2026192.0733`) is INVALID — it makes every consumer's `go.mod`
    unparseable in module mode — so this stripping is mandatory, not cosmetic.
-   `plugins`/`pkg-*` are tag-exempt (changelog only).
+   `plugins` and `pkg/*` ARE tagged, with the same `v<YYYY.DDD.HHMM>` form as every
+   non-sdk repo (they carry no `charly.yml`, so no schema `version:` bump — but the
+   tag still marks the merge).
 3. **Rewrite every merge-time-dependent version surface to `$VER`** on the feat
    branch, then commit (carry the PR's validated `Assisted-by` trailer) and push
    the feat branch (a normal, non-force push — you are ADDING a commit):
@@ -501,9 +503,11 @@ stamps collide and mis-order across concurrent PRs). Operate on the feat branch:
    If it fails "not mergeable / base branch policy" because another PR merged in
    between (branch went `BEHIND` again) → GOTO step 1. This loop keeps every
    version monotonic with real merge order.
-6. **Tag** (taggable repos only): `git fetch`; `git tag -a v$VER -m "<subject>"
+6. **Tag** (EVERY repo — `plugins` and `pkg/*` included; `sdk` substitutes its
+   `v0.<…>` form from step 2): `git fetch`; `git tag -a v$VER -m "<subject>"
    <merged-main-HEAD>`; `git push origin refs/tags/v$VER` (a tag push — allowed by
-   the pre-push-gate; the user token triggers `release-packages.yml`).
+   the pre-push-gate). Only a SUPERPROJECT `v*` tag triggers `release-packages.yml`;
+   a `plugins` / `pkg/*` tag fires NO workflow, so tagging them is harmless.
 
 **Never force-push** (any branch, any repo). **Never `gh pr merge --admin`** (that
 would bypass the validation gate). **Never post `success` without completing
