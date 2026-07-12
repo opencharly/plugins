@@ -74,7 +74,7 @@ func ResolveOvmfForSpec(spec *VmSpec, vmStateDir string) (codePath, nvramPath st
 }
 ```
 
-The libvirt renderer (`buildDomainOS` in `libvirt_yaml_bridge.go`) emits `<loader>` + `<nvram>` only when `VmRuntimeParams.OVMFCodePath` / `.NVRAMPath` are non-empty; for BIOS, `ResolveOvmfForSpec` returns empty paths (resolved upstream in `vm_create_spec.go`) so both are skipped. QEMU then boots via SeaBIOS (shipped with QEMU itself, no separate package). No OVMF on the host package-manager list. No per-VM NVRAM file. No Secure Boot lock-in.
+The libvirt renderer (`buildDomainOS` in `libvirt_yaml_bridge.go`) emits `<loader>` + `<nvram>` only when `VmRuntimeParams.OVMFCodePath` / `.NVRAMPath` are non-empty; for BIOS, `ResolveOvmfForSpec` returns empty paths (resolved upstream in `candy/plugin-vm/vm_create_orchestrate.go`) so both are skipped. QEMU then boots via SeaBIOS (shipped with QEMU itself, no separate package). No OVMF on the host package-manager list. No per-VM NVRAM file. No Secure Boot lock-in.
 
 **When to pick BIOS**:
 

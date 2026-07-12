@@ -177,7 +177,7 @@ that emits these program blocks into `.build/<image>/supervisor/NN-virtualizatio
 
 ## Rootless libvirt — `qemu:///session`
 
-`charly/vm.go:22` already hardcodes `qemu:///session` as the charly default.
+`candy/plugin-vm/vm_phaseA_shims.go` already hardcodes `qemu:///session` as the charly default (`const libvirtSessionURI`).
 This candy makes that URI actually work inside a container at uid
 1000:
 
@@ -270,7 +270,7 @@ Drops on deb: `gvisor-tap-vsock`, `podman-machine` (not packaged; VM-mode networ
 
 ## Related Commands
 
-- `/charly-vm:vm` — VM lifecycle (build, create, start, stop, ssh, console, destroy); defaults to `qemu:///session` at charly/vm.go:22
+- `/charly-vm:vm` — VM lifecycle (build, create, start, stop, ssh, console, destroy); defaults to `qemu:///session` (`const libvirtSessionURI`, candy/plugin-vm/vm_phaseA_shims.go)
 - `/charly-build:generate` — Containerfile generation; emits the supervisord `NN-virtualization.conf` fragment via `fragment_assembly` init model
 - `/charly-image:layer` — candy authoring reference (tasks, vars, service blocks, tests syntax)
 - `/charly-check:check` — declarative testing framework for the candy's `check:` block (file, service, command verbs)
