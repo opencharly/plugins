@@ -53,15 +53,31 @@ discriminator + per-variant optional fields), so a wire type NEVER needs a
 disjunction. **No `@go(-)` / hand-written type is EVER added without a full RCA +
 a live `cue exp gengotypes` spike proving CUE genuinely cannot express it** — an
 unverified `@go(-)` is a mandate violation, not an "exception". The ONLY
-spike-proven cases are three NON-wire categories (each `@go(-)`'d + kept in
-lockstep with its def):
+spike-proven cases are four NON-wire categories (each `@go(-)`'d / documented +
+kept in lockstep with its def):
 
 - `sdk/spec/union_types.go` — faithful union/shorthand types for AUTHORED-CONFIG CUE disjunctions (the user's either/or authoring surface, e.g. `VmSource` cloud_image⊻bootc). **RDD spike:** `#X: {cloud_image!: string} | {bootc!: string}` → `type X map[string]any` — `gengotypes` genuinely degrades a disjunction (Go has no sum type). The matching CUE def is `@go(-)`'d. A wire type that would carry a union is a DISCRIMINATED struct instead (a `Kind`/discriminator field + per-variant optional fields — the `deploy_wire` `ReverseOp` tagged-union pattern, RDD-proven to generate) and REFERENCES a disjunction type by name; it never redefines one.
 - `sdk/spec/hand_state_types.go` — open-tailed struct+map authoring/state shapes (`PortSpec`, the open-tailed `VmDeployState`). **RDD spike:** `#X: {known?: string, {[string]: _}}` → `type X map[string]any` — the known fields collapse. Mirrored against `@go(-)`'d defs. A new wire type uses an EXPLICIT map field instead of an open tail so it generates.
 - `sdk/spec/charly_names.go` — charly-name Go type aliases (def-level `@go(CharlyName)` is broken in cue v0.16.1; see the next section). Not a wire struct.
 - `sdk/spec/*_wire.go` (deploy/init/arbiter/gpu/clean/doctor/enc/feature/k8sgen/resource/settings/substrate_template/agent/distro/vm/buildctx) — the host↔plugin & render-context wire structs, **CUE-SOURCED per the mandate** (`sdk/schema/*.cue` → generated). `buildctx.cue` (`InstallContext`/`BuildStageContext`) is the landed reference; any still-hand-written `*_wire.go` is a conversion-in-progress, NOT a sanctioned exception — convert it to a CUE def (a plain/discriminated struct always generates, referencing a disjunction/state type by name where one is genuinely needed).
 - `sdk/proto/plugin.proto` — the gRPC TRANSPORT schema, hand-maintained. **RDD verdict (evaluated, not assumed): NOT CUE-migratable.** (a) No `cue→proto` generator exists — `cue exp` offers only `gengotypes` (Go) + `writefs`, `cue export` has no proto output format (cue/json/toml/yaml/text), and `cue get` is proto→CUE (the reverse). (b) CUE has no gRPC-SERVICE concept — the `.proto` defines 4 services with RPC methods, which no CUE codegen models. (c) It carries the `spec` types as `bytes *_json` envelopes (field histogram: 28 string / 8 bool / 5 bytes / prims — ZERO rich-type duplication), so there is nothing to single-source with CUE; the `.proto` IS its own single-source schema (protoc → Go stubs). A spec WIRE STRUCT, by contrast, is always CUE-sourced; the proto is the transport frame around it.
+- **`json:"-"` fields (keep-in-Go, drop-from-wire)** — `gengotypes` has NO construct for a field that exists in memory but is excluded from marshaling (it emits a real `json:"<name>,omitempty"` tag instead). **RDD spike (2026-07-12, cue v0.16.x, the P12 check seam):** `kit.CheckResult.DeadlineExceeded bool json:"-"` (an engine-internal retry signal that must never cross the wire) is genuinely inexpressible → a hand-written type carrying a `json:"-"` field is a LEGAL documented exception, with the spike cited at the type.
 - `Op.Kind()` (`sdk/spec/charly_methods.go`) — the exactly-one-discriminator cross-field rule, kept in Go because CUE cannot express it as a generable annotation. A method, not a type.
+
+**Spike-proven CAN/CANNOT quick reference (reuse these results — do NOT re-spike settled shapes; DO spike any new shape class):**
+
+| Shape | gengotypes result |
+|---|---|
+| Plain / DISCRIMINATED struct (`kind!:` + per-variant optionals) | ✅ faithful struct — the wire-type workhorse |
+| Reference to another generated def (`Op?: #Op` → `*Op`) | ✅ typed pointer — a def-having embed crosses the wire TYPED |
+| `time.Duration` / custom scalar via `@go(,type=…)` override | ✅ (T-P14a `SubstrateKind`, T-P12 `Elapsed` spikes) |
+| Untagged-PascalCase-no-omitempty JSON | ✅ via required (`!`) fields + PascalCase CUE names |
+| Self-recursive struct (`nested?: [...#Self]`) | ✅ pointer slice `[]*Self` — JSON byte-identical to a value slice |
+| `[string]: T` map | ✅ `map[string]T` |
+| Disjunction `{a!:…} \| {b!:…}` | ❌ `map[string]any` → hand-written union (authored-config only; a wire type uses a discriminated struct) |
+| Open tail `{known?: string, {[string]: _}}` | ❌ known fields collapse → hand_state_types |
+| Int-keyed map `[int]: string` | ❌ degrades to an empty struct → re-shape to `map[string]string` or spike-justified `@go(-)` |
+| `json:"-"` keep-in-Go field | ❌ no construct → documented hand-written exception |
 
 The member-by-member detail of the `sdk/spec` package is the next section; the step-by-step recipe is "How to change the charly.yml schema (CUE is the single source of truth)" under Common Workflows — neither is restated here.
 
