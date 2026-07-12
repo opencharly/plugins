@@ -154,6 +154,8 @@ more serialization than that without a technical reason:
   the delta re-gate covers only the mechanical update-branch merge on top of an
   already-R10'd `main`.
 
+## B4 — sync to upstream + prune (per repo: main, sdk, plugins, box/*, pkg/*)
+
 - **Sync-before-start.** `git fetch origin --prune --tags`; ff local `main` to
   `origin/main`. Never force-reset a diverged local `main` — if it cannot
   fast-forward, STOP + run `/charly-internals:root-cause-analyzer`. (Local `main`
