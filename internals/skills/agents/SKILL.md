@@ -98,12 +98,17 @@ access), exactly as CLAUDE.md "Candyboxing" mandates: *never secure by whitelist
 commands; trust the walls, not the tools.* The wall is the disposable target +
 branch protection + the validator's fresh-context independence — NEVER a narrowed
 tool set. An agent's ROLE (enforcer vs executor) is defined by its PROMPT + spec,
-NOT by a tool whitelist: a whitelisted `tools:` is the Candyboxing anti-pattern, and
-it also caused flaky skill access. An unrestricted agent invokes the charly-* skills
-BY NAME via the `Skill` tool (verified equivalent to the built-in general-purpose
-agent, which is `Tools: *`; the SKILL.md files remain a universal `Read`-by-path
-fallback). Do NOT add a `tools:` line to a roster agent — omission is the documented
-way to inherit all tools (`tools: "*"` is NOT valid and yields ZERO tools).
+NOT by a tool whitelist: a whitelisted `tools:` is the Candyboxing anti-pattern.
+Tools and skill access are TWO INDEPENDENT concerns (invariant #4 below): omitting
+`tools:` makes the agent inherit ALL tools — verified equivalent to the built-in
+general-purpose agent (`Tools: *`) for **tool inheritance** — but it does NOT make
+`Skill(<name>)` resolve a charly-* skill, which depends on per-session skill
+registration a sub-agent usually lacks (a live `Tools: *` validator still got
+`Unknown skill`). So an agent reaches a charly-* skill by **`Read`ing its `SKILL.md`
+by path — the reliable method**; `Skill(<name>)` is an optional fast-path that may
+return `Unknown skill`, and that failure is EXPECTED, never "skills unavailable". Do
+NOT add a `tools:` line to a roster agent — omission is the documented way to inherit
+all tools (`tools: "*"` is NOT valid and yields ZERO tools).
 
 Invoke by name in a prompt, `@`-mention, or the `Agent` tool (scoped id
 `charly-internals:<name>`). Custom agents load at SESSION START, so the shipped
