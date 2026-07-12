@@ -609,7 +609,15 @@ The playbook:
    265s window) from two trees, separate per-tree `.check/`/`.build/` outputs, zero
    cross-contamination, zero leftover deploys. Requirements: the worktree needs the
    `sdk` AND `pkg/arch` submodules inited (`task build:binary` reads
-   `pkg/arch/calver.sh`); NEVER `task build:charly` from a worktree (it installs to
+   `pkg/arch/calver.sh`) — but NOT the `box/<distro>` submodules for the ROOT
+   disposable roster: root `charly.yml` imports the distro namespaces
+   (arch/cachyos/fedora) via remote `@github.com/opencharly/distro-*` refs
+   (resolver-fetched into cache, pinned independently of the submodule pointers), so
+   the root check beds resolve from local `candy/` layers + registry base images +
+   the remote-fetch cache, NEVER the box/* working trees. (A `box/<distro>`'s OWN
+   in-submodule beds do need that submodule inited — box-specific work, not the
+   cross-cutting root roster a persistent session runs for a core cutover's R10.)
+   NEVER `task build:charly` from a worktree (it installs to
    the SHARED `/usr/bin/charly` and yanks every other tree's baseline). Scheduling
    rule when overlapping gates: the SAME bed name must never run twice at the same
    instant (bed→deploy names are deterministic — same `charly-<bed>` names collide);
