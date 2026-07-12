@@ -442,13 +442,17 @@ Hooks in this project do TWO things and nothing more. The full inventory
    and a message mentioning the key never false-trigger, and env-var config
    injection is out of scope: the gate is a discipline backstop, not a
    security boundary),
-   a missing `Assisted-by: Claude (<tier>)` trailer on an inline `-m` message
-   (every commit Claude is involved in must attribute — a pure-human hand-commit
-   never reaches this PreToolUse gate; scoped to the commit invocation's own arg
-   span; a `-F`/heredoc/command-substituted message is not scanned for absence —
-   tier legality still applies; and a command the gate cannot TOKENIZE — an
-   unbalanced or unquoted quote, e.g. an apostrophe in a heredoc body — fails
-   CLOSED and is blocked, so balance the quotes or use `git commit -F <file>`),
+   a missing `Assisted-by: Claude (<tier>)` trailer on a READABLE message — an
+   inline `-m` value, a heredoc body (both live in the command string), or a
+   `-F <file>` the gate READS (every commit Claude is involved in must attribute —
+   a pure-human hand-commit never reaches this PreToolUse gate; scoped to the
+   commit invocation's own arg span). A message the gate CANNOT read to find the
+   tier — a `$(...)`/backtick substitution, a piped or unreadable `-F`, or an
+   editor message (no -m/-F) — fails CLOSED (inline the trailer with `-m`, or point
+   `-F` at a readable file); `--amend`/reuse inherit an already-gated message and
+   are exempt. And a command the gate cannot TOKENIZE — an unbalanced or unquoted
+   quote, e.g. an apostrophe in a heredoc body — fails CLOSED and is blocked, so
+   balance the quotes or use `git commit -F <file>`),
    any tier OUTSIDE the legal-on-commit set
    {`fully tested and validated`, `analysed on a live system`, `documentation
    reviewed`} (the AI-Attribution table forbids `theoretical suggestion`
@@ -468,7 +472,9 @@ Hooks in this project do TWO things and nothing more. The full inventory
    (history -> each repo's per-repo per-CalVer `CHANGELOG/`; exempt: a repo with
    no `CHANGELOG/`, and a commit whose staged diff is EXCLUSIVELY submodule
    pointer bumps — the pure-pointer-bump whose narrative lives in the submodule;
-   fires only when an inline tier is parsed, like the absent-trailer check),
+   fires whenever a tier is parsed from a READABLE message (inline `-m`, heredoc,
+   or a `-F <file>`), like the absent-trailer check — an unreadable message fails
+   CLOSED at the attribution stage before this),
    and a commit staging a `*.go` change whose touched MODULE is not
    `golangci-lint`-clean (the Go-lint criterion — the CONFIGURED `golangci-lint
    run`, never `--fix`/`--enable-only`, per touched module with `GOWORK=off` for
