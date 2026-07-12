@@ -220,6 +220,23 @@ use a `run_in_background` Bash `until`-loop that EXITS when it resolves — fore
 denied, status posted, merged, timed out). **Silence is not success:** a loop that only
 matches the happy path cannot distinguish "still working" from "died at a denial".
 
+**4. A sub-agent accesses a skill by READING its `SKILL.md` BY PATH — never rely on the
+`Skill` tool being registered.** The charly-* skills are registered by `enabledPlugins` +
+`extraKnownMarketplaces` in the SUPERPROJECT `.claude/settings.json` — the SAME file whose
+resolution invariant #1 governs — so a sub-agent's `Skill`-tool marketplace registration is
+INCONSISTENT (a superproject-rooted agent often has it; other spawn contexts do not; verified
+both directions on this host). Adding the `Skill` tool to an agent's `tools:` frontmatter is
+necessary but NOT sufficient — the tool can be present with ZERO charly-* skills registered.
+The RELIABLE, universal method is a plain file read: `Read` `plugins/<family>/skills/<name>/
+SKILL.md` (e.g. `plugins/internals/skills/git-workflow/SKILL.md`) — no marketplace dependency,
+works in every context. `Skill(name)` is an opportunistic shortcut; **if it reports the skill is
+"not registered" / not available, that is EXPECTED, NOT evidence the skill is absent** — `Read`
+the file. An agent that concludes "the named skills aren't available / they're just documentation
+referenced by CLAUDE.md" has made this mistake: the `SKILL.md` was always on disk to `Read`.
+Spawn prompts and agent specs therefore instruct **Read-by-path first**, Skill-by-name as an
+optional shortcut — a probe that happens to be superproject-rooted "works" and must not be
+generalized to a fragile "load by name" default.
+
 ## The binding rule: running a bed is R10-class
 
 `charly check run <bed>` and `charly update` perform an unattended destroy + rebuild.
