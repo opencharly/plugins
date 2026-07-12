@@ -93,6 +93,14 @@ evaluator's own spec.
   a leading-zero segment — `0733`→`733` — and a `major ≥ 2` would force a `/vN`
   module-path suffix that breaks every `import github.com/opencharly/sdk`), so the
   stripped `v0.<…>` form is mandatory, not a choice.
+  **A skipped tag is a DEFECT, not an exemption.** The pre-unification
+  `plugins`/`pkg`-tag-exempt rule is RETIRED — a recalled prior or memory asserting it
+  is STALE (it once shipped a `plugins` merge un-tagged); verify against THIS rule, never
+  that belief. So the orchestrator VERIFIES the tag landed after EACH merge —
+  `git ls-remote --tags origin v<VER>` non-empty — and, if the evaluator skipped it,
+  BACKFILLS it ADD-ONLY on the merged HEAD (`git tag -a v<VER> -m "<subject>"
+  <merged-HEAD>` + `git push origin refs/tags/v<VER>`); tags are immutable, so a backfill
+  only ADDS one, never moves an existing tag.
 
 ## B1 — the two-step branch-per-change loop
 
