@@ -47,14 +47,19 @@ in its candy manifest's `plugin:` block (`primary: {<word>: <field>}`).
 
 **The `build` class (BUILD-ENGINE DISPATCH).** `ClassBuild` serves `build:box` + `build:generate`
 (candy/plugin-build, COMPILED-IN): `charly box build` / `charly box generate` route through it instead of
-calling `NewGenerator` inline. The plugin's Invoke (op `sdk.OpBuild`) is a thin dispatch/echo — it forwards
-the host-constructed `spec.BuildRequest` (op.Params, verbatim) to `Executor.HostBuild(kind, …)` over the F10
-reverse channel and ECHOES the `spec.BuildReply`; the host-builder (registered on `hostBuilders`) runs the
-heavy engine HOST-SIDE in-process (`runBoxBuild` / `runBoxGenerate`). build:box → HostBuild("image"),
-build:generate → HostBuild("containerfiles") — the host-builder KINDS are class-generic action nouns, never
-the provider WORDS (the F11 uniform-API gate `TestNoSinglePluginAPISurface` forbids a provider word on that
-surface). The engine (Generator / OCITarget / runtime Candy graph) STAYS core, UNCHANGED — only the wire
-envelope crosses; the group/substrate/candy echo pattern applied to build. See `/charly-build:build` +
+calling `NewGenerator` inline. The plugin's Invoke (op `sdk.OpBuild`) **OWNS the podman DRIVE** (the
+build-order loop, per-image build lock via `kit.AcquireImageBuildLock`, `podman build`, push, and the
+inline-merge gate) IN the candy — it imports only the sdk module. It reaches the host for what a sdk-only
+candy cannot do: the loader RESOLVE + Containerfile RENDER + the privileged builder-bootstrap via
+`Executor.HostBuild("build-resolve", …)` (→ a serializable drive-model), and the layer merge via
+`HostBuild("merge", …)` (transitional — the OCI merge engine externalizes to `verb:oci`, then the candy
+swaps to `InvokeProvider` and this seam deletes). `build:box` runs the full drive; `build:generate` calls
+`HostBuild("build-resolve")` with `GenerateOnly` and returns the written Containerfile paths (no podman, no
+merge). The host-builder KINDS (`build-resolve`, `merge`) are class-generic action nouns, never the provider
+WORDS (the F11 uniform-API gate `TestNoSinglePluginAPISurface` forbids a provider word on that surface). The
+RESOLVE/RENDER (`NewGenerator` / `Generate` / `OCITarget` / the runtime Candy graph) STAYS core — pinned by
+the loader Mechanism + the runtime-Candy decision (a sdk-only candy cannot run the loader nor satisfy the
+`deploykit.CandyModel` from a serialized model). See `/charly-build:build` +
 `/charly-build:generate`.
 
 **In-proc reverse channel (compiled-in placement of HostBuild / the reverse channel).** A COMPILED-IN plugin
@@ -175,10 +180,10 @@ See "Authoring an external COMMAND plugin" below.
   the peer in the registry and Invokes it on the caller's behalf (threading the SAME venue executor into an
   out-of-process target over a nested broker — the host is the dispatch broker, since it owns the registry);
   and `HostBuild(kind, spec)` — the host runs the registered host-builder for `kind` — TEN registered kinds
-  today: `image` + `containerfiles` (the box build engine), `overlay` (the pod overlay build), `step-emit`
+  today: `build-resolve` + `merge` (the box-build loader/render + layer-merge seams), `overlay` (the pod overlay build), `step-emit`
   (host-coupled step fragments), `cli` (the generic run-any-charly-command reentry), `hostprobe` (doctor's
-  raw host facts), `feature`, `settings`, `retention`, and `plugin-binary` (the F10 plugin host build); the build ENGINE stays in
-  core. This is the shared-capability seam: a SHARED plugin (egress, k8s-gen, arbiter) is "a plugin others
+  raw host facts), `feature`, `settings`, `retention`, and `plugin-binary` (the F10 plugin host build); the RESOLVE/RENDER engine stays in
+  core (the box-build podman DRIVE moved to candy/plugin-build in P8b). This is the shared-capability seam: a SHARED plugin (egress, k8s-gen, arbiter) is "a plugin others
   invoke", never "kept in core". Reference: `candy/plugin-example-dispatch`; mechanism:
   `/charly-internals:install-plan` (`plugin_dispatch_reverse.go`).
 - **Deploy time.** An external deploy-target provider runs its full Add/Test/Update/Del lifecycle over the
