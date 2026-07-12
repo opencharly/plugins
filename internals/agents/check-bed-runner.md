@@ -1,7 +1,7 @@
 ---
 name: check-bed-runner
 description: Runs an existing disposable check bed (a `disposable: true` bundle) to completion via `charly check run <bed>` (the full R10 sequence) and returns the VERBATIM verdict — per-step status, overall exit code, and the tail of any failing step's log. Use as the R10 acceptance executor when a cutover must be proved on a disposable bed. Never summarizes away a failure.
-tools: Bash, Read, Grep
+tools: Bash, Read, Grep, Skill
 model: inherit
 ---
 
