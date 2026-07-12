@@ -70,12 +70,13 @@ re-read the flagged lines before fixing. Delegates' own claims about EACH OTHER'
 (file-ownership, "X already moved Y") are the highest-risk class: verify against the tree, not
 the message.
 
-## The default multi-agent execution model — a fast orchestrator driving capable teammates
+## The default multi-agent execution model — a most-capable orchestrator driving cost-scaled teammates
 
 For any SUBSTANTIAL or multi-cutover program, the DEFAULT topology is a single
-**persistent ORCHESTRATOR** session coordinating **parallel capable-model
-TEAMMATES** (one per in-flight cutover) and **fresh capable-model
-`pr-validator`s** (one per ready PR). This is the proven default — not opt-in,
+**persistent ORCHESTRATOR** session coordinating **parallel TEAMMATES** (one per
+in-flight cutover) and **fresh `pr-validator`s** (one per ready PR) — with the
+model tiers split by leverage, not evenly (next subsection). This is the proven
+default — not opt-in,
 not "when convenient"; solo/sequential execution is the EXCEPTION, reserved for
 trivial single-file or conversational work. The model COMPOSES the pieces this
 skill and `/charly-internals:git-workflow` already own (the bed-scoped partition,
@@ -83,30 +84,35 @@ the fresh independent `pr-validator` two-step landing, delegation-is-fresh-
 context, concurrent landings) — it does not replace them, and the sections below
 LINK to each rather than restate it.
 
-### Model-tier split — fast orchestrator, capable workers
+### Model-tier split — most-capable orchestrator, cost-scaled workers
 
-The orchestrator's job is DISPATCH, not deep reasoning: partition the work by
-bed/file, schedule and OWN the long beds (`run_in_background`, see "Handling a
-long-running bed" under the binding rule), route each ready PR to a fresh
-validator, sequence the merge instants, run the per-merge delta re-gate, and
-rebase-broadcast to the siblings. The load-bearing correctness work —
-IMPLEMENTING a cutover and ADVERSARIALLY VALIDATING a PR — is where reasoning
-depth matters. So split the model tiers:
+The orchestrator runs ×1 — ONE persistent session — and carries the
+HIGHEST-LEVERAGE reasoning: routing each ready PR to a fresh validator,
+sequencing the merge instants, running the per-merge delta re-gate, owning the
+long beds (`run_in_background`, see "Handling a long-running bed" under the
+binding rule), rebase-broadcasting to the siblings, and — above all — the
+independent RDD-VERIFICATION of EVERY teammate decision (the correctness
+backstop for the whole parallel run; next subsection). The teammates run ×N in
+parallel, each on a BOUNDED unit (one cutover, one PR) UNDER that verification.
+That ×1-vs-×N shape, not a "who reasons harder" split, decides the tiers:
 
-- **Orchestrator → a FAST / cheap model.** Dispatch-heavy coordination does not
-  need the top tier, and a cheap model stays resident cheaply across the whole
-  program (the persistent session that owns every long bed and receives every
-  completion notification).
-- **Teammates + `pr-validator`s → the CAPABLE model.** Implementation and
-  independent adversarial validation carry the correctness of the change; run
-  them on the strongest model available.
+- **Orchestrator → the MOST-CAPABLE (most-expensive) model.** The premium is
+  paid ONCE (×1, resident across the whole program) and buys the top tier
+  exactly where the leverage is highest — the coordination and the
+  every-decision verification that backstop correctness for the entire run.
+- **Teammates + `pr-validator`s → a LESS-EXPENSIVE model.** They scale ×N with
+  the parallel width, each bounded to one cutover / one PR and backstopped by
+  the orchestrator's verification, so the cheaper tier carries the parallel bulk
+  affordably.
 
-State the PRINCIPLE (fast orchestrator + capable workers), NOT the model names —
-the current instantiation is a **Fable** orchestrator driving **Opus-4.8**
-teammates and validators, a concrete example that rots as models change. Set the
-default teammate model in `/config` ("Default (leader's model)" inherits); a
-teammate or validator may still be spawned with an explicit capable `model:`
-regardless of the orchestrator's own tier.
+The economics: a ×1 top-tier orchestrator + ×N cheaper-tier workers minimizes
+total cost while keeping the correctness reasoning at the top tier. State the
+PRINCIPLE (most-capable orchestrator + cost-scaled teammates) and the cost
+RATIO, NOT exact prices (they rot) — the current instantiation is a **Fable-5**
+orchestrator (~2× the teammate model's per-token cost) driving **Opus-4.8**
+teammates and validators. Set the default teammate model in `/config` to the
+CHEAPER tier; the lead/orchestrator runs the TOP tier (a teammate or validator
+may still be spawned with an explicit `model:` when a unit needs it).
 
 ### Maximum parallelization is the DEFAULT
 
