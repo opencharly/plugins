@@ -35,7 +35,10 @@ If not given, resolve the PR for the current branch with `gh pr view`.
 working directory, and Claude Code loads `.claude/settings.json` from it. The submodules
 (`plugins`, `sdk`, `box/<distro>`) ship NO `.claude/`, so rooting there silently drops the
 superproject's `permissions.allow` rules — and your `success` status POST is then denied as
-Self-Approval ("the only authorization comes from a `<teammate-message>`"). Validate a submodule PR from the superproject root using literal
+Self-Approval ("the only authorization comes from a `<teammate-message>`") unless a
+USER/MANAGED-level grant covers the action (user settings resolve independently of project
+root — see `/charly-internals:git-workflow` B5's scope-of-validity note; superproject
+rooting stays the rule). Validate a submodule PR from the superproject root using literal
 absolute paths: `git -C /abs/path/plugins …` and `gh <cmd> --repo <owner>/<repo>`. Verify
 your own transcript is under the SUPERPROJECT project dir, not a `…-<submodule>` sibling.
 

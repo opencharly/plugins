@@ -449,7 +449,8 @@ which is its working directory. A validator told to work *inside* `plugins/` or 
 roots in that submodule — which ships no `.claude/` — and therefore silently loads NO
 permission rules at all. Its `success` status POST is then denied as Self-Approval
 (*"the only authorization comes from a `<teammate-message>`"*), because nothing ever
-authorized it. So:
+authorized it — unless a USER/MANAGED-level grant covers the action (those resolve
+independently of project root; the scope-of-validity note below). So:
 
 - **Spawn the validator with its working directory at the SUPERPROJECT root**, for a PR
   in ANY repo (superproject, `sdk`, `plugins`, `box/<distro>`).
