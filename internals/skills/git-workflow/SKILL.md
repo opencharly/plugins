@@ -512,7 +512,11 @@ step with a **literal absolute path** `git -C /abs/path …`. NEVER a leading
 `cd`+`\`-continued chain (it scopes every later command into the submodule) and
 NEVER a shell variable for a path — **shell variables do NOT persist between Bash
 tool calls**, so a `WT=…` set in an earlier call is EMPTY later and `git -C
-"$WT/plugins"` silently becomes `git -C /plugins` (this was a real failure). Verify:
+"$WT/plugins"` silently becomes `git -C /plugins` (this was a real failure). The
+`pre-commit-gate` now also BLOCKS a `git -C "$VAR" commit` form outright and asks for
+the literal absolute path — that block is a parse requirement, not a denial: re-issue
+ONCE with the literal path (the one sanctioned re-issue; anything else after a hook
+block stays forbidden reshape-and-retry). Verify:
 `git -C /abs rev-parse --show-toplevel` == the path you edited AND `git -C /abs
 status --short` lists your edits.
 

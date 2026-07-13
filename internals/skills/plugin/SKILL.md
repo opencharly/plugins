@@ -559,8 +559,10 @@ it does not consume the sdk mechanism libraries, and it contains ZERO aliases/sh
 
 **Why the seams die (the radical simplification).** Today's config-resolve / config-persist / oci-inspect
 seams exist ONLY because plugins could not load the project or touch the store. Once the loader is
-`sdk/loaderkit` (the kind-blind PARSE — already landed, P6/P7) and state is `sdk/statekit` (flock'd,
-any-process-safe), a plugin just LOADS the project itself — same filesystem, same library — and the seam
+`sdk/loaderkit` (the kind-blind PARSE — already landed, P6/P7) and state is the flock'd,
+any-process-safe `sdk/kit` state family (`filelock.go` + `install_ledger.go` + `deployconfig.go` —
+already landed, P4/C9; the K4-B decomposition ruled a separate `statekit` package pure churn), a
+plugin just LOADS the project itself — same filesystem, same library — and the seam
 families COLLAPSE. The reverse channel then shrinks to the two things that genuinely cannot cross a process
 boundary: **live venue executors** (re-materialized from `VenueDescriptor`) and **`InvokeProvider`**
 (peer-plugin dispatch through the host's registry), plus plugin-binary/cli reentry. Everything else,
@@ -575,8 +577,8 @@ plugins do directly via sdk libs.
 | reverse-channel broker (executor re-materialization + `InvokeProvider`) | ~1–1.5k |
 | **Total** | **~3.5–4.5k** |
 
-Everything else in today's ~64k → sdk mechanism libraries (loaderkit / enginekit / statekit + the existing
-kit / deploykit / buildkit) consumed by plugin candies (plugin-project [the loader], plugin-build,
+Everything else in today's ~64k → sdk mechanism libraries (loaderkit / enginekit + the existing
+kit [incl. its state family] / deploykit / buildkit) consumed by plugin candies (plugin-project [the loader], plugin-build,
 plugin-bundle, plugin-check, plugin-box, plugin-status, plugin-oci, the deploy-substrate plugins, the
 command plugins).
 
@@ -586,7 +588,7 @@ wave leaves is tracked "until-K<n>", never permanent.
 | Wave | What | ~LOC out |
 |---|---|---:|
 | **K1-proper** | the LoadUnified ORCHESTRATION (import queue / discover / namespace / merge) → `sdk/loaderkit`. **Keystone RETIRED** — the kind-blind PARSE (P6, `ParseDoc` → `spec.ParsedProject`, cycle broken via the `loaderkit.Threaded` clause-D DATA snapshot + the swappable `DocParser` seam) + the refs FETCH (P7, `kit.RefsDownloader`) are ALREADY LANDED and compile today; K1-proper is the mechanical relocation of the orchestration. The registry-coupled MATERIALIZE/fold STAYS host (it IS the kind-decode dispatch, v2-consistent). | ~2–2.5k |
-| **K2** | engine-client → `sdk/enginekit`; ledger + flock → `sdk/statekit` | ~3k |
+| **K2** | engine-client → `sdk/enginekit`; ledger + flock: DELIVERED in `sdk/kit` (filelock / install_ledger / deployconfig, P4/C9) — the residual host state code is loader-coupled (K5 seam-death) or lifecycle-body (K4-A), not a statekit item | ~1k |
 | **K3** | the build ENGINE (generate / layers / build / labels / intermediates / localpkg) → `buildkit` + `plugin-build` | ~7.6k |
 | **K4** | deploy + config resolution (config_image / deploy / bundle-walk / enc / secrets / network / start / shell / data) → `deploykit` + the deploy/bundle plugins — the CALL SITES move, the aliases die | ~13k |
 | **K5** | the seam-death sweep: config-resolve/persist seams deleted; the gathering-arms + retention/feature/settings/hostprobe bodies → plugins; arbiter lifecycle legs → `InvokeProvider`; every remaining `*_aliases.go` deleted; misc verbs dispersed | ~15k |
