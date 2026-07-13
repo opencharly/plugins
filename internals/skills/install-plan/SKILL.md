@@ -235,7 +235,8 @@ Both install via the SAME dep-resolving `InstallTemplate` (`pacman -U` / `dnf
 install` / `apt-get install`) — only the package SOURCE differs, so the toolchain
 is OS-tracked either way. The switch flows through `Generator.DevLocalPkg` ←
 `BuildCmd.DevLocalPkg` (`--dev-local-pkg`); the check-bed runner sets it for EVERY
-bed image build (`check_bed_run.go`), a production build never does. Generic
+bed image build (`candy/plugin-check/bed_run.go`, driving `charly box build` over
+the `HostBuild("cli")` seam), a production build never does. Generic
 across all kinds + all localpkg candies. A dev build that cannot locate its local
 source **HARD-ERRORS** — it NEVER silently falls back to the release (R4), so a
 bed can never accidentally test a stale published binary. Net: a disposable check

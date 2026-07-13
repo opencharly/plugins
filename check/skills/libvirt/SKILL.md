@@ -108,7 +108,7 @@ read`/`guest file write` and `guest fsfreeze status`/`freeze`/`thaw`, plus the
 ad-hoc flags `--screen N` (screenshot), `--hold` (send-key), `--type
 spice|vnc` / `--persistent` (passwd), `--config` (domain-xml), and `--duration`
 (events/console). Because the verb is also surfaced under `charly check` at
-runtime (`attachNestedCheckPlugins`, like `kube`/`adb`/`appium`), reach those
+runtime (dispatched through the provider registry, like `kube`/`adb`/`appium`), reach those
 through the nested out-of-process command `charly check libvirt guest file …` /
 `charly check libvirt guest fsfreeze …` for interactive operator use. They are
 NOT part of the declarative `libvirt:` step vocabulary.

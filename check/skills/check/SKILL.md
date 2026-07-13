@@ -58,7 +58,7 @@ never by stripping the candy.
 **The bed tests the LATEST LOCAL candies — not the pinned remote.** Step 1 also
 points a bed's parent-repo `@github.com/<org>/<parent>/candy/...:<tag>` candy refs
 at the LOCAL superproject working tree — the candy-ref analogue of the auto
-`--dev-local-pkg` toolchain build above. `runCheckBed` auto-appends a
+`--dev-local-pkg` toolchain build above. The check-bed setup op auto-appends a
 `CHARLY_REPO_OVERRIDE` for the bed project's OWN superproject (detected via `git
 rev-parse --show-superproject-working-tree`; the ref's `:vTAG` is ignored, so the
 bed always builds the dev's current tree). So a `box/<distro>` submodule bed —
@@ -67,13 +67,15 @@ candy tree; without this it would build the STALE pinned remote candy and serve 
 purpose. An explicit operator `CHARLY_REPO_OVERRIDE` entry for the same repo still
 wins (it is placed first). A bed whose project is its own root needs no override —
 its candies already resolve from the local tree. Source:
-`selfSuperprojectOverridePair` + `mergeRepoOverrides` (`charly/refs.go`), applied
-in `runCheckBed` (`charly/check_bed_run.go`); the underlying `CHARLY_REPO_OVERRIDE`
-is the Go-`replace`-style "verify before you push" mechanism.
+`selfSuperprojectOverridePair` + `mergeRepoOverrides` (`charly/refs.go`, kept
+core), applied by the check-bed setup op in `candy/plugin-check/bed_run.go` —
+which drives the host `check-bed` session seam (`charly/host_build_check_bed.go`);
+the underlying `CHARLY_REPO_OVERRIDE` is the Go-`replace`-style "verify before you
+push" mechanism.
 
 **Exclusive-resource preemption wraps the sequence.** When a bed declares
 `requires_exclusive: [token...]` (e.g. a GPU-passthrough bed needing the one
-physical card), `runCheckBed` acquires a resource-arbitration lease BEFORE step 1
+physical card), the check-bed runner acquires a resource-arbitration lease BEFORE step 1
 and `defer`-releases it after teardown: any running `preemptible` holder of the
 token (e.g. the operator's GPU workstation VM) is gracefully stopped — and the
 arbiter waits until it actually powers off so the device is freed — then restored
@@ -443,7 +445,7 @@ check written once works unchanged when `charly.yml` remaps ports.
 |---|---|
 | `0` | All checks passed. |
 | `1` | Command / usage / infra error — bad args, undeclared deploy, container not running, image build/deploy/vm-create failed. The check never produced a pass/fail verdict. |
-| `2` | The check RAN and one or more **checks FAILED** (`CheckCheckFailExitCode`). |
+| `2` | The check RAN and one or more **checks FAILED** (`sdk.CheckFailExitCode`). |
 
 `charly check box` / `charly check live` return `2` directly when checks fail.
 `charly check run <bed>` propagates `2` when the bed's **check step** (check-image /
@@ -452,8 +454,9 @@ vm-create) fails — so a broken bed image is distinguishable from a genuine
 test failure. When `/verify-beds` fans a roster out, it aggregates the per-bed
 exit codes — reporting `2` only when *every* failing bed failed on checks, and
 `1` when any bed hit an infra failure. Implementation:
-`CheckFailedError` + `CheckCheckFailExitCode` (charly/check_cmd.go), mapped to the
-process exit code in `main()` via `errors.As`.
+the sdk owns the error/exit types — `sdk.ExitCodeError` + `sdk.CheckFailExitCode` /
+`sdk.CheckSkippedExitCode` — and charly's `main()` maps them to the process exit
+code via `errors.As`.
 
 ## Image preflight (host-target runs only)
 
@@ -489,8 +492,10 @@ verb. Operators with legacy YAML run `charly migrate`. See
 "Deploy fetches NOTHING speculative".
 
 Lives in `charly/check_image_preflight.go`
-(`EnsureImagePresent`, `ensureScoreImages`); wired into
-`CheckRunCmd.Run` for the `case TargetKindHost:` arm. Pod / VM / k8s
+(`EnsureImagePresent`, `ensureScoreImages` — the "preflight" mode body); reached
+via the `host_build_check_run.go` "preflight" seam, which the `command:check`
+plugin (`candy/plugin-check`) drives for the host-target run (the former
+`case TargetKindHost:` arm). Pod / VM / k8s
 targets carry their own image inside their respective deploy schema
 and never trigger the preflight.
 
@@ -542,7 +547,9 @@ The `meta.Box` short-name (from the `ai.opencharly.box` OCI
 label) is used by `charly check live` for the `charly-<image>` container-name
 lookup — full image refs like `ghcr.io/opencharly/fedora-coder:latest`
 are correctly mapped to `charly-fedora-coder`. Implementation:
-`charly/check_cmd.go` `CheckBoxCmd.Run()` and `CheckLiveCmd.Run()`.
+the live-gather engine in `charly/check_cmd.go` (carried by the `CheckLiveCmd`
+struct); the `charly check box` flow lives in the `command:check` plugin
+`candy/plugin-check`.
 
 ## Agent Driven Evaluation (ADE) — `charly box/check feature run` + the agent grader
 
@@ -601,8 +608,8 @@ only prose and binds to the agent grader. `charly feature pending` lists every
   `-i/--instance`, `--format text|json|tap|junit`, `--tag <expr>`,
   `--agent <name>`, `--timeout <dur>`, `--no-agent`, `--strict`.
 
-Exit codes follow the 0/1/2 convention (a step fail → exit 2 via
-`CheckFailedError`; an infra error → 1). No plan baked → a no-op pass.
+Exit codes follow the 0/1/2 convention (a step fail → exit 2 via the sdk's
+`CheckFailExitCode`; an infra error → 1). No plan baked → a no-op pass.
 
 ### The agent grader contract
 
@@ -664,8 +671,9 @@ Each live-container verb (`cdp:`/`wl:`/`vnc:`/`dbus:`/`mcp:`/`record:`/`kube:`/
 dispatched through the provider registry exactly like a built-in verb
 (`ResolveVerb` → the out-of-process gRPC provider → `Provider.Invoke`); run a
 candy's baked steps with `charly check live <image> --filter <verb>`. `libvirt`
-(served by `candy/plugin-vm`) and `kube`/`adb`/`appium` are additionally surfaced
-under `charly check` at runtime via `attachNestedCheckPlugins`. Authoring never
+(served by `candy/plugin-vm`) and `kube`/`adb`/`appium` (each served by its own
+plugin candy) are all dispatched through that same provider registry — there is no
+separate in-`charly check` attach path. Authoring never
 says `plugin: <verb>` — you write `wl: screenshot`, `libvirt: info`, etc. The
 per-verb skill + serving plugin are listed in the Related-skills note below.
 
@@ -1668,7 +1676,7 @@ for all background bash subprocesses, and the harness orchestrator
 deadlocks waiting on claude.
 
 The harness defends against this pattern between iterations: at every
-iter end (in `check_loop.go`'s `commitIterationBestEffort`), the
+iter end (in `candy/plugin-check/harness_loop.go`'s per-iteration commit), the
 orchestrator runs
 `podman exec charly-check-sandbox pkill -f "while true.*sleep [0-9]+"` to
 clean up orphaned keepalive bashes left dangling by the AI's
@@ -1693,11 +1701,17 @@ deliberately.
 - `/charly-build:inspect` — view the merged plan / description structure as JSON.
 - `/charly-build:migrate` — `charly migrate` brings legacy configs up to the
   current schema (one flat ordered `plan:` list per entity).
-- `/charly-internals:go` — implementation map: `checkspec.go`, `checkvars.go`,
-  `checkrun.go`, `checkrun_verbs.go`, `checkrun_charly_verbs.go`,
-  `description_collect.go`, `check_cmd.go`, `check_runner_cmd.go`, `check_loop.go`,
-  `check_runner_live.go`, `check_watchdog.go`, `validate_check.go`,
-  `mcp.go`, `mcp_client.go`, plus the `LabelDescriptionSet` type in `labels.go`.
+- `/charly-internals:go` — implementation map. Core keeps the gathering,
+  validation, and host seams: `checkspec.go`, `checkvars.go`, `checkrun.go`,
+  `checkrun_verbs.go`, `checkrun_charly_verbs.go`, `description_collect.go`,
+  `check_cmd.go` (the CLI-free live-check gather engine), `check_runner_cmd.go`
+  (now only `scorePodTargetEntry`), `check_runner_live.go` (the "score" mode body),
+  `check_image_preflight.go` (the "preflight" body), `check_feature_run.go`,
+  `validate_check.go`, the `host_build_check_*.go` check seams, `mcp.go`,
+  `mcp_client.go`, plus the `LabelDescriptionSet` type in `labels.go`. The
+  `charly check` CLI + AI-iteration harness (the management Cmds, the iteration
+  loop, the watchdog, clone/note/synccreds/runlocal) live in the compiled-in
+  `command:check` plugin `candy/plugin-check/`.
 - `/charly-internals:generate-source` — how `LabelDescriptionSet` is written into the Containerfile
   via `writeJSONLabel`, and why the LABEL block lives at the end of the
   final stage.
