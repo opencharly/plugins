@@ -311,8 +311,15 @@ modes govern it (all observed live in one program):
   depth (call-graph reads reveal deep orchestrations) — measured variances of −79%,
   −45%, ~−80%, and +60% landed in four consecutive scoping rounds of one program. No cut
   proceeds from a register estimate: a SCOPING MAP (per-file measured LOC +
-  MOVE/STAY/DIE/SHARED verdicts + the actual consumption/call-graph reads, file:line
+  MOVE/STAY/DIE/SHARED verdicts + call-graph reads in BOTH directions — OUTBOUND
+  enabler-fit, the fields the unit reads vs what the enabler actually carries, and
+  INBOUND footprint, the transitive callee stack the body drags along — file:line
   cited) precedes every cut, and the orchestrator re-verifies its load-bearing claims.
+  **A body's file-LOC is a FLOOR for the move, never the move**: outbound gaps
+  over-count collectibility (one-signed +, the enabler's surface is a subset of the
+  owned surface) and inbound drag under-counts move size (one-signed −, file-LOC
+  excludes callees) — the same estimator defect with opposite signs; size every row by
+  its call-graph, both directions, never by its file-LOC.
   This is an AUTHORING rule, not a retrospective diagnosis: a row quotes NO collectible
   LOC until its per-file boundary-law decomposition exists — owner-sums can only
   over-count collectibility, so an undecomposed row is UNMEASURED by definition.
