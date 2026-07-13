@@ -122,7 +122,10 @@ ok: true                     # ← a SKIP, not a pass
 So `ok: true` + `total_seconds: 0` + a single `prereq-*-skipped` step IS the skip signature.
 The authoritative discriminator is the **process exit code 3** (charly also prints a
 `SKIPPED — …` line); never count a bed as passed from `summary.yml` alone. `/verify-beds`
-keys on the exit code for exactly this reason.
+keys on the exit code for exactly this reason. And a WRAPPER SCRIPT's own exit code is
+NOT the bed verdict — a script that pipes or post-processes `charly check run` must
+capture `${PIPESTATUS[0]}` (the charly exit) and corroborate the on-disk `summary.yml`;
+a notification-level exit 0 can MASK a charly exit 1.
 
 To run a
 WHOLE ROSTER, fan the beds out CONCURRENTLY, by OWNER: the SHORT beds via the
