@@ -24,8 +24,8 @@ The `InstallPlan` IR (see `/charly-internals:install-plan`) is the central data 
 | `charly/deploy_chain.go` | `rootExecutorForDeployNode` — picks the root `DeployExecutor` for a `local:` deploy node (`ShellExecutor` for `host:local`/absent, `SSHExecutor` for `host:<user@machine>`) | `rootExecutorForDeployNode` |
 | `charly/deploy_target_external.go` | `externalDeployTarget` — Add/Test/Update/Del lifecycle for the externalized `local:` substrate (and k8s/android) over the executor reverse channel; records/replays teardown ops via the ledger (full detail in `/charly-internals:install-plan`) | `externalDeployTarget` |
 | `sdk/kit/sshconfig.go` | `~/.config/charly/ssh_config` fragment writer (managed-block protocol) | `kit.WriteVmSshStanza`, `kit.RemoveVmSshStanza`, `kit.ListVmSshAliases`, `kit.EnsureSshConfigInclude`, `kit.RemoveSshConfigInclude`, `kit.VmSshAlias`, `kit.SshFragmentPath`, `kit.SshConfigPath` |
-| `charly/deploy_executor_ssh.go` | Credential-free `SSHExecutor` (no `-i`, no host-key overrides) | `SSHExecutor` |
-| `charly/deploy_executor.go` | `ShellExecutor` — local shell venue | `ShellExecutor` |
+| `sdk/kit/deploy_executor_ssh.go` | Credential-free `SSHExecutor` (no `-i`, no host-key overrides) | `SSHExecutor` |
+| `sdk/kit/deploy_executor.go` | `ShellExecutor` — local shell venue | `ShellExecutor` |
 | `sdk/vmshared/hostdistro.go` | Detect host distro from `/etc/os-release`; glibc preflight | `HostDistro`, `DetectHostDistro`, `DetectHostGlibc`, `CompareGlibc`, `distroIDAliases` |
 | `charly/install_ledger.go` | Flock-serialized JSON ledger at `~/.config/opencharly/installed/` | `LedgerPaths`, `LedgerLock`, `DeployRecord`, `CandyRecord`, `StepRecord`, `AcquireLedgerLock`, `AddCandyDeployment`, `RemoveCandyDeployment` |
 | `charly/builder_run.go` | `podman run <builder>` wrapper for compile-needing layers | `BuilderRun`, `BuilderRunOpts`, `UserScopeBindMounts`, `UserScopeEnv` |
