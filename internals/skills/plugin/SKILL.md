@@ -57,8 +57,9 @@ swaps to `InvokeProvider` and this seam deletes). `build:box` runs the full driv
 `HostBuild("build-resolve")` with `GenerateOnly` and returns the written Containerfile paths (no podman, no
 merge). The host-builder KINDS (`build-resolve`, `merge`) are class-generic action nouns, never the provider
 WORDS (the F11 uniform-API gate `TestNoSinglePluginAPISurface` forbids a provider word on that surface). The
-RESOLVE/RENDER (`NewGenerator` / `Generate` / `OCITarget` / the runtime Candy graph) STAYS core — pinned by
-the loader Mechanism + the runtime-Candy decision (a sdk-only candy cannot run the loader nor satisfy the
+RESOLVE/RENDER (`NewGenerator` / `Generate` / `OCITarget` / the runtime Candy graph) is in core TODAY —
+K3 build-engine migration INVENTORY (moves to `buildkit` + `plugin-build`; see CLAUDE.md "Core is a PLUGIN
+HOST"), not permanent core — pinned FOR NOW by the loader Mechanism + the runtime-Candy decision (a sdk-only candy cannot run the loader nor satisfy the
 `deploykit.CandyModel` from a serialized model). See `/charly-build:build` +
 `/charly-build:generate`.
 
@@ -182,8 +183,8 @@ See "Authoring an external COMMAND plugin" below.
   and `HostBuild(kind, spec)` — the host runs the registered host-builder for `kind` — TEN registered kinds
   today: `build-resolve` + `merge` (the box-build loader/render + layer-merge seams), `overlay` (the pod overlay build), `step-emit`
   (host-coupled step fragments), `cli` (the generic run-any-charly-command reentry), `hostprobe` (doctor's
-  raw host facts), `feature`, `settings`, `retention`, and `plugin-binary` (the F10 plugin host build); the RESOLVE/RENDER engine stays in
-  core (the box-build podman DRIVE moved to candy/plugin-build in P8b). This is the shared-capability seam: a SHARED plugin (egress, k8s-gen, arbiter) is "a plugin others
+  raw host facts), `feature`, `settings`, `retention`, and `plugin-binary` (the F10 plugin host build); the RESOLVE/RENDER engine is in
+  core TODAY (K3 build-engine migration inventory, not permanent core — the box-build podman DRIVE moved to candy/plugin-build in P8b). This is the shared-capability seam: a SHARED plugin (egress, k8s-gen, arbiter) is "a plugin others
   invoke", never "kept in core". Reference: `candy/plugin-example-dispatch`; mechanism:
   `/charly-internals:install-plan` (`plugin_dispatch_reverse.go`).
 - **Deploy time.** An external deploy-target provider runs its full Add/Test/Update/Del lifecycle over the
@@ -464,28 +465,35 @@ four kind-AGNOSTIC things —
   resolve into (`VenueDescriptor`, `EmitReply`, `BuilderResolveReply`, `DeployVenue`, `StepEmitRequest`,
   the opaque `Substrate json.RawMessage`). Carries opaque, word-tagged payloads; encodes no kind.
 - **(M) Mechanism** — a generic engine that transports / renders / validates / re-materializes an
-  envelope, dispatched **by word against a data table, never branching on a concrete kind**, AND
-  irreducibly on the load/build/deploy spine: the loader (prescan + capability routing), the provider
-  registry + transports + reverse-channel legs, the IR compiler + host build engine (RenderTemplate,
-  phase matrix, cache-mounts, multi-stage splice, egress), the deploy kernel (tree walk + the closed
-  transport set `deploy_executor_nested.go` + executor composition + IR walk), the CUE-unify check
-  (`validateAuthoredPluginInput` / `validateKindValueCUE` — the unify-and-fail *act*), the ledger, the
-  Kong spine. A kind-blind mechanism the spine reaches THROUGH a seam (a reshaper, the migration
-  op-walker) is itself a PLUGIN — kind-blind is necessary, spine-irreducible is the refinement.
+  envelope, dispatched **by word against a data table, never branching on a concrete kind** — and the
+  ONLY M-mechanisms that live in `charly/` are plugin loading (the provider registry + transports +
+  reverse-channel legs), prescan-dispatch, the kind-decode MATERIALIZE (folding plugin-parsed config
+  into the typed project view — the dispatch half of loading), and the wire broker. Every OTHER
+  kind-blind mechanism (parse, render, resolve, walk, engine) lives in an sdk KIT consumed by plugins:
+  the config PARSE is `sdk/loaderkit` (plugin-served via the `DocParser` seam); the build engine, the
+  deploy walk, the CUE-unify check, and the ledger currently in `charly/` are TRACKED MIGRATION
+  INVENTORY with named K-wave exits (K3/K4/K5), never permanent M-residue. Canonical illustration:
+  `loaderkit.ParseDoc` stays kind-blind by reading the `loaderkit.Threaded` kind-recognition snapshot
+  — clause-D DATA threaded to a kind-blind mechanism, not a registry query. A kind-blind mechanism
+  reached THROUGH a seam (a reshaper, the migration op-walker) is itself a PLUGIN/sdk-lib, NOT core.
 - **(B) Bootstrap** — the single irreducible root that must exist before any plugin can load: the
   `candy`⊻`box` factory (`candyIsImage`+`buildCandy`) + the provider-registry seed. It cannot be a
   plugin without a bootstrap cycle (the discovered-candy pre-check calls it directly).
 - **(D) Data-not-code** — a kind-recognition fact (which words are kinds / nest members / validate
   against which value-def) loaded from CUE/config and consulted by word: the CUE-derived vocab
   (`spec.OpVerbs`/`StepKeywords`/`DocDirectives`/`ResourceKinds`), the schema-version consts, the
-  `#Migration` grammar. NEVER a compiled-in per-kind Go branch or map.
+  `#Migration` grammar, and the canonical example — `loaderkit.Threaded`, the 4-map DATA SNAPSHOT the
+  host fills from the registry BEFORE the kind-blind parse (untying the loader↔registry cycle at zero
+  abstraction cost — DATA threaded to a kind-blind mechanism, never a live registry query in the
+  parse). NEVER a compiled-in per-kind Go branch or map.
 
 - **(R) Resolve-to-envelope — the DEFAULT.** Everything else — a kind's schema, typed Go shape,
   deep-validation def, render/behaviour, and produced artifact — is a PLUGIN. It reaches the kernel only
   by **resolving** its config into an E-envelope that a Mechanism consumes.
 
-**The decision procedure.** For any construct ask: generic Envelope (E)? kind-blind + spine-irreducible
-Mechanism (M)? the Bootstrap root (B)? kind-recognition Data (D)? If none → it is a plugin (R). Placement
+**The decision procedure.** For any construct ask: generic Envelope (E)? a kind-blind Mechanism that is
+plugin loading / dispatch / the kind-decode materialize / the wire broker (M — nothing else in core)?
+the Bootstrap root (B)? kind-recognition Data (D)? If none → it is a plugin (R). Placement
 is decided ONLY by this test; **difficulty NEVER enters it** (CLAUDE.md forbidden-excuse catalog) — a
 thing stays kernel only because it is E/M/B/D, never because moving it is hard.
 
@@ -516,11 +524,75 @@ map, a substrate-word `switch` — that is a known **incomplete seam** being clo
 under this law; the active inventory + sequence live in the cutover plan + each repo's `CHANGELOG/`, never
 as a snapshot here.
 
-**Whole subsystems obey the same law.** A generic subsystem is kernel only as a spine-irreducible
-Mechanism (M); one the spine reaches through a seam is a plugin. The subsystems still carrying non-trivial
-core weight — the OCI `registry.go`+`merge.go` (go-containerregistry), the status subsystem, `alias.go`,
-the scaffold — are each judged by that test, not parked: where the test says plugin, it is an incomplete
-seam fixed as its own cutover, never an indefinite candidate.
+**Whole subsystems obey the same law.** A generic subsystem is kernel ONLY as one of the four in-core
+M-mechanisms (plugin loading / dispatch / the kind-decode materialize / the wire broker); every other
+kind-blind mechanism is an sdk kit consumed by plugins. The subsystems still carrying non-trivial core
+weight — the build engine, the deploy walk, the OCI `registry.go`+`merge.go` (go-containerregistry), the
+status subsystem, the LoadUnified orchestration, every `*_aliases.go` — are v2 migration INVENTORY, each
+with a named K-wave exit (K1/K3/K4/K5), never permanent residue: where the boundary test says plugin, it
+is an incomplete seam fixed as its own cutover with a named exit, never an indefinite candidate.
+
+## Target architecture (v2) — the direction the boundary law drives toward
+
+The boundary law above is the RULE; this is the END-STATE it converges on (operator-directed,
+2026-07-13). CLAUDE.md carries the mandate ("Core is a PLUGIN HOST"); this is its operationalization +
+trajectory.
+
+**The architecture, one sentence.** `charly/` core is a plugin HOST and nothing else — it loads plugins,
+dispatches to plugins, and brokers the wire; it does not parse config, resolve, build, deploy, or check,
+it does not consume the sdk mechanism libraries, and it contains ZERO aliases/shims.
+
+**The three rules (each mechanically enforceable — the P16 triple gate gates all three).**
+
+1. **Everything is a plugin.** Every capability — INCLUDING the project loader, the deploy walk, the
+   build engine, and the bed runner — lives in a plugin candy. Core's only jobs: discover/load plugins
+   (compiled-in registry + go-plugin gRPC), prescan the CLI grammar from plugin-declared words, dispatch
+   words→plugins + fold the kind-decode materialize, and broker the reverse channel (venue executors +
+   `InvokeProvider`). → P16 gate (a): the file allowlist (~4k floor).
+2. **Core does not import the sdk mechanism layer.** Core imports ONLY the protocol contract — `sdk/spec`
+   (wire types) + the proto/go-plugin packages + the Provider/Op vocabulary. `sdk/{kit,deploykit,
+   buildkit,loaderkit,vmshared,…}` are for PLUGINS. → P16 gate (b): import-purity (`charly/` has zero
+   mechanism-kit imports; the migration-pattern residual import is the tracked "until-K<n>" exception).
+3. **Zero aliases/shims.** Every `charly/*_aliases.go` (`type X = deploykit.X`, `var y = kit.Y`) is a
+   mid-cutover crutch that keeps a capability CALL SITE in core; the fix is never an alias — it is MOVING
+   the call site into its owning plugin. → P16 gate (c): the `charly/*_aliases.go` glob is empty.
+
+**Why the seams die (the radical simplification).** Today's config-resolve / config-persist / oci-inspect
+seams exist ONLY because plugins could not load the project or touch the store. Once the loader is
+`sdk/loaderkit` (the kind-blind PARSE — already landed, P6/P7) and state is `sdk/statekit` (flock'd,
+any-process-safe), a plugin just LOADS the project itself — same filesystem, same library — and the seam
+families COLLAPSE. The reverse channel then shrinks to the two things that genuinely cannot cross a process
+boundary: **live venue executors** (re-materialized from `VenueDescriptor`) and **`InvokeProvider`**
+(peer-plugin dispatch through the host's registry), plus plugin-binary/cli reentry. Everything else,
+plugins do directly via sdk libs.
+
+**Target kernel (~3.5–4.5k LOC — the honest floor).**
+
+| `charly/` keeps | ~LOC |
+|---|---|
+| `main()` bootstrap + compiled-in plugin registry + plugin cache/loading | ~1k |
+| provider registry + in-proc/gRPC transports + prescan (CLI words, kinds) + the kind-decode materialize | ~2k |
+| reverse-channel broker (executor re-materialization + `InvokeProvider`) | ~1–1.5k |
+| **Total** | **~3.5–4.5k** |
+
+Everything else in today's ~64k → sdk mechanism libraries (loaderkit / enginekit / statekit + the existing
+kit / deploykit / buildkit) consumed by plugin candies (plugin-project [the loader], plugin-build,
+plugin-bundle, plugin-check, plugin-box, plugin-status, plugin-oci, the deploy-substrate plugins, the
+command plugins).
+
+**The K-wave migration ledger (~64k → ~4k).** Each wave is its own atomic cutover; the in-core residue a
+wave leaves is tracked "until-K<n>", never permanent.
+
+| Wave | What | ~LOC out |
+|---|---|---:|
+| **K1-proper** | the LoadUnified ORCHESTRATION (import queue / discover / namespace / merge) → `sdk/loaderkit`. **Keystone RETIRED** — the kind-blind PARSE (P6, `ParseDoc` → `spec.ParsedProject`, cycle broken via the `loaderkit.Threaded` clause-D DATA snapshot + the swappable `DocParser` seam) + the refs FETCH (P7, `kit.RefsDownloader`) are ALREADY LANDED and compile today; K1-proper is the mechanical relocation of the orchestration. The registry-coupled MATERIALIZE/fold STAYS host (it IS the kind-decode dispatch, v2-consistent). | ~2–2.5k |
+| **K2** | engine-client → `sdk/enginekit`; ledger + flock → `sdk/statekit` | ~3k |
+| **K3** | the build ENGINE (generate / layers / build / labels / intermediates / localpkg) → `buildkit` + `plugin-build` | ~7.6k |
+| **K4** | deploy + config resolution (config_image / deploy / bundle-walk / enc / secrets / network / start / shell / data) → `deploykit` + the deploy/bundle plugins — the CALL SITES move, the aliases die | ~13k |
+| **K5** | the seam-death sweep: config-resolve/persist seams deleted; the gathering-arms + retention/feature/settings/hostprobe bodies → plugins; arbiter lifecycle legs → `InvokeProvider`; every remaining `*_aliases.go` deleted; misc verbs dispersed | ~15k |
+
+P16 lands LAST, with all three gates green. GPU host-detection legs are the operator-dropped exception
+(revisitable on hardware), not a K-wave item.
 
 ## Verification
 

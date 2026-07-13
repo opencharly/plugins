@@ -351,14 +351,42 @@ you skipped without deciding it inapplicable is an incomplete review (re-open it
     justify a narrowed scope. If a plan was approved it is a CONTRACT executed AS
     WRITTEN — a mid-execution scope change (narrowed/widened/re-approached) that
     was not a STOP-and-ask FAILS.
-15. **The kernel/plugin boundary law (core/sdk changes).** A change to `charly/`
-    core or `sdk/` is legal ONLY as one of the four kind-AGNOSTIC escapes
-    (Envelope / Mechanism / Bootstrap-root / kind-recognition Data). A kernel
-    `import` of a concrete `spec.<Kind>` struct read for its fields, a `switch` on
-    a kind word, or a per-kind Go map is an incomplete seam that LEAKED into the
-    kernel — a FAIL (the capability belongs in a plugin that RESOLVES its config
-    into a generic envelope). A new capability that added core/SDK code instead of
-    a plugin candy FAILS. See `/charly-internals:plugin`.
+15. **THE ARCHITECTURE GATE — placement review (mandatory, every PR, adversarial).**
+    Validate the PR's PLACEMENT, not just its code. Derive what the functionality
+    IS — independent of where the author put it — then apply:
+    - **GOAL-FIT.** Does the PR advance (or at minimum not regress) charly's goals —
+      VISION + the plugin-host END-STATE (the CLAUDE.md kernel definition + the
+      migration ledger)? A locally-CORRECT PR that moves the architecture BACKWARD
+      (capability code into core, a core dependency a K-wave is removing, a
+      re-coupled seam) is CHANGES-REQUESTED even with every test green.
+    - **THE PLACEMENT TEST — is each piece at the RIGHT layer?** core (`charly/`)
+      ONLY IF it is plugin loading, the provider registry/transports,
+      prescan-dispatch, the kind-decode materialize, or the reverse-channel broker —
+      anything ELSE in core is the wrong layer. sdk ONLY IF it is a kind-blind,
+      reusable MECHANISM consumed by ≥2 plugins (or a plugin + the host) with
+      sdk-only deps (→ a kit), or a wire SHAPE (→ `spec`, CUE-first) — a capability
+      wearing a library costume is the wrong layer. candy (a plugin) for every
+      CAPABILITY (verbs, kinds, commands, deploy/build/check behaviours, policies).
+    - **THE COUNTERFACTUAL.** For each layer the PR touches, ask explicitly: "would
+      this be BETTER one layer further OUT?" (core→sdk, sdk→candy) — the bias is
+      OUTWARD; "it works where it is" is not a defense. If yes → CHANGES-REQUESTED
+      naming the correct placement.
+    - **Mechanical sub-checks (deterministic; the floor under the judgment).** No
+      new or grown `charly/*_aliases.go` re-export; no NEW `charly/` import of an sdk
+      mechanism kit (`kit`/`deploykit`/`buildkit`/`loaderkit`/`vmshared`/…) — EXCEPT
+      the residual-call-site import created when a mechanism's BODY moves OUT of core
+      in the SAME PR (net core-LOC NEGATIVE): the remaining core call sites then
+      import the kit DIRECTLY (never an alias, never a duplicate), and EACH residual
+      site is inventoried "until-K<n>" with a tracked exit. An import that brings
+      capability INTO core, or one without the same-PR body-move + inventory, stays a
+      blocker. No "permanent residue" framing (a K-wave exit + a tracked task is
+      required). Pre-existing alias files / kit imports = migration INVENTORY (not
+      blockers); NEW/GROWN ones (outside the migration exception) = blockers.
+    - **VERDICT DUTY.** Every validation report states the placement verdict
+      explicitly — `placement: CORRECT` or
+      `placement: SHOULD-BE-<core|sdk|candy> (<what moves where>)`. A missing
+      placement verdict is an INCOMPLETE validation. See `/charly-internals:plugin`
+      (the boundary law) + CLAUDE.md ("Core is a PLUGIN HOST").
 16. **Disposable-Only Autonomy.** Any autonomous destroy/rebuild in the evidence
     happened on a target explicitly marked `disposable: true` (never derived from
     a name/hostname/lifecycle-tag). A destroy of a non-disposable resource without
@@ -543,7 +571,8 @@ Checklist (every rule — mark [N/A] + a one-line reason where the class exclude
                  no unjustified @go(-)/hand-written schema type; per-plugin .cue single-source)
   [PASS/FAIL] 13. concurrency mandate + anti-cheat (no idle/serial passes; concurrent-roster gate; root-cause RCA)
   [PASS/FAIL] 14. hard cutover — one atomic commit; no Phase-2/TODO; plan = contract
-  [PASS/FAIL] 15. kernel/plugin boundary law (no concrete-kind leak into core/sdk)
+  [PASS/FAIL] 15. ARCHITECTURE GATE — placement review (goal-fit / right-layer / counterfactual-outward / mechanical sub-checks: no new-or-grown alias, no new kit import)
+                 placement: <CORRECT | SHOULD-BE-<core|sdk|candy> (<what moves where>)>
   [PASS/FAIL] 16. disposable-only autonomy (destroy only on disposable: true)
   [PASS/FAIL] 17. clean architecture + go gates (gofmt/golangci-0/vet/test; repo invariants)
   [PASS/FAIL] 18. CHANGELOG present

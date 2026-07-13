@@ -189,6 +189,77 @@ which a one-way audit reveals. The RDD instrument is identical for a delegated d
 and for your own: a HIGH-RISK claim is proven on a live `disposable: true` bed,
 never accepted on a teammate's report alone.
 
+### The orchestrator OWNS architectural integrity
+
+**The orchestrator OWNS architectural integrity.** Every placement decision is
+judged against the END-STATE architecture (the CLAUDE.md kernel definition —
+"Core is a PLUGIN HOST"), never against current constraints alone; an ad-hoc
+decision in breach is corrected AT ONCE — never ratified as local pragmatism. A
+"stays in core" ruling is valid ONLY with a named K-wave exit and a tracked task;
+a constraint blocking the right placement gets a constraint-REMOVAL task — the
+decision never silently conforms to it. On every merge, the delta re-gate includes
+an ARCHITECTURE delta (core LOC down, or flat with a named tracked reason). The
+enforcement layers are ONE stack, named together so no future session rebuilds
+them piecemeal: **the pre-commit hook (commit-time no-new-alias / no-new-kit-import
+block) → the `pr-validator` ARCHITECTURE GATE (the no-new-breach placement review +
+the explicit `placement:` verdict) → the P16 triple gate (the end-state floor:
+allowlist + import-purity + zero-alias) → the orchestrator's every-decision
+judgment (this duty).**
+
+### The responsibility matrix — who owns what (no ambiguity)
+
+**ORCHESTRATOR** (the persistent main session, ×1, most-capable model):
+- OWNS: **architectural integrity** (every placement judged against the end-state;
+  breaches corrected AT ONCE); the plan/contract + ALL scope rulings (every
+  STOP-and-ask terminates here); **independent RDD-verification of every teammate
+  decision** (bidirectional — never rubber-stamps, and is never rubber-stamped);
+  **ALL full bed runs / R10 rosters** (`run_in_background`; only the persistent
+  session survives to receive completion notifications); parity re-derivations;
+  **validator routing + post-merge verification** (tag-verify, main ff, the delta
+  re-gate INCLUDING the architecture delta); merge sequencing + rebase broadcasts;
+  the task board; agent/worktree lifecycle (spawn, stop-stale, prune, the slot
+  budget); operator escalation.
+- NEVER: authors cutover code it then validates; grinds mechanical bulk itself
+  (delegates); lets a "stays in core" ruling stand without a K-wave exit + tracked
+  task.
+
+**IMPLEMENTATION TEAMMATE** (×N cost-scaled, ONE per independent cutover, one
+worktree each):
+- OWNS: its ONE cutover end-to-end — design within the contract, implementation,
+  unit gates (build/test/lint/gofmt/cue-gen-repro), SHORT foreground checks
+  (`charly box validate` / `charly check box`), R5 sweeps, ADE plans, CHANGELOGs,
+  **authoring** its PRs, fix-rounds IN-PLACE on CHANGES-REQUESTED, handoff packages
+  when context runs short.
+- DELEGATES: mechanical bulk to transient sub-agents it briefs AND reviews (never
+  rubber-stamps).
+- NEVER: runs a full `charly check run` / any bed roster (the orchestrator's);
+  merges or validates its own PR; edits outside its worktree; touches a FROZEN tree
+  (message-first on any discovery); changes contract scope unilaterally; spawns
+  persistent teammates.
+
+**PR VALIDATOR** (fresh context, one per cutover CHAIN — sdk→plugins→super in one
+session):
+- OWNS: independent adversarial re-validation (R0–R10 + skills + **the ARCHITECTURE
+  GATE placement review with the explicit `placement:` verdict**); the squash-merge;
+  the merge-time CalVer; **the tag on EVERY repo** (a skipped tag is a defect); the
+  durable verdict file BEFORE any gated action.
+- NEVER: validates anything it authored; `--admin`/force; close-and-recreate; skips
+  the placement verdict.
+
+**TRANSIENT SUB-AGENT** (spawned by anyone; frees its slot on return):
+- OWNS: one bounded, file-disjoint unit (relocation batch / survey / spike / golden
+  harness) + its own unit verification; returns VERBATIM results to its spawner.
+- NEVER: full beds; commits/pushes/PRs; scope decisions; work beyond its brief.
+
+**DESIGN RESERVE** (a former implementer kept addressable for keystone questions):
+- OWNS: answering design questions from its deep context. STOPPED once its knowledge
+  is durably captured (handoff docs) — persistent slots belong to cutovers.
+
+**Tie-breakers:** ambiguity about ownership → the orchestrator rules. Beds → ALWAYS
+the orchestrator. Merges/tags → ALWAYS a validator. Code → ALWAYS a
+teammate/sub-agent worktree. Scope → ALWAYS the contract + the orchestrator, never a
+lane-local decision.
+
 ## The charly agent roster (`plugins/internals/agents/`)
 
 **Executors** — they RUN `charly check` and return verbatim proof:
