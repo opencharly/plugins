@@ -107,8 +107,10 @@ generic "retention" `HostBuild` seam — `charly/host_build_retention.go` (`host
 registered as `retentionBuilderKind = "retention"`, resolving defaults with `ResolveRuntime`
 + `LoadConfig`); the compiled-in in-proc reverse channel is threaded by `dispatchInProcCommand`
 (`charly/provider_command_external.go`).
-Auto-prune hooks in `BuildCmd.Run` (`charly/build.go`) and
-`CheckRunCmd.Run` (`charly/check_runner_cmd.go`). Retention keys live on `BoxConfig`
+Auto-prune hooks: `BuildCmd.Run` (`charly/build.go`) fires the `keep_images`
+prune; the `charly check run` prune is driven by the `command:check` plugin's
+harness (`candy/plugin-check`) over the same generic `retention` `HostBuild` seam.
+Retention keys live on `BoxConfig`
 (`charly/config.go`), merged via `mergeBoxConfig` (`charly/unified.go`), validated in
 `validateBuildTunables` (`charly/validate.go`).
 
