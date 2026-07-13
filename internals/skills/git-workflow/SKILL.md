@@ -168,6 +168,17 @@ more serialization than that without a technical reason:
   the delta re-gate covers only the mechanical update-branch merge on top of an
   already-R10'd `main`.
 
+**Gitlink ANCESTOR bump → `gh pr update-branch` flags CONFLICTING (recover
+locally).** When the just-merged delta and a still-open PR both bump the SAME
+submodule gitlink and one bump is an ANCESTOR of the other, GitHub's
+`gh pr update-branch` does NOT auto-resolve it — it conservatively reports the PR
+CONFLICTING instead of fast-forwarding the gitlink to the descendant. The
+compliant recovery is the update-branch EQUIVALENT done LOCALLY: in the feat
+worktree, `git merge origin/main` (git resolves the gitlink to the descendant
+commit automatically), then push the result FAST-FORWARD. A MERGE, never a rebase;
+no force-push — the exact constraints `gh pr update-branch` itself honors. Then
+re-post the status and delta-re-gate as above.
+
 ## B4 — sync to upstream + prune (per repo: main, sdk, plugins, box/*, pkg/*)
 
 - **Sync-before-start.** `git fetch origin --prune --tags`; ff local `main` to
