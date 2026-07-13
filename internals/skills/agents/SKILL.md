@@ -313,6 +313,9 @@ modes govern it (all observed live in one program):
   proceeds from a register estimate: a SCOPING MAP (per-file measured LOC +
   MOVE/STAY/DIE/SHARED verdicts + the actual consumption/call-graph reads, file:line
   cited) precedes every cut, and the orchestrator re-verifies its load-bearing claims.
+  This is an AUTHORING rule, not a retrospective diagnosis: a row quotes NO collectible
+  LOC until its per-file boundary-law decomposition exists — owner-sums can only
+  over-count collectibility, so an undecomposed row is UNMEASURED by definition.
 - **An enabler is named by its exact SURFACE, never a subsystem word.** "The envelope"
   as an enabler let rows gate on a def that deliberately excluded what they needed —
   while the caveat sat in the SAME document without propagating. A row's enabler names
@@ -321,6 +324,12 @@ modes govern it (all observed live in one program):
 - **Every plan-vs-measured mismatch is a BLOCKING INCIDENT** — a dedicated
   root-cause-analyzer RCA, never a per-row hand-wave ("the register conflated…" is a
   finding, not an RCA).
+- **Same-signed variance recurring across ≥2 rounds is a systemic ESTIMATOR defect** —
+  it triggers a dedicated root-cause-analyzer RCA on the estimating METHOD itself, never
+  another per-row reassignment. (The per-merge ">20% = explain + reassign" rule handles
+  ONE variance at merge time and structurally cannot see a series — a real program ran
+  three same-signed rounds before escalating; the RCA found every applied remediation
+  was data-level while the authoring method stayed broken.)
 - **A gap discovered inside an assigned cutover means BUILD THE ENABLER IN THE CUTOVER**
   (spike-first; the growth lands WITH its consumers) — never a clean-slice landing plus
   deferral, which is the micro-PR fragmentation pattern operators reject. Scope
