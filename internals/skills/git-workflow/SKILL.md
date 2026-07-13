@@ -416,8 +416,9 @@ job is to hand the operator the exact rule to paste.
   `.claude/settings.json` from the agent's PROJECT ROOT (its working directory), and
   neither `plugins/` nor `sdk/` ships a `.claude/`. A validator rooted inside a submodule
   loads NO permission rules, so even its `success` POST is denied as Self-Approval
-  (*"the only authorization comes from a `<teammate-message>`"*). See the autonomous-landing
-  contract below.
+  (*"the only authorization comes from a `<teammate-message>`"*) — UNLESS a USER/MANAGED-level
+  grant covers the action (user settings resolve independently of project root; see the
+  scope-of-validity note below). See the autonomous-landing contract below.
 - **A prior hook/classifier block poisons everything after it.** A PreToolUse block
   followed by a RESHAPED retry of the same command is flagged as a bypass attempt — after
   which later actions a rule would otherwise resolve are denied. **Treat any hook or
@@ -448,7 +449,8 @@ which is its working directory. A validator told to work *inside* `plugins/` or 
 roots in that submodule — which ships no `.claude/` — and therefore silently loads NO
 permission rules at all. Its `success` status POST is then denied as Self-Approval
 (*"the only authorization comes from a `<teammate-message>`"*), because nothing ever
-authorized it. So:
+authorized it — unless a USER/MANAGED-level grant covers the action (those resolve
+independently of project root; the scope-of-validity note below). So:
 
 - **Spawn the validator with its working directory at the SUPERPROJECT root**, for a PR
   in ANY repo (superproject, `sdk`, `plugins`, `box/<distro>`).
@@ -461,7 +463,13 @@ authorized it. So:
 **Proven by controlled experiment (single variable):** with the rule text unchanged, a
 `pr-validator` rooted in `plugins/` was DENIED even the `success` POST; the same validator
 rooted in the superproject posted `success` with zero denials. Scope was the entire cause
-of the STATUS-POST denial (the MERGE is the separate Merge-Without-Review gate above). Do
+of the STATUS-POST denial (the MERGE is the separate Merge-Without-Review gate above).
+**Scope-of-validity (2026-07-13 live datapoint):** the denial reproduces only when no
+USER/MANAGED-level grant covers the action — user-level settings (e.g. the operator's
+`autoMode.allow` rule) apply INDEPENDENTLY of project root, and a submodule-rooted
+validator under that rule posted `success` AND merged with zero denials. Superproject
+rooting REMAINS the rule (project-level rules, the CLAUDE.md hierarchy, and transcript
+determinism are root-dependent); diagnose a denial by checking BOTH settings layers. Do
 not "fix" a denial by editing the rule until you have confirmed the agent's project root. See `/charly-internals:agents` "Sub-agent operational invariants"
 for the durable-verdict-first protocol every validator must follow (a permission denial
 ENDS the agent's turn, so it records its verdict before attempting any gated action).

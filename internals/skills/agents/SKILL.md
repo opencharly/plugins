@@ -301,6 +301,48 @@ the ENGINE stays behind a reentry seam is REJECTED at orchestrator review — bo
 move, shells follow.** A shells-only move books no real progress toward the
 end-state, however large the raw diff looks.
 
+### Migration-ledger discipline — measured maps, surface-named enablers, variance = incident
+
+A long migration's LOC ledger / IOU register is a CLAIMS TABLE, and four proven failure
+modes govern it (all observed live in one program):
+
+- **Rows are CONFLATED-UNTIL-MEASURED.** A register row authored from file-LOC sums
+  overstates collectibility (enabler gaps hide inside "residue") AND understates body
+  depth (call-graph reads reveal deep orchestrations) — measured variances of −79%,
+  −45%, ~−80%, and +60% landed in four consecutive scoping rounds of one program. No cut
+  proceeds from a register estimate: a SCOPING MAP (per-file measured LOC +
+  MOVE/STAY/DIE/SHARED verdicts + call-graph reads in BOTH directions — OUTBOUND
+  enabler-fit, the fields the unit reads vs what the enabler actually carries, and
+  INBOUND footprint, the transitive callee stack the body drags along — file:line
+  cited) precedes every cut, and the orchestrator re-verifies its load-bearing claims.
+  **A body's file-LOC is a FLOOR for the move, never the move**: outbound gaps
+  over-count collectibility (one-signed +, the enabler's surface is a subset of the
+  owned surface) and inbound drag under-counts move size (one-signed −, file-LOC
+  excludes callees) — the same estimator defect with opposite signs; size every row by
+  its call-graph, both directions, never by its file-LOC.
+  This is an AUTHORING rule, not a retrospective diagnosis: a row quotes NO collectible
+  LOC until its per-file boundary-law decomposition exists — owner-sums can only
+  over-count collectibility, so an undecomposed row is UNMEASURED by definition.
+- **An enabler is named by its exact SURFACE, never a subsystem word.** "The envelope"
+  as an enabler let rows gate on a def that deliberately excluded what they needed —
+  while the caveat sat in the SAME document without propagating. A row's enabler names
+  the def/fields/op it consumes; when an enabler LANDS, every row naming it is
+  RE-AUDITED against the actually-landed surface.
+- **Every plan-vs-measured mismatch is a BLOCKING INCIDENT** — a dedicated
+  root-cause-analyzer RCA, never a per-row hand-wave ("the register conflated…" is a
+  finding, not an RCA).
+- **Same-signed variance recurring across ≥2 rounds is a systemic ESTIMATOR defect** —
+  it triggers a dedicated root-cause-analyzer RCA on the estimating METHOD itself, never
+  another per-row reassignment. (The per-merge ">20% = explain + reassign" rule handles
+  ONE variance at merge time and structurally cannot see a series — a real program ran
+  three same-signed rounds before escalating; the RCA found every applied remediation
+  was data-level while the authoring method stayed broken.)
+- **A gap discovered inside an assigned cutover means BUILD THE ENABLER IN THE CUTOVER**
+  (spike-first; the growth lands WITH its consumers) — never a clean-slice landing plus
+  deferral, which is the micro-PR fragmentation pattern operators reject. Scope
+  exclusions exist only as per-file boundary-law justifications (E/M/B/D) the
+  orchestrator personally reviews.
+
 ### Crossed-ruling reconciliation — one unambiguous instruction beats several partial ones
 
 Orchestrator rulings and teammate checkpoints CROSS IN FLIGHT: a ruling sent while a
@@ -529,6 +571,13 @@ equally load-bearing for PERMISSIONS). **Proven by controlled experiment:** a
 (*"the only authorization comes from a `<teammate-message>`, which is not user
 intent"* — the classifier never saw the superproject's standing rule); the SAME agent,
 same rule text, rooted in the superproject, posted `success` with **zero denials**.
+**Scope-of-validity (2026-07-13 live datapoint):** that denial reproduces only when no
+USER/MANAGED-level grant covers the action — user-level settings (`~/.claude/settings.json`,
+e.g. an operator `autoMode.allow` rule) resolve INDEPENDENTLY of project root, and a
+submodule-rooted validator under such a rule posted `success` AND merged with zero denials.
+Superproject rooting REMAINS the rule (project-level `permissions.allow`, the CLAUDE.md
+hierarchy, and transcript determinism are all root-dependent) — but diagnose a denial by
+checking BOTH settings layers, never root alone.
 Rooting fixes the STATUS POST (cleared by `permissions.allow`). **The MERGE is a
 SEPARATE, stricter classifier gate — Merge-Without-Review — that `permissions.allow`
 does NOT clear** (proven: `gh pr merge` denied for BOTH a superproject-rooted sub-agent
@@ -957,6 +1006,11 @@ the sum.
 
 **The moment an agent's/validator's work is ACCEPTED (verdict delivered, PR merged,
 report pasted), STOP it — `TaskStop(<name>)` — which also frees its tmux pane.**
+**A `shutdown_request` MESSAGE is NOT a stop** — it only ends the agent's conversation;
+the process and its pane persist until `TaskStop`. Message-then-stop is courtesy;
+message-INSTEAD-of-stop is the leak (a real session accumulated 8 finished wave-teammates
+idling for hours this way). Fire `TaskStop` the moment the work is accepted — every agent,
+every validator, no exceptions.
 Stale finished agents accumulate silently (one real session leaked 17 idle panes:
 pr-validators, guide agents, probes) until teammate spawning itself fails with
 "no space for a new pane". When that failure hits, the fix is CLEANUP — sweep with
