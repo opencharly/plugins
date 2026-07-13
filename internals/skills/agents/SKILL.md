@@ -206,6 +206,60 @@ the explicit `placement:` verdict) → the P16 triple gate (the end-state floor:
 allowlist + import-purity + zero-alias) → the orchestrator's every-decision
 judgment (this duty).**
 
+### The north-star protocol — align a multi-teammate program BY CONSTRUCTION
+
+Before fanning a multi-teammate program out, the orchestrator AUTHORS a
+**NORTH-STAR document** and hands it to every teammate. Scoped executors cannot
+make whole-board decisions — each sees ONE cutover, never the destination — so
+program alignment is achieved BY CONSTRUCTION: the document PRE-ANSWERS the common
+hard calls, STOP-and-ask covers the novel ones, and the orchestrator verifies
+every checkpoint regardless ("The orchestrator RDDs every decision", above). The
+document has four parts, all present-tense and CONCRETE:
+
+- **(a) The concrete END-STATE** — tables + end-state call paths, NEVER
+  aspirations. "What the system IS when we're done" and "how it WORKS when we're
+  done", spelled precisely enough that a teammate can check its own output against
+  it.
+- **(b) ORDERED decision heuristics** for the hard calls teammates will hit,
+  applied IN ORDER (this is the canonical SHAPE; the orchestrator fills in the
+  program's specifics): *does my move need a NEW seam? → almost certainly wrong;
+  check whether the program's shared data spine already covers it, and if it does
+  not YET, register the IOU + STOP-and-ask — never build a seam a later wave
+  deletes (R3-across-time)*; *does my move need types the destination forbids? →
+  the move WAITS for the enabler; register the IOU (size + enabler) — never churn
+  call sites to fake it, never move the type across the boundary, never alias*;
+  *bodies move, shells follow*; *placement by DOMAIN, not by filename*; *when in
+  doubt → STOP-and-ask*.
+- **(c) The OBSERVED ANTI-PATTERNS list** — every mis-step already caught, named
+  so it is not repeated; the orchestrator APPENDS to it as new incidents surface.
+- **(d) The current MEASURED state** — the program's tracked metric as last
+  measured, updated at EVERY merge (per-merge measurement, below).
+
+**The document is BINDING and travels with every spawn.** EVERY spawn brief names
+the north-star BY PATH; a teammate that hits a **task-vs-north-star conflict STOPS
+and asks the orchestrator** — never a local resolution, never a silent absorption,
+never an improvised seam. A wrong local decision costs one correction round; a
+silent one costs the program its goal.
+
+**Companion instrument — the IOU REGISTER.** Every deferred item ("do X until wave
+N") is a registered ENTRY carrying three fields: its SIZE, the ENABLER that must
+become true before it can be collected, and the WAVE that delivers that enabler.
+**No wave closes while it holds an UNREGISTERED IOU**, and the NEXT wave's plan is
+built FROM the register, not from memory — so nothing deferred is silently dropped
+and every "later" has a named owner. (This is the whole-program form of R2's
+no-follow-up-someday: a deferral is legal only as a registered, wave-owned entry.)
+
+**Companion instrument — PER-MERGE MEASUREMENT.** At every merge the orchestrator
+measures the program's tracked metric (LOC for a relocation program, coverage for
+a test push — whatever the program optimizes) against the plan's projection. A
+variance past the threshold (>20%) is NOT absorbed — it is EXPLAINED, and the
+residual is REASSIGNED to a NAMED wave, never silently eroded; that is what keeps
+the (d) measured-state line honest. Its sharpest single check is the
+**measured-delta rule: a relocation whose measured delta is dispatch-SHELLS while
+the ENGINE stays behind a reentry seam is REJECTED at orchestrator review — bodies
+move, shells follow.** A shells-only move books no real progress toward the
+end-state, however large the raw diff looks.
+
 ### The responsibility matrix — who owns what (no ambiguity)
 
 **ORCHESTRATOR** (the persistent main session, ×1, most-capable model):
