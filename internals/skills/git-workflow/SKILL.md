@@ -179,6 +179,41 @@ commit automatically), then push the result FAST-FORWARD. A MERGE, never a rebas
 no force-push — the exact constraints `gh pr update-branch` itself honors. Then
 re-post the status and delta-re-gate as above.
 
+### The cross-repo WIP landing sequence — commit-to-rebase without shipping unproven code
+
+A multi-repo cutover hits a genuine tension: the WIP must be COMMITTED before a
+rebase onto freshly-advanced mains (a submodule-spanning working tree makes
+`git stash` unsafe — a gitlink stash can silently drop a submodule's in-progress
+pointer, R6), yet a runtime-class commit gate demands LIVE proof of the FINAL code,
+which does not exist until AFTER the rebase. Resolve it by committing at the tier
+that is HONEST at each stage on an UNPUSHED branch, then re-stamping the tier once
+the final code is proven — never by shipping anything pre-bed:
+
+- **(a) Freeze + exploratory roster.** Freeze the WIP and run the EXPLORATORY bed
+  roster against that frozen state (the `disposable: true` beds whose kinds match
+  the change).
+- **(b) Commit LOCALLY at the then-honest tier — do NOT push.** With the live
+  runner having actually run and its output pasted, the honest tier is
+  `analysed on a live system` (CLAUDE.md "AI Attribution"). Commit at that tier to
+  create the rebase-able base. The commit stays LOCAL.
+- **(c) Rebase onto the current mains.** Bring the branch onto the just-advanced
+  `origin/main` of every repo, and REGENERATE every generated file from the merged
+  sources (`task cue:gen`, codegen) — never hand-merge a generated artifact
+  (generated-artifact drift is an R1 incident).
+- **(d) Re-run the gates, re-freeze.** `go test` / `golangci-lint` / build /
+  `charly box validate` on the rebased tree, then freeze again.
+- **(e) FINAL roster on the rebased FINAL code.** The R10 acceptance roster runs on
+  the rebased, transitional-free code — the state that will actually ship.
+- **(f) Amend/reword to the EARNED tier, then push + open the PRs.** Re-stamp the
+  commit's attribution tier to what the FINAL roster earned (`fully tested and
+  validated` on a clean full pass). This amend is legal ONLY because the branch is
+  UNPUSHED — the "amend only before the first push" invariant above. THEN push
+  `feat/<slug>` and open the PRs (B1 step 1; multi-repo order = B2).
+
+Nothing pre-bed ever ships, and every intermediate commit passes the PreToolUse
+tier gate TRUTHFULLY at the stage it was made — the tier only ever moves UP, to
+match proof that now exists.
+
 ## B4 — sync to upstream + prune (per repo: main, sdk, plugins, box/*, pkg/*)
 
 - **Sync-before-start.** `git fetch origin --prune --tags`; ff local `main` to

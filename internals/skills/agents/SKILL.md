@@ -260,6 +260,20 @@ the ENGINE stays behind a reentry seam is REJECTED at orchestrator review — bo
 move, shells follow.** A shells-only move books no real progress toward the
 end-state, however large the raw diff looks.
 
+### Crossed-ruling reconciliation — one unambiguous instruction beats several partial ones
+
+Orchestrator rulings and teammate checkpoints CROSS IN FLIGHT: a ruling sent while a
+teammate's report is already in transit lands as a second, apparently-conflicting
+instruction. So when issuing a ruling that MAY cross an in-flight report, the
+orchestrator's NEXT message EXPLICITLY reconciles both states — naming which stands
+and which is superseded ("my X is superseded by your finding; your Y still applies" /
+"my X stands; revert your Y"). An unreconciled PAIR of partial rulings is the failure
+mode: a teammate unable to tell which wins may REVERT already-R10-gated work to satisfy
+the older instruction. One unambiguous instruction always beats several partial ones. A
+teammate that receives apparently-conflicting rulings STOPS AND ASKS the orchestrator
+rather than picking one (the north-star "when in doubt → STOP-and-ask" heuristic applied
+to rulings).
+
 ### The responsibility matrix — who owns what (no ambiguity)
 
 **ORCHESTRATOR** (the persistent main session, ×1, most-capable model):
@@ -872,11 +886,20 @@ The playbook:
    in-submodule beds do need that submodule inited — box-specific work, not the
    cross-cutting root roster a persistent session runs for a core cutover's R10.)
    NEVER `task build:charly` from a worktree (it installs to
-   the SHARED `/usr/bin/charly` and yanks every other tree's baseline). Scheduling
+   the SHARED `/usr/bin/charly` and yanks every other tree's baseline). **The
+   per-worktree binary MUST be CalVer-STAMPED** — build it with `task build:binary`,
+   which passes `-ldflags "-X main.BuildCalVer=<calver>"`; a bare `go build -o`
+   yields an UNSTAMPED binary that reports version `unknown` and FAILS every bed step
+   asserting the CalVer stamp (a `vm:` bed pushes the host binary INTO the guest and
+   asserts `charly version` there, so an unstamped binary fails the guest witness).
+   Scheduling
    rule when overlapping gates: the SAME bed name must never run twice at the same
    instant (bed→deploy names are deterministic — same `charly-<bed>` names collide);
    distinct beds are collision-free by construction (this section's isolation
-   invariants). Cross-gate concurrency shares the ONE store-lock ceiling (item 4)
+   invariants); and **verify every bed NAME against the LIVE tree roster**
+   (`grep '^check-.*:' charly.yml`) BEFORE each launch — rosters change across
+   cutovers, so a stale name from notes or memory aborts the run. Cross-gate
+   concurrency shares the ONE store-lock ceiling (item 4)
    and the exclusive-token chains (4b) — one global scheduler, per-bed mutex,
    capacity ≈ the measured maxjobs.
 5. **The lead opens the single PR**, gated on the consolidated full final-code
