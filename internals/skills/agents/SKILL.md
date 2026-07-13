@@ -82,6 +82,38 @@ re-read the flagged lines before fixing. Delegates' own claims about EACH OTHER'
 (file-ownership, "X already moved Y") are the highest-risk class: verify against the tree, not
 the message.
 
+### Teammate context lifecycle — reuse is TASK-SCOPED, never cross-task
+
+A teammate's accumulated context is an ASSET on its own task chain and a LIABILITY on any
+other. The rule: **reuse the live teammate for anything that CONTINUES its assigned unit;
+never hand it a different unit — spawn a fresh teammate (and stop the old one), or clear its
+context/workspace first, which is the same thing: the new unit starts from zero.**
+
+- **Continue-same-task (REUSE — the loaded context is the point):** a CHANGES-REQUESTED fix
+  round on its own PR; the next leg of ITS cutover chain (sdk leg → superproject leg);
+  rebase / `update-branch` rounds; an orchestrator-ruled widening or re-scope of the SAME
+  unit; the RCA of a failure its own change caused. Respawning for these THROWS AWAY the
+  worktree state, scoping map, and bed history the fix round needs, and forces an expensive
+  re-derivation.
+- **Different-task (NEVER reuse a loaded context):** the moment its chain lands (merged PR +
+  accepted report), a teammate is STOPPED (see "Agent lifecycle hygiene"), not re-tasked. A
+  new unit gets a FRESH teammate: stale context anchors the new work on the old domain's
+  assumptions, the drained budget double-pays for compactions mid-unit, and it surrenders the
+  exact fresh-context benefit delegation exists to provide.
+- **Sizing at spawn:** an assignment is ONE unit chain sized to one context budget. The
+  orchestrator decomposes a program into per-unit teammates — it never hands one teammate a
+  queue of unrelated units to march through.
+- **Durable artifacts make stopping lossless:** scoping maps, verdicts, decomposition tables,
+  and handoff notes go to FILES (scratchpad or the PR) BEFORE the teammate stops, so a
+  successor starts from disk, never from a predecessor's context. Validator variant: a
+  validator MAY stay alive between the legs of ONE PR chain when the next leg is imminent;
+  otherwise stop it and spawn fresh per leg — the durable verdict file carries the
+  coordinates forward.
+- **Mid-task context pressure INSIDE a teammate:** compact-and-continue on the SAME task is
+  normal; if the remainder is separable, write the handoff package (above) and the
+  orchestrator spawns a successor for the remainder — never re-purpose the drained teammate
+  for new work.
+
 ## The default multi-agent execution model — a most-capable orchestrator driving cost-scaled teammates
 
 For any SUBSTANTIAL or multi-cutover program, the DEFAULT topology is a single
@@ -924,7 +956,9 @@ cmd=#{pane_current_command} title=#{pane_title}'` and kill idle agent panes
 highest-index-first (never pane .0 of any session) — NEVER a switch away from tmux
 teammate mode: the panes ARE the operator's live oversight of every agent, a
 standing operator requirement, and `teammateMode` is snapshotted at session start
-anyway (a mid-session settings flip does nothing).
+anyway (a mid-session settings flip does nothing). Stopping is also the REUSE
+boundary: a landed teammate is never re-tasked with a different unit — see
+"Teammate context lifecycle" above.
 
 ### Speed levers (grounded in the real bed cycle)
 
