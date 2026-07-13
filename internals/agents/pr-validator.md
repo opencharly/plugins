@@ -373,10 +373,15 @@ you skipped without deciding it inapplicable is an incomplete review (re-open it
       naming the correct placement.
     - **Mechanical sub-checks (deterministic; the floor under the judgment).** No
       new or grown `charly/*_aliases.go` re-export; no NEW `charly/` import of an sdk
-      mechanism kit (`kit`/`deploykit`/`buildkit`/`loaderkit`/`vmshared`/…); no
-      "permanent residue" framing (a K-wave exit + a tracked task is required).
-      Pre-existing alias files / kit imports = migration INVENTORY (not blockers);
-      NEW/GROWN ones = blockers.
+      mechanism kit (`kit`/`deploykit`/`buildkit`/`loaderkit`/`vmshared`/…) — EXCEPT
+      the residual-call-site import created when a mechanism's BODY moves OUT of core
+      in the SAME PR (net core-LOC NEGATIVE): the remaining core call sites then
+      import the kit DIRECTLY (never an alias, never a duplicate), and EACH residual
+      site is inventoried "until-K<n>" with a tracked exit. An import that brings
+      capability INTO core, or one without the same-PR body-move + inventory, stays a
+      blocker. No "permanent residue" framing (a K-wave exit + a tracked task is
+      required). Pre-existing alias files / kit imports = migration INVENTORY (not
+      blockers); NEW/GROWN ones (outside the migration exception) = blockers.
     - **VERDICT DUTY.** Every validation report states the placement verdict
       explicitly — `placement: CORRECT` or
       `placement: SHOULD-BE-<core|sdk|candy> (<what moves where>)`. A missing

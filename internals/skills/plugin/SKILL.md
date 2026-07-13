@@ -183,8 +183,8 @@ See "Authoring an external COMMAND plugin" below.
   and `HostBuild(kind, spec)` — the host runs the registered host-builder for `kind` — TEN registered kinds
   today: `build-resolve` + `merge` (the box-build loader/render + layer-merge seams), `overlay` (the pod overlay build), `step-emit`
   (host-coupled step fragments), `cli` (the generic run-any-charly-command reentry), `hostprobe` (doctor's
-  raw host facts), `feature`, `settings`, `retention`, and `plugin-binary` (the F10 plugin host build); the RESOLVE/RENDER engine stays in
-  core (the box-build podman DRIVE moved to candy/plugin-build in P8b). This is the shared-capability seam: a SHARED plugin (egress, k8s-gen, arbiter) is "a plugin others
+  raw host facts), `feature`, `settings`, `retention`, and `plugin-binary` (the F10 plugin host build); the RESOLVE/RENDER engine is in
+  core TODAY (K3 build-engine migration inventory, not permanent core — the box-build podman DRIVE moved to candy/plugin-build in P8b). This is the shared-capability seam: a SHARED plugin (egress, k8s-gen, arbiter) is "a plugin others
   invoke", never "kept in core". Reference: `candy/plugin-example-dispatch`; mechanism:
   `/charly-internals:install-plan` (`plugin_dispatch_reverse.go`).
 - **Deploy time.** An external deploy-target provider runs its full Add/Test/Update/Del lifecycle over the
@@ -531,6 +531,68 @@ weight — the build engine, the deploy walk, the OCI `registry.go`+`merge.go` (
 status subsystem, the LoadUnified orchestration, every `*_aliases.go` — are v2 migration INVENTORY, each
 with a named K-wave exit (K1/K3/K4/K5), never permanent residue: where the boundary test says plugin, it
 is an incomplete seam fixed as its own cutover with a named exit, never an indefinite candidate.
+
+## Target architecture (v2) — the direction the boundary law drives toward
+
+The boundary law above is the RULE; this is the END-STATE it converges on (operator-directed,
+2026-07-13). CLAUDE.md carries the mandate ("Core is a PLUGIN HOST"); this is its operationalization +
+trajectory.
+
+**The architecture, one sentence.** `charly/` core is a plugin HOST and nothing else — it loads plugins,
+dispatches to plugins, and brokers the wire; it does not parse config, resolve, build, deploy, or check,
+it does not consume the sdk mechanism libraries, and it contains ZERO aliases/shims.
+
+**The three rules (each mechanically enforceable — the P16 triple gate gates all three).**
+
+1. **Everything is a plugin.** Every capability — INCLUDING the project loader, the deploy walk, the
+   build engine, and the bed runner — lives in a plugin candy. Core's only jobs: discover/load plugins
+   (compiled-in registry + go-plugin gRPC), prescan the CLI grammar from plugin-declared words, dispatch
+   words→plugins + fold the kind-decode materialize, and broker the reverse channel (venue executors +
+   `InvokeProvider`). → P16 gate (a): the file allowlist (~4k floor).
+2. **Core does not import the sdk mechanism layer.** Core imports ONLY the protocol contract — `sdk/spec`
+   (wire types) + the proto/go-plugin packages + the Provider/Op vocabulary. `sdk/{kit,deploykit,
+   buildkit,loaderkit,vmshared,…}` are for PLUGINS. → P16 gate (b): import-purity (`charly/` has zero
+   mechanism-kit imports; the migration-pattern residual import is the tracked "until-K<n>" exception).
+3. **Zero aliases/shims.** Every `charly/*_aliases.go` (`type X = deploykit.X`, `var y = kit.Y`) is a
+   mid-cutover crutch that keeps a capability CALL SITE in core; the fix is never an alias — it is MOVING
+   the call site into its owning plugin. → P16 gate (c): the `charly/*_aliases.go` glob is empty.
+
+**Why the seams die (the radical simplification).** Today's config-resolve / config-persist / oci-inspect
+seams exist ONLY because plugins could not load the project or touch the store. Once the loader is
+`sdk/loaderkit` (the kind-blind PARSE — already landed, P6/P7) and state is `sdk/statekit` (flock'd,
+any-process-safe), a plugin just LOADS the project itself — same filesystem, same library — and the seam
+families COLLAPSE. The reverse channel then shrinks to the two things that genuinely cannot cross a process
+boundary: **live venue executors** (re-materialized from `VenueDescriptor`) and **`InvokeProvider`**
+(peer-plugin dispatch through the host's registry), plus plugin-binary/cli reentry. Everything else,
+plugins do directly via sdk libs.
+
+**Target kernel (~3.5–4.5k LOC — the honest floor).**
+
+| `charly/` keeps | ~LOC |
+|---|---|
+| `main()` bootstrap + compiled-in plugin registry + plugin cache/loading | ~1k |
+| provider registry + in-proc/gRPC transports + prescan (CLI words, kinds) + the kind-decode materialize | ~2k |
+| reverse-channel broker (executor re-materialization + `InvokeProvider`) | ~1–1.5k |
+| **Total** | **~3.5–4.5k** |
+
+Everything else in today's ~64k → sdk mechanism libraries (loaderkit / enginekit / statekit + the existing
+kit / deploykit / buildkit) consumed by plugin candies (plugin-project [the loader], plugin-build,
+plugin-bundle, plugin-check, plugin-box, plugin-status, plugin-oci, the deploy-substrate plugins, the
+command plugins).
+
+**The K-wave migration ledger (~64k → ~4k).** Each wave is its own atomic cutover; the in-core residue a
+wave leaves is tracked "until-K<n>", never permanent.
+
+| Wave | What | ~LOC out |
+|---|---|---:|
+| **K1-proper** | the LoadUnified ORCHESTRATION (import queue / discover / namespace / merge) → `sdk/loaderkit`. **Keystone RETIRED** — the kind-blind PARSE (P6, `ParseDoc` → `spec.ParsedProject`, cycle broken via the `loaderkit.Threaded` clause-D DATA snapshot + the swappable `DocParser` seam) + the refs FETCH (P7, `kit.RefsDownloader`) are ALREADY LANDED and compile today; K1-proper is the mechanical relocation of the orchestration. The registry-coupled MATERIALIZE/fold STAYS host (it IS the kind-decode dispatch, v2-consistent). | ~2–2.5k |
+| **K2** | engine-client → `sdk/enginekit`; ledger + flock → `sdk/statekit` | ~3k |
+| **K3** | the build ENGINE (generate / layers / build / labels / intermediates / localpkg) → `buildkit` + `plugin-build` | ~7.6k |
+| **K4** | deploy + config resolution (config_image / deploy / bundle-walk / enc / secrets / network / start / shell / data) → `deploykit` + the deploy/bundle plugins — the CALL SITES move, the aliases die | ~13k |
+| **K5** | the seam-death sweep: config-resolve/persist seams deleted; the gathering-arms + retention/feature/settings/hostprobe bodies → plugins; arbiter lifecycle legs → `InvokeProvider`; every remaining `*_aliases.go` deleted; misc verbs dispersed | ~15k |
+
+P16 lands LAST, with all three gates green. GPU host-detection legs are the operator-dropped exception
+(revisitable on hardware), not a K-wave item.
 
 ## Verification
 
