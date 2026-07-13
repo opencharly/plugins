@@ -883,10 +883,10 @@ The playbook:
    roster concurrently (set `[storage] driver/graphroot/runroot` to the host's real
    values + `transient_store = true`). Tradeoff: containers don't survive reboot
    (quadlet services recreate from image+volumes; volume DATA persists) — fine for an
-   ephemeral eval host. Complementary hygiene (a landed fix, NOT the concurrency fix):
-   the check-box reap names each probe container `charly-probe-<pid>-<seq>` and
-   force-reaps it (`reapDisposableProbe`, `charly/deploy_executor_nested.go`) so a
-   killed probe never leaves an orphan.
+   ephemeral eval host. Complementary hygiene (R44 Option A): `charly check box` runs its
+   probes in ONE persistent container (`podman exec` per step, not `podman run --rm` per
+   step), minimizing the container-setup store race; a residual setup failure is classified
+   INFRA.
    Partition by expected DURATION, not bed count: start the long poles (VM/desktop
    beds, as persistent-session background tasks) FIRST and overlap the cheap pod
    beds underneath, so wall-clock ≈ the slowest single bed.

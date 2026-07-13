@@ -23,7 +23,7 @@ description: |
   SSHExecutor, VmDeployState persistence, and the host-side ledger.
   Source: candy/plugin-deploy-vm/lifecycle.go, charly/vm_lifecycle_preresolve.go,
   charly/substrate_lifecycle_grpc.go, charly/deploy_substrate_lifecycle.go,
-  charly/deploy_target_external.go, charly/deploy_executor*.go,
+  charly/deploy_target_external.go, sdk/kit/deploy_executor*.go,
   charly/bundle_add_cmd_vm.go.
   MUST be invoked before editing VM-target deploy code.
 ---
@@ -174,8 +174,8 @@ from the executor), so the reverse ops run IN THE GUEST.
 | `charly/vm_lifecycle_preresolve.go` | the vm `lifecyclePrepareHook` (`vmLifecyclePrepare` — `LoadUnified` → `spec.Vm` + entity + ssh user/port + prior `VmDeployState`, shipped as `spec.LifecyclePrepareInput`) + the vm `lifecyclePostTeardownHook` (ephemeral-lifecycle host cleanup); `vmEntityForAdd` |
 | `candy/plugin-deploy-vm/lifecycle.go` | the plugin's venue lifecycle — implements every lifecycle Op (`OpPrepareVenue` / `OpPostApply` / `OpStart` / … / `OpPostTeardown`) over `kit` + `HostBuild("cli")` + the served guest executor |
 | `candy/plugin-deploy-vm/` | the out-of-process `deploy:vm` plugin (the plan WALK via `kit.WalkPlans` over the guest `SSHExecutor`) |
-| `charly/deploy_executor.go` | `DeployExecutor` interface (RunShell, Scp, Close) + `ShellExecutor` — local shell exec (used host-side for the builder-image step and `RunHostStep`) |
-| `charly/deploy_executor_ssh.go` | `SSHExecutor` — ssh client with passt-friendly timeouts + WaitForSSH + WaitForCloudInit |
+| `sdk/kit/deploy_executor.go` | `DeployExecutor` interface (RunShell, Scp, Close) + `ShellExecutor` — local shell exec (used host-side for the builder-image step and `RunHostStep`) |
+| `sdk/kit/deploy_executor_ssh.go` | `SSHExecutor` — ssh client with passt-friendly timeouts + WaitForSSH + WaitForCloudInit |
 | `charly/bundle_add_cmd_vm.go` | VM-only host-side deploy helpers that REMAIN: `vmNameFromDeployName`, `sshReverseRunner`, `resolveVmSshUser` / `resolveVmSshPort`, `saveVmDeployState`, `removeVmDeployEntry` |
 | `candy/plugin-vm/vm_create_orchestrate.go` | `VmCreateCmd.runVmSpecCreate` — prereq: VM must be created before deploy (the `command:vm` plugin; the backend-specific `runVmSpecCreateLibvirt`/`-Qemu` are in `vm_create_spec.go`) |
 
