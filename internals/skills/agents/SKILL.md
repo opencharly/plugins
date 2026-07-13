@@ -88,6 +88,12 @@ A teammate's accumulated context is an ASSET on its own task chain and a LIABILI
 other. The rule: **reuse the live teammate for anything that CONTINUES its assigned unit;
 never hand it a different unit — spawn a fresh teammate (and stop the old one), or clear its
 context/workspace first, which is the same thing: the new unit starts from zero.**
+**STRICTLY ENFORCED (operator directive 2026-07-13): shutdown on task completion is
+MANDATORY for teammates AND every other agent (validators, sub-agents) — the moment its
+task is done (PR merged / verdict accepted / report delivered), STOP it; EVERY new task
+starts a NEW teammate or agent with EMPTY context. There is no related-chain carve-out: a
+program of related cutovers is one fresh teammate PER cutover, sequenced by the
+orchestrator — never one teammate marching through a queue.**
 
 - **Continue-same-task (REUSE — the loaded context is the point):** a CHANGES-REQUESTED fix
   round on its own PR; the next leg of ITS cutover chain (sdk leg → superproject leg);
@@ -95,14 +101,17 @@ context/workspace first, which is the same thing: the new unit starts from zero.
   unit; the RCA of a failure its own change caused. Respawning for these THROWS AWAY the
   worktree state, scoping map, and bed history the fix round needs, and forces an expensive
   re-derivation.
-- **Different-task (NEVER reuse a loaded context):** the moment its chain lands (merged PR +
-  accepted report), a teammate is STOPPED (see "Agent lifecycle hygiene"), not re-tasked. A
-  new unit gets a FRESH teammate: stale context anchors the new work on the old domain's
-  assumptions, the drained budget double-pays for compactions mid-unit, and it surrenders the
-  exact fresh-context benefit delegation exists to provide.
-- **Sizing at spawn:** an assignment is ONE unit chain sized to one context budget. The
-  orchestrator decomposes a program into per-unit teammates — it never hands one teammate a
-  queue of unrelated units to march through.
+- **Different-task (NEVER reuse a loaded context — related or not):** the moment its chain
+  lands (merged PR + accepted report), a teammate is STOPPED (see "Agent lifecycle
+  hygiene"), never re-tasked. A new unit gets a FRESH teammate: stale context anchors the
+  new work on the old domain's assumptions, the drained budget double-pays for compactions
+  mid-unit, and it surrenders the exact fresh-context benefit delegation exists to provide.
+  "Related" does not rescue reuse — a follow-on cutover in the same domain is still a NEW
+  task and gets a NEW teammate; the predecessor's knowledge crosses via durable artifacts
+  (below), never via a shared context.
+- **Sizing at spawn:** an assignment is ONE task — a single atomic cutover, including its
+  multi-repo PR legs — sized to one context budget. The orchestrator decomposes a program
+  into per-task teammates; it never hands one teammate a queue of units, related or not.
 - **Durable artifacts make stopping lossless:** scoping maps, verdicts, decomposition tables,
   and handoff notes go to FILES (scratchpad or the PR) BEFORE the teammate stops, so a
   successor starts from disk, never from a predecessor's context. Validator variant: a
