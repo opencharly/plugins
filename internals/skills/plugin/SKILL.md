@@ -57,8 +57,9 @@ swaps to `InvokeProvider` and this seam deletes). `build:box` runs the full driv
 `HostBuild("build-resolve")` with `GenerateOnly` and returns the written Containerfile paths (no podman, no
 merge). The host-builder KINDS (`build-resolve`, `merge`) are class-generic action nouns, never the provider
 WORDS (the F11 uniform-API gate `TestNoSinglePluginAPISurface` forbids a provider word on that surface). The
-RESOLVE/RENDER (`NewGenerator` / `Generate` / `OCITarget` / the runtime Candy graph) STAYS core — pinned by
-the loader Mechanism + the runtime-Candy decision (a sdk-only candy cannot run the loader nor satisfy the
+RESOLVE/RENDER (`NewGenerator` / `Generate` / `OCITarget` / the runtime Candy graph) is in core TODAY —
+K3 build-engine migration INVENTORY (moves to `buildkit` + `plugin-build`; see CLAUDE.md "Core is a PLUGIN
+HOST"), not permanent core — pinned FOR NOW by the loader Mechanism + the runtime-Candy decision (a sdk-only candy cannot run the loader nor satisfy the
 `deploykit.CandyModel` from a serialized model). See `/charly-build:build` +
 `/charly-build:generate`.
 
@@ -464,28 +465,35 @@ four kind-AGNOSTIC things —
   resolve into (`VenueDescriptor`, `EmitReply`, `BuilderResolveReply`, `DeployVenue`, `StepEmitRequest`,
   the opaque `Substrate json.RawMessage`). Carries opaque, word-tagged payloads; encodes no kind.
 - **(M) Mechanism** — a generic engine that transports / renders / validates / re-materializes an
-  envelope, dispatched **by word against a data table, never branching on a concrete kind**, AND
-  irreducibly on the load/build/deploy spine: the loader (prescan + capability routing), the provider
-  registry + transports + reverse-channel legs, the IR compiler + host build engine (RenderTemplate,
-  phase matrix, cache-mounts, multi-stage splice, egress), the deploy kernel (tree walk + the closed
-  transport set `deploy_executor_nested.go` + executor composition + IR walk), the CUE-unify check
-  (`validateAuthoredPluginInput` / `validateKindValueCUE` — the unify-and-fail *act*), the ledger, the
-  Kong spine. A kind-blind mechanism the spine reaches THROUGH a seam (a reshaper, the migration
-  op-walker) is itself a PLUGIN — kind-blind is necessary, spine-irreducible is the refinement.
+  envelope, dispatched **by word against a data table, never branching on a concrete kind** — and the
+  ONLY M-mechanisms that live in `charly/` are plugin loading (the provider registry + transports +
+  reverse-channel legs), prescan-dispatch, the kind-decode MATERIALIZE (folding plugin-parsed config
+  into the typed project view — the dispatch half of loading), and the wire broker. Every OTHER
+  kind-blind mechanism (parse, render, resolve, walk, engine) lives in an sdk KIT consumed by plugins:
+  the config PARSE is `sdk/loaderkit` (plugin-served via the `DocParser` seam); the build engine, the
+  deploy walk, the CUE-unify check, and the ledger currently in `charly/` are TRACKED MIGRATION
+  INVENTORY with named K-wave exits (K3/K4/K5), never permanent M-residue. Canonical illustration:
+  `loaderkit.ParseDoc` stays kind-blind by reading the `loaderkit.Threaded` kind-recognition snapshot
+  — clause-D DATA threaded to a kind-blind mechanism, not a registry query. A kind-blind mechanism
+  reached THROUGH a seam (a reshaper, the migration op-walker) is itself a PLUGIN/sdk-lib, NOT core.
 - **(B) Bootstrap** — the single irreducible root that must exist before any plugin can load: the
   `candy`⊻`box` factory (`candyIsImage`+`buildCandy`) + the provider-registry seed. It cannot be a
   plugin without a bootstrap cycle (the discovered-candy pre-check calls it directly).
 - **(D) Data-not-code** — a kind-recognition fact (which words are kinds / nest members / validate
   against which value-def) loaded from CUE/config and consulted by word: the CUE-derived vocab
   (`spec.OpVerbs`/`StepKeywords`/`DocDirectives`/`ResourceKinds`), the schema-version consts, the
-  `#Migration` grammar. NEVER a compiled-in per-kind Go branch or map.
+  `#Migration` grammar, and the canonical example — `loaderkit.Threaded`, the 4-map DATA SNAPSHOT the
+  host fills from the registry BEFORE the kind-blind parse (untying the loader↔registry cycle at zero
+  abstraction cost — DATA threaded to a kind-blind mechanism, never a live registry query in the
+  parse). NEVER a compiled-in per-kind Go branch or map.
 
 - **(R) Resolve-to-envelope — the DEFAULT.** Everything else — a kind's schema, typed Go shape,
   deep-validation def, render/behaviour, and produced artifact — is a PLUGIN. It reaches the kernel only
   by **resolving** its config into an E-envelope that a Mechanism consumes.
 
-**The decision procedure.** For any construct ask: generic Envelope (E)? kind-blind + spine-irreducible
-Mechanism (M)? the Bootstrap root (B)? kind-recognition Data (D)? If none → it is a plugin (R). Placement
+**The decision procedure.** For any construct ask: generic Envelope (E)? a kind-blind Mechanism that is
+plugin loading / dispatch / the kind-decode materialize / the wire broker (M — nothing else in core)?
+the Bootstrap root (B)? kind-recognition Data (D)? If none → it is a plugin (R). Placement
 is decided ONLY by this test; **difficulty NEVER enters it** (CLAUDE.md forbidden-excuse catalog) — a
 thing stays kernel only because it is E/M/B/D, never because moving it is hard.
 
@@ -516,11 +524,13 @@ map, a substrate-word `switch` — that is a known **incomplete seam** being clo
 under this law; the active inventory + sequence live in the cutover plan + each repo's `CHANGELOG/`, never
 as a snapshot here.
 
-**Whole subsystems obey the same law.** A generic subsystem is kernel only as a spine-irreducible
-Mechanism (M); one the spine reaches through a seam is a plugin. The subsystems still carrying non-trivial
-core weight — the OCI `registry.go`+`merge.go` (go-containerregistry), the status subsystem, `alias.go`,
-the scaffold — are each judged by that test, not parked: where the test says plugin, it is an incomplete
-seam fixed as its own cutover, never an indefinite candidate.
+**Whole subsystems obey the same law.** A generic subsystem is kernel ONLY as one of the four in-core
+M-mechanisms (plugin loading / dispatch / the kind-decode materialize / the wire broker); every other
+kind-blind mechanism is an sdk kit consumed by plugins. The subsystems still carrying non-trivial core
+weight — the build engine, the deploy walk, the OCI `registry.go`+`merge.go` (go-containerregistry), the
+status subsystem, the LoadUnified orchestration, every `*_aliases.go` — are v2 migration INVENTORY, each
+with a named K-wave exit (K1/K3/K4/K5), never permanent residue: where the boundary test says plugin, it
+is an incomplete seam fixed as its own cutover with a named exit, never an indefinite candidate.
 
 ## Verification
 
