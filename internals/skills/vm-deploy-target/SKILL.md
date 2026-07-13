@@ -203,7 +203,11 @@ The venue preflight runs in TWO parts. FIRST the host `lifecyclePrepareHook`
 plugin can't compute — it `LoadUnified`s the project, resolves the `kind:vm`
 entity (`vmEntityForAdd`) + its `VmSpec`, the ssh user/port (`resolveVmSshUser` /
 `resolveVmSshPort`), and the prior `VmDeployState`, and ships them as
-`spec.LifecyclePrepareInput` on the `OpPrepareVenue` params. THEN the plugin's
+`spec.LifecyclePrepareInput` on the `OpPrepareVenue` params. The `Alias`,
+`StateDir`, and `SSHPort` in that input key off the per-deploy DOMAIN IDENTITY
+(`charly-<VmDomainIdentity(deploy)>`, not the shared `kind:vm` entity), so sibling
+beds on one entity get distinct domains + state dirs + auto-allocated ports (P33);
+`Entity` still names the disk/spec source. THEN the plugin's
 `OpPrepareVenue` (`candy/plugin-deploy-vm/lifecycle.go`) runs the venue steps
 over the generic seams, BEFORE the walk:
 

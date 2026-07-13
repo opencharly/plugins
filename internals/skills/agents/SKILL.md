@@ -659,7 +659,10 @@ it shares the deploy namespace's global name-uniqueness and can't collide with
 another deploy by construction — and `validateCheckBeds` requires every bed to set
 `disposable: true` and to resolve to a substrate (pod / vm / local / android, with
 the referenced vm/local/android entity present). Distinct beds therefore get distinct `charly-<bed>`
-container / libvirt-domain / image names. **Host-port disjointness is NOT
+container / libvirt-domain / image names — a `vm:` bed's libvirt domain is keyed by the DEPLOY name
+(`vmDomainIdentity`), NOT the shared `kind:vm` entity it references, so sibling beds on ONE entity
+(`vm: {from: eval-vm}`) still get distinct `charly-<bed>` domains + per-deploy disk overlays (P33).
+**Host-port disjointness is NOT
 statically guaranteed, so EVERY eval bed MUST use PORT AUTO-ALLOCATION — never a
 hardcoded host port.** The loader checks no ports, so a hardcoded host port
 shared by two beds surfaces only at deploy time when `CheckPortAvailability` /

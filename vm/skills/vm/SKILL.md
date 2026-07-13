@@ -491,15 +491,21 @@ charly vm build <name> --transport containers-storage
 
 `--transport containers-storage` forces `bootc install` to pull from the machine's local store. Worked example: `/charly-openclaw:openclaw-desktop` "Two-level nested-virtualization proof".
 
-### `charly vm destroy <name>` takes the VM ENTITY name, and no-ops silently on a miss
+### `charly vm destroy` — the DEPLOY name keys the domain (`--domain`), and it no-ops silently on a miss
 
-The libvirt domain is `charly-<vm-entity>`, NOT `charly-<bed-name>`. A `vm:` bed named
-`check-charly-vm` whose node is `vm: {from: charly-vm}` runs the domain **`charly-charly-vm`**.
-So orphan cleanup passes the ENTITY (`charly vm destroy charly-vm`), never the bed name.
+The libvirt domain is keyed by the **DEPLOY name** — `charly-<VmDomainIdentity(deploy)>` (strip a
+leading `vm:`; flatten `/` and `.` to `-`), NOT the shared `kind:vm` ENTITY (P33). A `vm:` bed named
+`check-charly-vm` whose node is `vm: {from: charly-vm}` runs the domain **`charly-check-charly-vm`**,
+and a sibling bed on the same entity runs its OWN distinct `charly-<bed>` domain — collision-free by
+construction. A DIRECT `charly vm create/destroy <entity>` (no `--domain`) keeps `charly-<entity>`
+(the direct-create deploy name IS the entity). So the deploy path tears a domain down with
+`charly vm destroy <entity> --domain <deploy>` (resolve the entity spec, target `charly-<deploy>`);
+manual cleanup of a legacy pre-P33 orphan (named `charly-<entity>`) uses the bare
+`charly vm destroy <entity>`.
 
 **`charly vm destroy` on a name with no domain exits 0 and prints `Destroyed VM charly-<name>`.**
-It is a silent no-op success — passing a bed name looks like it worked and leaves the real
-domain running. Always confirm with `charly vm list` afterwards, never with the exit code.
+It is a silent no-op success — a name whose domain does not exist looks like it worked and leaves the
+real domain running. Always confirm with `charly vm list` afterwards, never with the exit code.
 
 ```
 $ charly vm destroy definitely-not-a-vm-xyz ; echo "exit=$?"

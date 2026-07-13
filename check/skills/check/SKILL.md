@@ -252,13 +252,15 @@ Teammates/sub-agents do bed-local edits + short foreground checks (`charly check
 image`), never the full run. (3) **Reconnect via durable state** —
 `.check/<bed>/<calver>/summary.yml` + the live domain ARE the truth: "done" =
 summary.yml present; "alive" = the orchestrator is in the process table; clean up
-an orphan (`running` domain, no live orchestrator) with `charly vm destroy <entity>`
-(or `charly remove <name>` for a pod) before re-running. **`<entity>` is the `kind: vm`
-entity name, NOT the bed name** — a `vm:` bed `check-charly-vm` with `from: charly-vm` runs
-the domain `charly-charly-vm`, so `charly vm destroy check-charly-vm` targets a domain that
-does not exist, **exits 0, prints `Destroyed VM …`, and leaves the orphan running**. Confirm
-with `charly vm list`, never with the exit code (`/charly-vm:vm` "destroy takes the ENTITY
-name"). See `/charly-internals:agents` "The binding rule".
+an orphan (`running` domain, no live orchestrator) with `charly vm destroy <entity> --domain <bed>`
+(or `charly remove <name>` for a pod) before re-running. **A bed's libvirt domain is keyed by the
+DEPLOY name, `charly-<bed>` (P33), NOT the shared `kind:vm` entity** — a `vm:` bed `check-charly-vm`
+with `from: charly-vm` runs the domain `charly-check-charly-vm`, so its orphan is torn down with
+`charly vm destroy charly-vm --domain check-charly-vm` (resolve the entity spec, target the per-deploy
+domain); the bare `charly vm destroy charly-vm` targets `charly-charly-vm` — a domain a bed never
+creates — which **exits 0, prints `Destroyed VM …`, and leaves the orphan running**. Confirm
+with `charly vm list`, never with the exit code (`/charly-vm:vm` "`charly vm destroy` — the DEPLOY
+name keys the domain"). See `/charly-internals:agents` "The binding rule".
 
 ### Prereq for the vm bed
 
