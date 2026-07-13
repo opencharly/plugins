@@ -26,7 +26,7 @@ Use cases:
 
 charly contains **zero** custom SSH-key resolution. We do not read `~/.ssh/config`, we do not detect ssh-agent, we do not prompt for keys. `ssh(1)` does it all. Configure your destinations via `~/.ssh/config` `Host` stanzas, load keys into `ssh-agent`, and `charly` shells out to `ssh` with no `-i` / `-o StrictHostKeyChecking=` / `-o UserKnownHostsFile=` overrides.
 
-For VM destinations, `charly vm create <name>` writes a managed Host stanza into `~/.config/charly/ssh_config` (one per VM, fenced with `# opencharly:begin` markers) and ensures your `~/.ssh/config` has `Include ~/.config/charly/ssh_config` (also managed). After that, `ssh charly-<vmname>` works from any terminal — and the local deploy path constructs `&SSHExecutor{Host: "charly-<vmname>"}` (via `rootExecutorForDeployNode`) with no User/Port/Key; ssh(1) resolves them from the config.
+For VM destinations, `charly vm create <name>` writes a managed Host stanza into `~/.config/charly/ssh_config` (one per VM, fenced with `# opencharly:begin` markers) and ensures your `~/.ssh/config` has `Include ~/.config/charly/ssh_config` (also managed). After that, `ssh charly-<vmname>` works from any terminal — and the local deploy path constructs `&SSHExecutor{Host: "charly-<vmname>"}` (via `rootExecutorForDeployNode`) with no User/Port/Key; ssh(1) resolves them from the config. The alias is `charly-<VmDomainIdentity(deploy)>` — keyed by the DEPLOY name (a direct `charly vm create <entity>` deploy name IS the entity; a `vm:` bed's alias is `charly-<bed>`), so sibling beds sharing one `kind:vm` entity get distinct aliases (P33).
 
 ## Quick Reference
 

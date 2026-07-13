@@ -27,11 +27,11 @@ needs a running libvirt domain.
 
 ### The host pre-resolves the VM target; the plugin speaks libvirtd
 
-charly core owns NO go-libvirt. The host pre-resolves the vm.yml entity →
-libvirt domain target host-side and passes the resolved VM-entity name
-(`Runner.vmTargetName()`) to the plugin, so the verb addresses the live domain
-`charly-<vm-entity>` even when the deploy/bed name differs. The plugin opens the
-libvirtd session connection and runs the method. Authoring is unchanged from a
+charly core owns NO go-libvirt. The host pre-resolves the target's **per-deploy
+DOMAIN IDENTITY** host-side and passes it (`Runner.vmTargetName()` — the deploy name via
+`vmDomainIdentity`, NOT the shared `kind:vm` entity, P33) to the plugin, so the verb addresses
+the live domain `charly-<deploy>` — correctly distinct per bed even when several beds share one
+`kind:vm` entity. The plugin opens the libvirtd session connection and runs the method. Authoring is unchanged from a
 built-in verb: you write `libvirt: info`, never `plugin: libvirt`.
 
 ### Authoring a `libvirt:` step
@@ -120,7 +120,8 @@ Every method maps to one go-libvirt RPC (plus, for `guest/*`, the
 libvirt/virsh vocabulary so skills translate cleanly. Design choices:
 
 - **Target resolution** identical to the `spice:` verb's host-side
-  pre-resolution: vm.yml entity name → libvirt domain → live XML via
+  pre-resolution: the resolved per-deploy DOMAIN IDENTITY (`Runner.vmTargetName()`,
+  P33) → the `charly-<deploy>` libvirt domain → live XML via
   `libvirtxml.Domain`. Errors are the same across both.
 - **Framebuffer screenshot** (`libvirt: screenshot`) goes through
   `DomainScreenshot` — QEMU's VNC framebuffer capture, returned as PPM, decoded
@@ -298,9 +299,9 @@ and the guest framebuffer agree.
 
 The `libvirt:` verb is served OUT-OF-PROCESS by `candy/plugin-vm` (the
 go-libvirt shed moved it out of charly core). The host dispatches it through
-the provider registry, passing the resolved VM-entity name
-(`Runner.vmTargetName()`) so the verb addresses the live domain
-`charly-<vm-entity>`, not `charly-<deploy-name>`.
+the provider registry, passing the resolved per-deploy DOMAIN IDENTITY
+(`Runner.vmTargetName()` — the deploy name, not the shared entity, P33) so the verb
+addresses the live domain `charly-<deploy>`, correctly distinct per bed.
 
 - `candy/plugin-vm/libvirt_cmd.go` — the libvirt command tree + all method implementations.
 - `candy/plugin-vm/libvirt_methods.go` — the method allowlist (op → subcommand-path + positional-args dispatch data).

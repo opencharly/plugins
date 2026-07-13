@@ -32,8 +32,9 @@ reverse-leg; the host side of that leg (`resolveVerbGraphics` in
 `charly/check_endpoint_resolve.go`) DELEGATES the vm.yml → libvirt-domain →
 live-XML → `<graphics type='spice'>` resolution to the out-of-process vm plugin
 (`invokeVmPlugin("resolve-spice", …)` → candy/plugin-vm's `ResolveVmTarget` /
-`SpiceEndpoint`, where the go-libvirt deps live), passing the resolved VM-entity
-name (`Runner.vmTargetName()`) as the domain target. The host opens any qemu+ssh://
+`SpiceEndpoint`, where the go-libvirt deps live), passing the resolved per-deploy DOMAIN
+IDENTITY (`Runner.vmTargetName()` — the deploy name, not the shared `kind:vm` entity, P33)
+as the domain target. The host opens any qemu+ssh://
 side tunnel itself (tracked for post-Invoke teardown) and returns a plain DIALABLE
 endpoint (+ the SPICE ticket); the spice plugin just dials it and runs the method.
 
@@ -190,7 +191,8 @@ Host side:
 - `candy/plugin-vm/vm_target.go` — the OUT-OF-PROCESS VM target resolution
   (`ResolveVmTarget` / `SpiceEndpoint`, go-libvirt); `VmTarget.XML` gives the live
   `libvirtxml.Domain`. The host reaches it via `invokeVmPlugin("resolve-spice", …)`,
-  passing `Runner.vmTargetName()` (the resolved VM-entity name, not the deploy name).
+  passing `Runner.vmTargetName()` (the resolved per-deploy DOMAIN IDENTITY — the deploy name
+  via `vmDomainIdentity`, not the shared `kind:vm` entity, P33; the plugin prefixes `charly-`).
 - The registry dispatch: `providerRegistry.ResolveVerb("spice")` → the
   out-of-process `grpcProvider` → `invokeVerbProvider`, which hands the plugin
   the full `#Op` as params after the host pre-resolves the endpoint.
@@ -208,8 +210,9 @@ These now live in `candy/plugin-spice`, NOT in charly's core:
 The VM target resolution (go-libvirt / `libvirtxml`) runs OUT-OF-PROCESS in
 `candy/plugin-vm/vm_target.go` — the host reaches it via
 `invokeVmPlugin("resolve-spice", …)`, not a direct core call, and passes the
-resolved VM-entity name (`Runner.vmTargetName()`) so the plugin addresses the live
-domain `charly-<vm-entity>` even when the deploy/bed name differs.
+resolved per-deploy DOMAIN IDENTITY (`Runner.vmTargetName()` — the deploy name, not the
+shared `kind:vm` entity, P33) so the plugin addresses the live domain `charly-<deploy>`,
+correctly distinct per bed even when several beds share one entity.
 
 ## Related skills
 
