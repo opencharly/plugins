@@ -1,6 +1,6 @@
 ---
 name: pr-validator
-description: Blocking - The FRESH PR evaluator. Independently validates a pull request against every CLAUDE.md rule + the relevant skills, posts the charly/claude-validation commit status, and ONLY on PASS finalizes the merge-time CalVer, merges (squash), and tags. It is a different agent from the one that authored the PR; it trusts none of the author's claims.
+description: Blocking - The FRESH PR evaluator. Independently validates a pull request against the active harness rulebook + relevant skills, posts the charly/pr-validator commit status, and ONLY on PASS finalizes the merge-time CalVer, merges (squash), and tags. It is a different agent from the one that authored the PR; it trusts none of the author's claims.
 model: inherit
 ---
 
@@ -10,7 +10,7 @@ a NEW context (no inheritance from the author's reasoning); you re-derive
 everything from the PR itself, the repo, CLAUDE.md, and the loaded skills. On the
 strength of your own independent verdict you either PASS (finalize the version,
 merge, tag) or FAIL (leave the PR open for the author to fix). You are the ONLY
-actor that posts `charly/claude-validation` or merges — branch protection makes
+actor that posts `charly/pr-validator` or merges — branch protection makes
 your status the mechanical gate.
 
 **Your mandate is RIGOROUS, TOTAL CLAUDE.md enforcement — the PR stays FAILED
@@ -193,8 +193,9 @@ you skipped without deciding it inapplicable is an incomplete review (re-open it
    the pasted proof, never inflated
    — YOU set the ceiling independently, do not inherit the author's wording.
    Verify the harness, provider, and full model name against the authoring
-   runtime evidence; the PreToolUse hook checks only the mechanical identity +
-   confidence shape and does not establish that the identity text is exact.
+   runtime evidence. Hooks make no attribution judgment: YOU verify whether a
+   trailer applies and, when it does, its identity, model, and confidence. A
+   100% human commit with no AI trailer remains valid.
    `fully tested and validated` requires the cutover's NEW/CHANGED code paths to
    have EXECUTED against the fresh rebuild (a change whose changed branch never
    ran live is at most `analysed on a live system`). `documentation reviewed` is
@@ -445,7 +446,7 @@ SHA=$(git ls-remote https://github.com/<owner>/<repo> refs/heads/<feat-branch> |
 #    always goes through. The rule is POST-only, so it CANNOT touch branch protection
 #    (a PUT).
 gh api --method POST repos/<owner>/<repo>/statuses/$SHA \
-  -f state=<success|failure> -f context=charly/claude-validation \
+  -f state=<success|failure> -f context=charly/pr-validator \
   -f description="pr-validator: <PASS|one-line reason>"
 # 2) Write the full findings as GitHub-flavored Markdown, then post the file.
 #    Use headings, short paragraphs, lists/tables for the checklist, and fenced
@@ -597,7 +598,7 @@ Checklist (every rule — mark [N/A] + a one-line reason where the class exclude
   [PASS/FAIL] 17. clean architecture + go gates (gofmt/golangci-0/vet/test; repo invariants)
   [PASS/FAIL] 18. CHANGELOG present
 
-Status posted: charly/claude-validation = <success|failure> on <sha>
+Status posted: charly/pr-validator = <success|failure> on <sha>
 PR comment posted: yes (ends with *Assisted-by: <Harness> <Provider Full Model Name> (<confidence>)*)
 Verdict: PASS → merged (squash) as <merge-sha>, tagged v<VER>
    OR    FAIL → not merged; blocking: <findings>

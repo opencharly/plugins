@@ -26,7 +26,7 @@ evaluator's own spec.
 ## Non-negotiable invariants
 
 - **NO direct push to `main`.** `main` advances ONLY through an agent-validated PR
-  merge. GitHub branch protection requires the `charly/claude-validation` status
+  merge. GitHub branch protection requires the `charly/pr-validator` status
   (posted by the fresh `pr-validator`) + a PR + linear history + `enforce_admins`;
   the `pre-push-gate` blocks every main-destination push locally. Apply/verify with
   `scripts/apply-branch-protection.sh {apply|verify}`.
@@ -39,7 +39,7 @@ evaluator's own spec.
   therefore forbidden too — it diverges the branch and can only be published by a
   force-push. Amend only before the first push.
 - **R10-gated.** R10 PASS authorizes OPENING the PR (with pasted evidence). The
-  MERGE is gated on the fresh `pr-validator`'s green `charly/claude-validation`
+  MERGE is gated on the fresh `pr-validator`'s green `charly/pr-validator`
   status — a rule violation or R10 FAIL ⇒ no green status, no merge (fix in the
   same tree, re-run R10, re-push; the status resets and the evaluator re-runs).
 - **Zero warnings.** R10 is NOT successful while ANY warning remains — resolver
@@ -129,7 +129,7 @@ gh pr create --base main --head feat/<slug> \     # fill the PR template complet
 
 **Step 2 — Fresh evaluator** (`plugins/internals/agents/pr-validator.md`, spawned
 with NEW context): it independently re-validates the PR vs R0–R10 + the relevant
-skills, posts `charly/claude-validation` on the head SHA, and ONLY on PASS
+skills, posts `charly/pr-validator` on the head SHA, and ONLY on PASS
 generates the merge-time CalVer, rewrites the version surfaces on `feat/` (the
 `CHANGELOG` rename + any schema bump), re-posts the status on the new head,
 `gh pr merge --squash --delete-branch`, and tags. The author pastes the evaluator's
@@ -404,7 +404,7 @@ outside contributors alike. There is no direct-merge fast path.
 
 - **Write access (the default):** the author opens the PR (B1 step 1); a FRESH
   `pr-validator` (new context, NOT the author's context, NOT a teammate that
-  authored the code) validates → posts `charly/claude-validation` → on PASS
+  authored the code) validates → posts `charly/pr-validator` → on PASS
   finalizes the merge-time CalVer, `gh pr merge --squash --delete-branch`, tags.
   Sequence + guardrails: `plugins/internals/agents/pr-validator.md`. The evaluator
   NEVER `gh pr merge --admin` (that bypasses the gate) and NEVER force-pushes; a
@@ -418,7 +418,7 @@ outside contributors alike. There is no direct-merge fast path.
 **Why a status, not a review approval — and what it does NOT buy.** GitHub forbids a
 PR's author from approving their OWN PR, and a local sub-agent SHARES the author's
 identity. A COMMIT STATUS carries no such GitHub-side restriction, which is why
-`charly/claude-validation` is the required check. Be precise about what that means:
+`charly/pr-validator` is the required check. Be precise about what that means:
 the status is **agent-ATTESTED validation, NOT two-party review**. The fresh
 `pr-validator` supplies CONTEXT independence (a new context re-deriving the verdict
 adversarially, trusting no author claim) — which demonstrably catches real defects —
@@ -672,7 +672,7 @@ filenames and tags sort chronologically under a plain alphanumeric sort.
   (`git mv CHANGELOG/<placeholder>.md CHANGELOG/$VER.md`; a schema bump re-stamped
   strictly above the current HEAD's `#SchemaVersion` + `version:` +
   `migrations.cue` entry); commit + push feat (a normal, non-force push — an ADDED
-  commit); re-post `charly/claude-validation` on the new head; `gh pr merge
+  commit); re-post `charly/pr-validator` on the new head; `gh pr merge
   --squash --delete-branch`; then tag the merged HEAD — `git tag -a v$VER -m
   "<subject>" <merged-HEAD>` and `git push origin refs/tags/v$VER` (EVERY repo;
   `sdk` substitutes its Go-module `v0.<…>` form).
@@ -716,7 +716,7 @@ A FAIL is a return-to-implementation signal, not a stopping point:
 1. Run `/charly-internals:root-cause-analyzer` BEFORE attempting any fix — blind
    retry is FORBIDDEN.
 2. Fix in the SAME working tree, on the SAME `feat/<slug>` — never a new PR.
-3. Re-push the fix (the head SHA moves → `charly/claude-validation` resets → the
+3. Re-push the fix (the head SHA moves → `charly/pr-validator` resets → the
    fresh `pr-validator` re-runs). Re-run the FULL R10 from a fresh `charly update`,
    not just the failing piece — a fix that survives only the targeted re-run is a
    regression in waiting.
