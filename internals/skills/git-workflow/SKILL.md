@@ -335,8 +335,11 @@ actually in this binary".
 
 When an agent team parallelizes work, **the check bed is the unit of isolation, not
 a worktree**. Each teammate owns a disjoint check bed's SOURCE files; distinct beds
-get distinct container/VM/image names; the lead assigns each disjoint host ports
-too (the loader does NOT check ports — an overlap fails the second bed at deploy),
+get distinct `charly-<bed>` container/VM/domain names, and a bed run tags every
+fixture IMAGE it builds with a per-run `<bed-root>-<runCalver>` tag (#75) so two beds
+building the SAME fixture image name never race the store-global tag namespace; the
+lead assigns each disjoint host ports too (the loader does NOT check ports — an
+overlap fails the second bed at deploy),
 and a bed pins an image → layers → files, so bed-ownership already isolates the
 source files each teammate edits. **Teammates edit; a PERSISTENT owner runs every
 full `charly check run <bed>`** as a `run_in_background` task — the lead's
