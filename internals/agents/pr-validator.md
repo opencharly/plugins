@@ -471,7 +471,7 @@ SPECIFIC blocking findings (file:line) and exactly what the author must fix.>
 **Attribute the comment.** Every comment you post is AI-authored content, so it
 MUST end with `*Assisted-by: <Harness> <Provider Full Model Name> (<confidence>)*`
 (Fedora AI policy — every AI-involved
-PR/issue comment attributes). The `<tier>` is the attribution tier YOUR OWN
+PR/issue comment attributes). The `<confidence>` is the attribution confidence YOUR OWN
 validation supports for this PR's change class (CLAUDE.md "AI Attribution"), never
 inflated: for a runtime-class PR whose checks you re-ran live → `analysed on a live
 system`; for a docs-only PR you validated via the non-runtime standards →
