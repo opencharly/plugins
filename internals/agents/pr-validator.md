@@ -188,13 +188,10 @@ you skipped without deciding it inapplicable is an incomplete review (re-open it
    beds in your verdict. The PR body's explicit eval-bed list is what you check this
    against; a runtime-class PR that does not list the exact beds + per-bed results
    is incomplete (item 1) and FAILS.
-3. **Authorship attribution vs proof (CLAUDE.md "AI Attribution").** Every model
-   that materially authored content uses `Assisted-by: <Harness> (<Provider Full Model Name>;
-   <tier>)`, with a verified model name and a tier JUSTIFIED by the pasted proof;
-   YOU set the ceiling independently. A PR declaring `AI-authored content: none`
-   carries no commit trailer and MUST remain trailer-free when its diff and history
-   support that declaration. Review-only AI belongs in the PR attribution table
-   and validator comment, never retroactively in a human-authored commit.
+3. **Attribution tier vs proof (CLAUDE.md "AI Attribution").** The claimed
+   `Assisted-by: <Harness> (<Provider Full Model Name>; <tier>)` is JUSTIFIED by
+   the pasted proof, never inflated — YOU set the ceiling independently, do not
+   inherit the author's wording. A 100% human-authored commit has no trailer.
    `fully tested and validated` requires the cutover's NEW/CHANGED code paths to
    have EXECUTED against the fresh rebuild (a change whose changed branch never
    ran live is at most `analysed on a live system`). `documentation reviewed` is
@@ -464,10 +461,9 @@ MD
 ```
 
 **Attribute the comment.** Every comment you post is AI-authored content, so it
-MUST end with `*Assisted-by: <Harness> (<Provider Full Model Name>; <tier>)*`. Add your
-verified harness/model to the PR attribution table with role `validator` and
-disclosure `PR-only`; validation alone never adds your trailer to the commit.
-The `<tier>` is the attribution tier YOUR OWN
+MUST end with `*Assisted-by: <Harness> (<Provider Full Model Name>; <tier>)*`
+(Fedora AI policy — every AI-involved PR/issue comment attributes). The `<tier>`
+is the attribution tier YOUR OWN
 validation supports for this PR's change class (CLAUDE.md "AI Attribution"), never
 inflated: for a runtime-class PR whose checks you re-ran live → `analysed on a live
 system`; for a docs-only PR you validated via the non-runtime standards →
@@ -509,8 +505,7 @@ stamps collide and mis-order across concurrent PRs). Operate on the feat branch:
    non-sdk repo (they carry no `charly.yml`, so no schema `version:` bump — but the
    tag still marks the merge).
 3. **Rewrite every merge-time-dependent version surface to `$VER`** on the feat
-   branch, then commit (the mechanical intermediate commit may carry YOUR
-   model-aware trailer to satisfy the AI PreToolUse gate) and push
+   branch, then commit (carry the PR's validated `Assisted-by` trailer) and push
    the feat branch (a normal, non-force push — you are ADDING a commit):
    - `git mv CHANGELOG/<placeholder>.md CHANGELOG/$VER.md` **AND rewrite the H1
      heading inside the file to match**: the first line is `# <placeholder> — …`;
@@ -527,13 +522,12 @@ stamps collide and mis-order across concurrent PRs). Operate on the feat branch:
 4. **Re-post the status on the NEW head** (step 3 moved it — again via
    `git ls-remote`), state `success`.
 5. **Merge:** `gh pr merge <N> --repo <owner>/<repo> --squash --delete-branch \
-   --subject "<the cutover's conventional-commit subject>" --body "<full body + every
-   substantive author's model-aware `Assisted-by` trailer, or no trailer for a
-   verified 100%-human-authored PR>"`. SQUASH, so `main` gains exactly
+   --subject "<the cutover's conventional-commit subject>" --body "<full body + the
+   author's model-aware `Assisted-by` trailer, or no trailer for a verified
+   100%-human-authored PR>"`. SQUASH, so `main` gains exactly
    ONE commit no matter how many fix commits the review rounds added. You compose the
    squash message: never let `gh` default it to the concatenated commit list, and never
-   drop a substantive author's attribution trailer, and NEVER copy a review-only
-   validator/mechanical-stamp trailer into an otherwise human-authored squash.
+   drop the attribution trailer.
    **The merge is the classifier's Merge-Without-Review gate — SEPARATE from the `success`
    POST and NOT cleared by `permissions.allow`.** It lands autonomously only when the
    operator's `autoMode.allow` rule is in effect (`~/.claude/settings.json` or managed
@@ -595,7 +589,7 @@ Checklist (every rule — mark [N/A] + a one-line reason where the class exclude
   [PASS/FAIL] 18. CHANGELOG present
 
 Status posted: charly/claude-validation = <success|failure> on <sha>
-PR comment posted: yes (ends with model-aware validator attribution; PR-only)
+PR comment posted: yes (ends with *Assisted-by: <Harness> (<Provider Full Model Name>; <tier>)*)
 Verdict: PASS → merged (squash) as <merge-sha>, tagged v<VER>
    OR    FAIL → not merged; blocking: <findings>
 ```

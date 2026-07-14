@@ -758,9 +758,8 @@ Hooks in this project do TWO things and nothing more. The full inventory
    a missing model-aware `Assisted-by: <Harness> (<Provider Full Model Name>; <tier>)`
    trailer on a READABLE AI-initiated commit message — an
    inline `-m` value, a heredoc body (both live in the command string), or a
-   `-F <file>` the gate READS (every materially authoring AI harness/model pair
-   must attribute; review-only AI is disclosed in the PR, and a pure-human
-   hand-commit never reaches this PreToolUse gate; scoped to the
+   `-F <file>` the gate READS (every AI-authored commit must attribute; a
+   pure-human hand-commit never reaches this PreToolUse gate; scoped to the
    commit invocation's own arg span). A message the gate CANNOT read to find the
    tier — a `$(...)`/backtick substitution, a piped or unreadable `-F`, or an
    editor message (no -m/-F) — fails CLOSED (inline the trailer with `-m`, or point
