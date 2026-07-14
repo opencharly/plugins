@@ -116,9 +116,9 @@ The `/ctx` bind mount exposes the layer's own directory tree to `cmd:` tasks —
 
 `COPY --chown=` uses numeric `<UID>:<GID>` for `${USER}` (BuildKit-safe), name-pairs for literal users.
 
-## writeBootstrap — adopt vs create
+## WriteBootstrap — adopt vs create
 
-`writeBootstrap` emits the user-creation section of the base-image Containerfile and branches on `ResolvedBox.UserAdopted`:
+`WriteBootstrap` (in `sdk/deploykit`, relocated from `charly/generate.go` in #67) emits the user-creation section of the base-image Containerfile and branches on `ResolvedBox.UserAdopted`:
 
 **Adopt mode** (`UserAdopted = true`) — the base image already ships the declared user; no `useradd` is needed. Emits:
 

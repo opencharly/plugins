@@ -1308,7 +1308,7 @@ the user can't traverse the parent directory.
 
 ### 11. **Bootc images keep USER=root** — tests must cover both modes
 
-Gotcha 10 flips for bootc. `charly/generate.go` deliberately omits the final `USER <uid>` directive on bootc images because systemd (PID 1 in a bootc VM) manages user sessions via login, so the container's own USER directive is irrelevant. Result: the same `charly check box` that runs as uid 1000 in a container runs as **uid 0** in a bootc image.
+Gotcha 10 flips for bootc. `sdk/deploykit` (relocated from `charly/generate.go` in #67) deliberately omits the final `USER <uid>` directive on bootc images because systemd (PID 1 in a bootc VM) manages user sessions via login, so the container's own USER directive is irrelevant. Result: the same `charly check box` that runs as uid 1000 in a container runs as **uid 0** in a bootc image.
 
 That breaks any test that assumes the user-context default. A `sudo -n -l` check that expects `NOPASSWD` in the output works for non-bootc (USER=1000 → sudo lists the user's NOPASSWD rule) but fails for bootc (USER=0 → sudo prints root's Defaults block, which doesn't contain the literal string `NOPASSWD`). Same failure mode for any `test -f ~/.config/foo` that depends on `$HOME=/home/user`.
 

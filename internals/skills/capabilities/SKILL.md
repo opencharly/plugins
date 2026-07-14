@@ -66,7 +66,7 @@ This is the enforcement mechanism that keeps the OCI-label contract and the Go s
 1. Add the field to `BoxMetadata` in `charly/labels.go` with a JSON tag.
 2. Add the label const (`LabelFoo = "ai.opencharly.foo"`) next to the other label consts.
 3. Add the `CapabilityLabelMap` entry: `"Foo": LabelFoo`.
-4. Emit + parse the label in `writeLabels` (via `writeJSONLabel`) / `ExtractMetadata`.
+4. Emit + parse the label in `WriteLabels` (deploykit, via `writeJSONLabel`) / `ExtractMetadata`.
 5. `go test ./...` passes.
 
 Skip step 3 and the test fails with `BoxMetadata fields without CapabilityLabelMap entry: [Foo]`.
@@ -134,7 +134,7 @@ See `/charly-image:image` for current user-facing structure and `/charly-build:m
 1. Add the const to `charly/labels.go` (`LabelFoo = "ai.opencharly.foo"`).
 2. Add the field to `BoxMetadata` with a matching JSON tag.
 3. Add the `CapabilityLabelMap` entry: `"Foo": LabelFoo`.
-4. Populate it in `writeLabels` (label emission at build time, via `writeJSONLabel` for struct/list values).
+4. Populate it in `WriteLabels` (deploykit label emission at build time, via `writeJSONLabel` for struct/list values).
 5. Parse it in `ExtractMetadata` (label read-back at deploy time).
 6. If the field is a struct/list, route it through `writeJSONLabel` for consistent encoding (see how `LabelService`, `LabelDescription`, `LabelVolume` do it).
 7. `go test ./...` — `TestCapabilityLabelCompleteness` passes.
