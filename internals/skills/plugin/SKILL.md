@@ -183,13 +183,22 @@ See "Authoring an external COMMAND plugin" below.
   host-side build, via the `sdk.Executor`: `InvokeProvider(class, word, op, params, env)` — the host resolves
   the peer in the registry and Invokes it on the caller's behalf (threading the SAME venue executor into an
   out-of-process target over a nested broker — the host is the dispatch broker, since it owns the registry);
-  and `HostBuild(kind, spec)` — the host runs the registered host-builder for `kind` — TEN registered kinds
-  today: `build-prep` + `render-seam` + `merge` (the box-build loader/prep + render-seam + layer-merge seams), `overlay` (the pod overlay build), `step-emit`
-  (host-coupled step fragments), `cli` (the generic run-any-charly-command reentry), `hostprobe` (doctor's
-  raw host facts), `feature`, `settings`, `retention`, and `plugin-binary` (the F10 plugin host build); the RESOLVE/RENDER engine is in
-  core TODAY (K3 build-engine migration inventory, not permanent core — the box-build podman DRIVE moved to candy/plugin-build in P8b). This is the shared-capability seam: a SHARED plugin (egress, k8s-gen, arbiter) is "a plugin others
-  invoke", never "kept in core". Reference: `candy/plugin-example-dispatch`; mechanism:
-  `/charly-internals:install-plan` (`plugin_dispatch_reverse.go`).
+  and `HostBuild(kind, spec)` — the host runs the registered host-builder for `kind` — 24 registered kinds
+  today. The build/render-relevant ones: `build-prep` (the box-build loader + build-prep + resolved-project
+  envelope seam the candy drive calls), `render-seam` (the #67 render's host-coupled seams: RenderService,
+  builder resolves, ValidateEgress, EmitPluginOp, localpkg), `bake-plugins` (#67 — bake `bake_plugin:`
+  binaries into the final image), and `merge` (the transitional layer-merge seam). The rest: `overlay`
+  (the pod overlay build), `step-emit` (host-coupled step fragments), `cli` (run-any-charly-command
+  reentry), `hostprobe` (doctor's raw host facts), `feature`, `settings`, `retention`, `plugin-binary`
+  (the F10 plugin host build), `vm-build`, `resolved-project`, `validate-project`, `config-resolve` +
+  `config-persist`, `deploy-add` + `deploy-config` + `deploy-del` + `deploy-from-box`, `status-substrate`,
+  `pod-disposable`, `check-bed`, `check-run`. The build engine is in core TODAY — K3 build-engine
+  migration inventory, not permanent core — the box-build podman DRIVE moved to candy/plugin-build in
+  P8b, and the Containerfile RENDER DRIVE moved to `sdk/deploykit` (#67, driven by plugin-build over the
+  envelope + the `render-seam` reverse legs; the host render-leg is DELETED). This is the shared-capability
+  seam: a SHARED plugin (egress, k8s-gen, arbiter) is "a plugin others invoke", never "kept in core".
+  Reference: `candy/plugin-example-dispatch`; mechanism: `/charly-internals:install-plan`
+  (`plugin_dispatch_reverse.go`).
 - **Deploy time.** An external deploy-target provider runs its full Add/Test/Update/Del lifecycle over the
   host-served executor reverse channel — the plugin applies the deployment's ops on the real venue it cannot
   hold across the process boundary (`OpExecute`), and the host records the returned teardown ops to the ledger.
