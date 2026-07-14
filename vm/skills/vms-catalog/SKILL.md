@@ -45,7 +45,7 @@ vms:
       mode: user | bridge | nat
       bridge: br0                          # only when mode=bridge
       mac: "52:54:…"                       # optional pin; default stable-from-name
-      port_forwards: ["8080:80", …]        # additive to SSH forward
+      port_forwards: ["8080:80", "auto:6443"] # "<host>:<guest>", additive to SSH forward; host may be `auto` → free host port auto-allocated at vm-create + persisted in vm_state (the sibling of ssh.port_auto; use it so concurrent beds sharing one entity never collide)
     # SSH + key injection:
     ssh:
       user: arch | root | …                # defaults: cloud_image→"charly", bootc→"root"
