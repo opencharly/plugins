@@ -830,7 +830,11 @@ passt's `Listen failed … Address already in use` fails the SECOND bed's `start
 fragile authoring that silently collides the moment a bed is added or the roster
 runs concurrently. Use auto-allocation BY CONSTRUCTION: a `vm:` bed sets
 `ssh: {port_auto: true}` (the runner probes a free host port and persists it in
-`vm_state`); a `pod:`/`local:` deploy uses the `port: [auto]` sentinel
+`vm_state`) AND an extra `network.port_forwards` entry uses the `auto:<guest>`
+sentinel (same mechanism — the host port auto-allocated + persisted, resolved into
+the render + the k3s kubeconfig rewrite; NEVER a hardcoded `<host>:<guest>` shared
+across beds — the 16443 collision the k3s-vm pair hit); a `pod:`/`local:` deploy
+uses the `port: [auto]` sentinel
 (`AllocateAutoPorts` tracks an `occupied` set so concurrent `[auto]` deploys
 never collide) and references the assigned port via `${HOST_PORT}` /
 `${HOST:<member>:<port>}` in its checks — NEVER a literal host port. A bed pins
