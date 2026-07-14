@@ -526,10 +526,12 @@ discipline as an agent team — it is the workflow expression of the B3 model
 
 - **Partition the parallel work by check bed.** One disjoint disposable
   bed per parallel owner (`check-pod` / `check-k3s-vm` / `check-local` /
-  `check-android-emulator-pod` / …). Distinct beds get distinct container/VM/image
-  names; the author assigns each disjoint host ports too (the loader does NOT
-  check ports — an overlap fails the second bed at deploy), so they run
-  concurrently and safely.
+  `check-android-emulator-pod` / …). Distinct beds get distinct `charly-<bed>`
+  container/VM/domain names, and a bed run tags every fixture IMAGE it builds with
+  a per-run `<bed-root>-<runCalver>` tag (#75), so two beds building the SAME
+  fixture image NAME never race the store-global tag namespace; the author assigns
+  each disjoint host ports too (the loader does NOT check ports — an overlap fails
+  the second bed at deploy), so they run concurrently and safely.
 - **Check-test at EVERY stage, never only at the end.** Each parallel owner
   **verifies before it changes** (Risk Driven Development — proves its bed's
   high-risk assumptions, above all the composition, on its live bed/backend
@@ -822,9 +824,16 @@ it shares the deploy namespace's global name-uniqueness and can't collide with
 another deploy by construction — and `validateCheckBeds` requires every bed to set
 `disposable: true` and to resolve to a substrate (pod / vm / local / android, with
 the referenced vm/local/android entity present). Distinct beds therefore get distinct `charly-<bed>`
-container / libvirt-domain / image names — a `vm:` bed's libvirt domain is keyed by the DEPLOY name
+container / libvirt-domain names — a `vm:` bed's libvirt domain is keyed by the DEPLOY name
 (`vmDomainIdentity`), NOT the shared `kind:vm` entity it references, so sibling beds on ONE entity
 (`vm: {from: eval-vm}`) still get distinct `charly-<bed>` domains + per-deploy disk overlays (P33).
+The FIXTURE IMAGES a bed builds are isolated the same way — by a per-run TAG, not a name: a bed run
+tags every image it builds (`charly box build … --tag <bed-root>-<runCalver>`) and passes that tag on
+every deploy step (`bedRunImageTag`, the tag analogue of `vmDomainIdentity`), so two beds building the
+SAME fixture image NAME (e.g. `check-sidecar-pod` + `check-k8s-deploy` both building
+`check-k8s-deploy-app`) no longer race the store-global short-name→newest-local-CalVer resolution —
+the last-write-wins collision #75 fixed (the pre-#75 "collision-free by construction" claim was
+FALSIFIED for beds sharing a fixture image name).
 **Host-port disjointness is NOT
 statically guaranteed, so EVERY eval bed MUST use PORT AUTO-ALLOCATION — never a
 hardcoded host port.** The loader checks no ports, so a hardcoded host port
@@ -994,8 +1003,11 @@ The playbook:
    Scheduling
    rule when overlapping gates: the SAME bed name must never run twice at the same
    instant (bed→deploy names are deterministic — same `charly-<bed>` names collide);
-   distinct beds are collision-free by construction (this section's isolation
-   invariants); and **verify every bed NAME against the LIVE tree roster**
+   distinct beds are collision-free by construction — their `charly-<bed>` deploy
+   names AND (post-#75) the FIXTURE IMAGES they build, which a bed run tags per-run
+   `<bed-root>-<runCalver>` so two beds building the same fixture image name never
+   race the store-global tag namespace (this section's isolation invariants); and
+   **verify every bed NAME against the LIVE tree roster**
    (`grep '^check-.*:' charly.yml`) BEFORE each launch — rosters change across
    cutovers, so a stale name from notes or memory aborts the run. Cross-gate
    concurrency shares the ONE store-lock ceiling (item 4)
