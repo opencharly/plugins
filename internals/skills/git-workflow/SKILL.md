@@ -28,8 +28,8 @@ evaluator's own spec.
 - **NO direct push to `main`.** `main` advances ONLY through an agent-validated PR
   merge. GitHub branch protection requires the `charly/pr-validator` status
   (posted by the fresh `pr-validator`) + a PR + linear history + `enforce_admins`;
-  the `pre-push-gate` blocks every main-destination push locally. Apply/verify with
-  `scripts/apply-branch-protection.sh {apply|verify}`.
+  the `pre-push-gate` blocks every main-destination push locally. Organization-wide
+  apply/verify is owned only by `opencharly/.github/scripts/branch-protection.sh`.
 - **NEVER force-push.** No `git push --force`, no `--force-with-lease`, on ANY
   branch (`feat/` included) in ANY repo, ever. The flow never needs one: `feat/`
   advances only by ADDING commits (the author's change, any review-round fix commits,
@@ -726,7 +726,8 @@ A FAIL is a return-to-implementation signal, not a stopping point:
 
 - CLAUDE.md "Post-Execution Policies" — the mandate this skill operationalizes.
 - `plugins/internals/agents/pr-validator.md` — the fresh evaluator's full spec.
-- `scripts/apply-branch-protection.sh` — apply/verify the branch protection.
+- `opencharly/.github/scripts/branch-protection.sh` — the sole organization-wide
+  branch-protection apply/verify owner.
 - `/charly-internals:cutover-policy` — one-phase, atomic-commit, R10-at-the-end.
 - `/charly-build:migrate` — `version:` ↔ tag coupling, per-merge tags, push order.
 - `/charly-build:reconcile` — cross-repo `@github` pin alignment used by B6.
