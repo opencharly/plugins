@@ -184,6 +184,38 @@ regression this class produces (a sibling merge advances `main` mid-validation, 
 naive recovery reverts the gitlink to the older pointer). Only after the descendant-wins
 check re-post the status and delta-re-gate as above.
 
+**Multi-committer main advances — out-of-tree PRs from other committers.** The
+orchestrator is NOT the sole source of `main` advances: another committer (a human
+maintainer, a parallel session, an outside contributor via the fork+PR path) may
+land an unrelated PR on `main` WHILE this plan's `feat/` branches are in flight. The
+discipline above is main-advance-agnostic and applies to ANY merge regardless of
+source — treat an out-of-tree merge IDENTICALLY to an internal one:
+- **Detect proactively, not only reactively.** Fetch `origin/main` (and each
+  submodule's `main`) before opening EACH PR and before each merge — do not rely
+  solely on the orchestrator's own-merge broadcast. A `feat/` branch that goes
+  `BEHIND` from an external merge is recovered exactly as above (`gh pr
+  update-branch`, delta re-gate, forward-gitlink verify). `strict: true` is KEPT
+  precisely for this: a stale-base green PR merged over an external advance opens a
+  semantic-conflict blind spot, so the delta re-gate's overlap check
+  (`git diff --name-only <old-main>..main` ∩ branch-files) is what makes an
+  out-of-tree merge safe — EMPTY overlap → re-post; NON-EMPTY → re-run the primary
+  beds. A teammate pushing while `BEHIND` an external merge updates its branch and
+  reports the overlap for the orchestrator's delta-re-gate call.
+- **Divergent-lineage submodule bump (not ancestor/descendant).** The
+  descendant-wins rule above covers the common case (the external merge bumped a
+  submodule to a DESCENDANT of our feat's pin). If an out-of-tree merge bumps a
+  submodule to a commit NOT in our feat's gitlink ancestry (a divergent lineage — a
+  different branch merged, or a revert), do NOT blindly descendant-wins:
+  re-resolve the feat to the new `main`'s submodule commit, RE-RDD the affected
+  cross-repo composition (the composition-at-latest-versions high-risk unknown —
+  prove it on a `disposable: true` bed), and only then re-post status. A naive
+  update-branch that re-pins the OLDER or divergent gitlink is the exact regression.
+- **The rebase broadcast covers external advances too.** When the orchestrator
+  detects ANY `main` advance — internal OR external — it broadcasts the rebase to
+  every in-flight teammate and re-runs the per-merge delta re-gate over the
+  external delta; the orchestrator OWNS external-advance detection (it is the one
+  actor that fetches `origin/main` across all lanes).
+
 ### The cross-repo WIP landing sequence — commit-to-rebase without shipping unproven code
 
 A multi-repo cutover hits a genuine tension: the WIP must be COMMITTED before a
