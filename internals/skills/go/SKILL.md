@@ -318,7 +318,7 @@ Provider/registry/SDK internals are owned by **`/charly-internals:plugin`**; the
 
 | File | Purpose |
 |------|---------|
-| `graph.go` | Topological sort (layers + images), `ResolveBoxOrder()` |
+| `graph_shim.go` | Thin package-main wrappers (`ResolveBoxOrder()`, `BoxNeedsBuilder()`, `ExpandCandy()`) delegating to the relocated topological sort in `sdk/deploykit/graph.go`; shrinks as callers move to deploykit (the old core `graph.go` is gone) |
 | `intermediates.go` | Auto-intermediate image computation (trie analysis). `createIntermediate()` inherits `Distro` and `BuildFormats` **from the parent image first**, falling back to `cfg.Defaults.*` only when the parent is external or empty. Inverting this (defaults winning over the explicit parent) mis-tags every arch-rooted intermediate as `build: [rpm]`, so every layer section keyed on `pac:` emits an empty RUN step (symptom: `arch-ssh-client` ships without `direnv` / `gnupg` / `openssh`). Regression guard: `TestComputeIntermediates_InheritDistroFromParent` uses `defaults.Build=[rpm]` but expects arch-rooted intermediates to come out `[pac]`. |
 
 ### Build & Runtime

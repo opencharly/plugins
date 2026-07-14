@@ -119,11 +119,11 @@ git switch -c feat/<slug>            # slug = kebab summary of the change
 # write the cutover narrative to CHANGELOG/<placeholder>.md — a PLACEHOLDER CalVer
 #   (any valid YYYY.DDD.HHMM; the evaluator OVERWRITES it with the merge-time VER).
 git add <only the cutover's files> CHANGELOG/<placeholder>.md
-git commit -m "<conventional commit> ...  Assisted-by: Claude (<tier>)"
+git commit -m "<conventional commit> ...  Assisted-by: <Harness> <Provider Full Model Name> (<confidence>)"
 git push origin feat/<slug>                       # feat push — allowed by the gate
 gh pr create --base main --head feat/<slug> \     # fill the PR template completely (single org source: opencharly/.github/.github/PULL_REQUEST_TEMPLATE.md — no per-repo copy)
   --title "<subject>" \
-  --body "<summary + change class + pasted R10 evidence + tier + R0–R10 checklist>"
+  --body-file <pr-body.md>
 # STOP. Do NOT merge your own PR. Hand off to a FRESH pr-validator (Step 2).
 ```
 
@@ -176,8 +176,45 @@ CONFLICTING instead of fast-forwarding the gitlink to the descendant. The
 compliant recovery is the update-branch EQUIVALENT done LOCALLY: in the feat
 worktree, `git merge origin/main` (git resolves the gitlink to the descendant
 commit automatically), then push the result FAST-FORWARD. A MERGE, never a rebase;
-no force-push — the exact constraints `gh pr update-branch` itself honors. Then
-re-post the status and delta-re-gate as above.
+no force-push — the exact constraints `gh pr update-branch` itself honors. **Then
+VERIFY the merge resolved the gitlink FORWARD** — `git ls-tree HEAD <sub>` (or
+`git diff --submodule=short origin/main..HEAD`) must show the DESCENDANT commit, never
+the ancestor: a recovery that silently re-pins the OLDER submodule bump is the exact
+regression this class produces (a sibling merge advances `main` mid-validation, then a
+naive recovery reverts the gitlink to the older pointer). Only after the descendant-wins
+check re-post the status and delta-re-gate as above.
+
+**Multi-committer main advances — out-of-tree PRs from other committers.** The
+orchestrator is NOT the sole source of `main` advances: another committer (a human
+maintainer, a parallel session, an outside contributor via the fork+PR path) may
+land an unrelated PR on `main` WHILE this plan's `feat/` branches are in flight. The
+discipline above is main-advance-agnostic and applies to ANY merge regardless of
+source — treat an out-of-tree merge IDENTICALLY to an internal one:
+- **Detect proactively, not only reactively.** Fetch `origin/main` (and each
+  submodule's `main`) before opening EACH PR and before each merge — do not rely
+  solely on the orchestrator's own-merge broadcast. A `feat/` branch that goes
+  `BEHIND` from an external merge is recovered exactly as above (`gh pr
+  update-branch`, delta re-gate, forward-gitlink verify). `strict: true` is KEPT
+  precisely for this: a stale-base green PR merged over an external advance opens a
+  semantic-conflict blind spot, so the delta re-gate's overlap check
+  (`git diff --name-only <old-main>..main` ∩ branch-files) is what makes an
+  out-of-tree merge safe — EMPTY overlap → re-post; NON-EMPTY → re-run the primary
+  beds. A teammate pushing while `BEHIND` an external merge updates its branch and
+  reports the overlap for the orchestrator's delta-re-gate call.
+- **Divergent-lineage submodule bump (not ancestor/descendant).** The
+  descendant-wins rule above covers the common case (the external merge bumped a
+  submodule to a DESCENDANT of our feat's pin). If an out-of-tree merge bumps a
+  submodule to a commit NOT in our feat's gitlink ancestry (a divergent lineage — a
+  different branch merged, or a revert), do NOT blindly descendant-wins:
+  re-resolve the feat to the new `main`'s submodule commit, RE-RDD the affected
+  cross-repo composition (the composition-at-latest-versions high-risk unknown —
+  prove it on a `disposable: true` bed), and only then re-post status. A naive
+  update-branch that re-pins the OLDER or divergent gitlink is the exact regression.
+- **The rebase broadcast covers external advances too.** When the orchestrator
+  detects ANY `main` advance — internal OR external — it broadcasts the rebase to
+  every in-flight teammate and re-runs the per-merge delta re-gate over the
+  external delta; the orchestrator OWNS external-advance detection (it is the one
+  actor that fetches `origin/main` across all lanes).
 
 ### The cross-repo WIP landing sequence — commit-to-rebase without shipping unproven code
 
@@ -259,6 +296,15 @@ A producer PR must be **merged** (not merely green) before the consumer's pointe
 bump — the superproject pointer must reference a commit that is on the submodule's
 real `main`, which only the merge produces.
 
+**A valid base is an ASSEMBLED PAIR, not a lone submodule advance.** A new consumer
+cutover branches from a base that is valid only once BOTH halves have merged: an `sdk`
+`main` advance is a valid consumer base ONLY after its superproject adaptation (the
+gitlink bump + any `charly/go.mod` require) has ALSO merged. Branch a consumer off a bare
+`sdk` main advance whose super side is still open and you pin a superproject state no
+`main` records — the consumer's R10 builds against a half-assembled base and its pointer
+bump references a commit `main` has never seen. Wait for the pair before treating a
+producer advance as a base.
+
 **Submodule-pointer-bump safety (step 3) — bump AFTER the switch, then stage AND
 verify.** A `git switch` / `git checkout` re-materializes each submodule at the
 gitlink the *target branch* records, silently discarding an **unstaged**
@@ -277,15 +323,44 @@ is the silent-drop failure.
 **Attribution of the pointer-bump commit — derived from what it points at.** When
 the bumped submodule commit is itself all-documentation (a skill / `*.md` edit),
 the superproject pointer-bump commit IS the Documentation-only change class and
-lands at `documentation reviewed`: `pre-commit-gate.sh` recurses into the
-submodule's own `old..new` diff to certify it (objects must be present locally; a
-bump it cannot certify is rejected). A bump that integrates submodule CODE is a
+lands at `documentation reviewed`: the fresh validator inspects the submodule's
+own `old..new` diff to certify it. A bump that integrates submodule CODE is a
 code class and takes a runtime tier, the docs riding along. So a docs-only skill
 cutover lands `plugins` (the `*.md`) at `documentation reviewed`, then the
 superproject pointer bump at `documentation reviewed` too — both halves honest.
 
 **For the full multi-worktree end-to-end — the doc-tier `git -C` literal-path
 rule, and the mandatory post-landing worktree refresh — see B7.**
+
+### Per-module verification — verify by MODULE CLASS, and prove the fix is in the BINARY
+
+Two mechanics that bite every cross-repo landing:
+
+**Verify each Go module by its CLASS, always with `GOWORK=off`** (the repo is a Go
+workspace, so module-level checks must disable it or they pull the workspace's transitive
+requires):
+
+- **`sdk` is a STANDALONE-CONSUMED contract module** (out-of-tree consumers import it
+  directly), so it earns the full standalone battery: `GOWORK=off go mod tidy && go mod
+  verify && go build ./... && go test ./...`. It MUST tidy and build cleanly on its own.
+- **`charly` is a WORKSPACE MEMBER**, not a standalone module: verify it with `GOWORK=off
+  go mod verify` + the WORKSPACE build. A full standalone `go mod tidy` on `charly`
+  POLLUTES its `go.mod` with `candy/plugin-*` pseudo-requires (they resolve through the
+  workspace, not the module graph), and a standalone `go build` that fails ONLY on
+  `candy/plugin-*` imports is an ARCHITECTURAL fact (the plugins are workspace siblings),
+  never a defect to "fix" by hand-editing `go.mod`.
+- **`plugins` candies tidy PER-MODULE** — each candy is its own module; tidy/verify them
+  individually, never as one tree.
+
+**Prove a fix is in the BUILT BINARY by a content marker, NOT by the version stamp.**
+`pkg/arch/calver.sh` derives the CalVer from the HEAD commit's UTC time (`git log -1
+--format=%cd`), so the stamp identifies the SOURCE COMMIT, never the build moment — a
+`task build:charly` on a DIRTY working tree reports the IDENTICAL version as the clean
+commit under it. So `charly version` matching the expected CalVer does NOT prove your
+uncommitted fix compiled in. Prove fix-presence by a content marker instead: `strings
+bin/charly | grep '<a string unique to the fix>'` (a new error message, flag name, or
+symbol). The stamp answers "which commit"; the `strings` marker answers "is my change
+actually in this binary".
 
 ## B3 — agent teams on ONE shared tree (no worktree)
 
@@ -515,11 +590,7 @@ step with a **literal absolute path** `git -C /abs/path …`. NEVER a leading
 `cd`+`\`-continued chain (it scopes every later command into the submodule) and
 NEVER a shell variable for a path — **shell variables do NOT persist between Bash
 tool calls**, so a `WT=…` set in an earlier call is EMPTY later and `git -C
-"$WT/plugins"` silently becomes `git -C /plugins` (this was a real failure). The
-`pre-commit-gate` now also BLOCKS a `git -C "$VAR" commit` form outright and asks for
-the literal absolute path — that block is a parse requirement, not a denial: re-issue
-ONCE with the literal path (the one sanctioned re-issue; anything else after a hook
-block stays forbidden reshape-and-retry). Verify:
+"$WT/plugins"` silently becomes `git -C /plugins` (this was a real failure). Verify:
 `git -C /abs rev-parse --show-toplevel` == the path you edited AND `git -C /abs
 status --short` lists your edits.
 
@@ -531,13 +602,9 @@ touched → box submodules → plugins → superproject). Per-repo mechanics = B
 step 1; pointer-bump safety = B2 step 3.
 Two proven additions:
   - **plugins docs commit at `documentation reviewed`: `git -C <LITERAL-abs-plugins>
-    commit …`.** RDD-proven on the live gate: a literal `-C` scopes
-    `pre-commit-gate.sh` to the plugins all-docs index in ONE shot (it passes even
-    while the superproject has non-doc code staged, and recurses the submodule's
-    `old..new` diff). Do NOT use a `$var` (may be unset → `git diff --cached --raw
-    failed`); do NOT use `cd plugins && git commit` (the gate fires BEFORE the
-    in-command `cd`, so it inspects the SUPERPROJECT index and blocks on staged
-    code). The literal `-C` removes the old "empty the other index first" dance.
+    commit …`.** The literal path keeps repository selection explicit and lets
+    the fresh validator inspect the plugins diff independently. Do NOT use a
+    shell variable that may be unset or an in-command directory change.
   - **box/<distro> re-stamp** (schema-HEAD bump): edit on the submodule's own feat
     branch; **gate = `charly box validate` standalone** (a version-stamp change has
     no build behavior — building proves nothing); commit, open PR, evaluator merges +
@@ -569,10 +636,8 @@ main worktree silently serves STALE SKILLS to sessions, so refreshing it is
 mandatory. (A ` M <sub>` in a worktree used only for the ff-merge is this drift, not
 lost work.)
 
-**Landing gotchas (each cost real time):** the **PreToolUse pre-commit-gate fires
-ONCE per Bash call, BEFORE the command runs** → a `git reset && git commit` in ONE
-call fails (the reset hasn't happened yet); split into separate Bash calls. `task
-build:charly` dirties `pkg/arch/PKGBUILD` (makepkg `pkgver()`) → `git -C <pkg/arch>
+**Landing gotchas (each cost real time):** `task build:charly` dirties
+`pkg/arch/PKGBUILD` (makepkg `pkgver()`) → `git -C <pkg/arch>
 restore PKGBUILD`. `git merge-base --is-ancestor A B` ERRORS if B's object isn't
 fetched (common for a sibling-worktree submodule) → `git fetch` first; cross-check
 `git ls-tree origin/main <sub>` before concluding "DIVERGED". A `git grep --
@@ -597,7 +662,7 @@ that changelog file AND the `v<…>` tag. Every component is fixed-width zero-pa
 filenames and tags sort chronologically under a plain alphanumeric sort.
 
 - **The author writes a PLACEHOLDER** `CHANGELOG/<placeholder>.md` (any valid
-  `YYYY.DDD.HHMM`, only to satisfy `pre-commit-gate.sh`) and — for a schema cutover
+  `YYYY.DDD.HHMM`, so the cutover carries its required history) and — for a schema cutover
   — a PLACEHOLDER `#SchemaVersion` / `migrations.cue` bump. The author owns none of
   the final numbers.
 - **The evaluator, at merge:** `VER=$(date -u +%Y.%j.%H%M)` (guard uniqueness — if
@@ -641,7 +706,7 @@ Fix: Add fuse-overlayfs for container startup
 
 Tested via overlay session on LOCAL system.
 
-Assisted-by: Claude (fully tested and validated)
+Assisted-by: Codex OpenAI GPT-5.6 Sol (fully tested and validated)
 ```
 
 ## If validation FAILS or R10 fails

@@ -214,6 +214,19 @@ Neither checks host ports —
 disjoint ports across beds are the AUTHOR's responsibility (an overlap fails the
 second bed at deploy via `CheckPortAvailability`).
 
+**Shared-FIXTURE image isolation — a concurrency class beyond ports.**
+`foldCheckBeds` keeps DEPLOY names disjoint and port auto-allocation keeps host ports
+disjoint; a third class — two beds (or two runs of one bed from different worktrees) that
+BUILD THE SAME FIXTURE IMAGE — is handled structurally by **per-run fixture image tags**:
+a bed run tags the fixture `<bed-root>-<runCalver>`, so two beds building the same fixture
+image NAME never share a tag and never race podman's store-global tag namespace. This
+closed a real defect: with a shared unscoped `<fixture>:<tag>`, a concurrent build / retag
+/ remove from one tree could pull the tag out from under another tree's bed mid-run —
+invisible to a serial roster, surfacing only under simultaneity (a pulled or renamed image
+→ a build/probe failure on the OTHER bed). The per-run tag makes distinct beds
+collision-free by construction; the earlier interim rule (an orchestrator-serialized
+MUTEX GROUP over beds sharing a fixture tag) is historical.
+
 ### Approximate wall-clock (10-CPU 32-GB reference host)
 
 `check-pod` ~110s IDLE but **842s measured under a concurrent roster** (one build →
@@ -311,7 +324,7 @@ CLAUDE.md R10 carries the mandate; this matrix is the authoritative detail.
 
 | Change class | Pre-flight | The R10 gate | Tier on a clean pass | Explicitly NOT required |
 |---|---|---|---|---|
-| **Documentation-only change class** — `*.md` (CLAUDE.md, `plugins/**/SKILL.md`, READMEs, CHANGELOG), comment-only code edits, or a submodule pointer bump to an all-documentation submodule commit; zero behavior change | markdown integrity, link checks | The non-runtime standards: adversarial consistency review, the R5 grep self-test, cross-reference validation, the `pre-commit-gate.sh`/`pre-push-gate.sh` gates | `documentation reviewed` | ANY bed run or image build — beds cannot fail on prose |
+| **Documentation-only change class** — `*.md` (CLAUDE.md, `plugins/**/SKILL.md`, READMEs, CHANGELOG), comment-only code edits, or a submodule pointer bump to an all-documentation submodule commit; zero behavior change | markdown integrity, link checks | The non-runtime standards: adversarial consistency review, the R5 grep self-test, cross-reference validation, and command-safety gates | `documentation reviewed` | ANY bed run or image build — beds cannot fail on prose |
 | **Hook / workflow scripts** — `.claude/hooks/*.sh`, `.claude/workflows/*.js` | `bash -n` / async-body parse | Execute the changed script live: run the hook directly (paste its output); a workflow whose CONTROL FLOW changed runs against ONE bed matching the change. Prompt-string-only workflow edits: parse + the non-runtime standards | `fully tested and validated` | The full bed fan-out |
 | **`charly` Go code** | `go test ./...` + `go vet` + `task build:charly` (R9 freshness + `charly version` check) | `charly check run <bed>` for EACH bed whose kind matches a touched code path: box/candy/pod/DeployTarget mechanism → `check-pod`; `target: local` → `check-local`; VM / k8s → `check-k3s-vm`; a feature surface → its feature bed. Cross-cutting loader / resolver / IR / unified-schema changes → fan EVERY matching bed out CONCURRENTLY, by owner: SHORT beds via `/verify-beds` (one `charly check run <bed>` per agent), every LONG bed (`vm`/`android`, or last run ≥600s) as a persistent-session `run_in_background` task — in-spec for that class, not a scope override; a `/verify-beds` result with `gateComplete: false` is a PARTIAL roster, never a green gate | `fully tested and validated` | Beds whose substrate the change cannot reach |
 | **Candy / box / pod / vm / k8s / local / android config** | `charly box validate` | Build + run a bed that COMPOSES the changed entity (a candy edit → a bed whose image stacks that candy); when no bed composes it, the R7 sequence on a disposable deploy: build → `charly check box` → deploy → `charly check live` → fresh `charly update` | `fully tested and validated` | Beds that do not compose the changed entity |
@@ -334,7 +347,7 @@ code class in the same commit, at that code class's runtime tier — never
 a "comment" edit that changes a prompt string an agent executes is
 script-text, not docs; a YAML comment is docs, but a YAML field is config. A
 submodule pointer bump is documentation only when the bumped submodule commit is
-itself all-documentation (`pre-commit-gate.sh` recurses into its `old..new` diff);
+itself all-documentation (the fresh validator inspects its `old..new` diff);
 a bump integrating submodule code is a code class, at a runtime tier.
 
 ## The 10 Testing Standards (READ FIRST — referenced by CLAUDE.md R1–R10)

@@ -16,9 +16,9 @@ The VM surface parallels the `candy:` image surface: one YAML entry per entity, 
 ## File layout
 
 ```yaml
-# vm.yml
-vms:
-  <name>:
+# vm.yml — name-first nodes (a per-kind split file loaded via charly.yml `import:`, or inline under its root)
+<name>:
+  vm:
     source:
       kind: cloud_image | bootc
       # cloud_image branch:
@@ -35,7 +35,7 @@ vms:
     # Hardware (both branches):
     disk_size: 20G | "10 GiB" | 1T         # VIRTUAL size; qcow2 is lazily/sparsely allocated (grows on demand)
     ram: 4G | "8192M"
-    cpus: 4
+    cpu: 4                                 # yaml key is singular `cpu` (VmSpec.Cpus)
     machine: q35 | virt | i440fx           # default: host-native
     firmware: bios | uefi-insecure | uefi-secure  # default: bios
     backend: auto | libvirt | qemu         # default: auto
@@ -151,12 +151,12 @@ Canonical example: `/charly-vm:arch`. Only existing cloud_image VM in the repo �
 
 Use when the VM is built from an **in-repo bootc container image** (a `candy:` image entry with `bootc: true`). `charly vm build` runs `bootc install to-disk --via-loopback` inside a privileged container to produce the qcow2/raw disk.
 
-No bootc VM ships in the repo today; a bootc `vms:` entry pairs a `candy:` image carrying `bootc: true` with the VM hardware spec. By convention a `-bootc` suffix marks the bootc VM entity (distinguished from an equivalent container-form deploy by the `vms:` namespacing, not by the name).
+No bootc VM ships in the repo today; a bootc `vm:` node pairs a `candy:` image carrying `bootc: true` with the VM hardware spec. By convention a `-bootc` suffix marks the bootc VM entity (distinguished from an equivalent container-form deploy by the `vm:` kind key, not by the name).
 
 ### Authoring a new bootc VM
 
 1. Ensure the paired container image has `bootc: true` declared and builds cleanly.
-2. Add a `vms:` entry with `source.kind: bootc` + `source.image: <entry-name>`.
+2. Add a `vm:` node with `source.kind: bootc` + `source.box: <entry-name>` (the bootc source field is `box:`, not `image:`).
 3. Size disk/ram/cpus for the workload (see the relevant per-pod or `/charly-distros:<name> / /charly-languages:<name> / /charly-infrastructure:<name> / /charly-tools:<name>` skill's VM Configuration section for the authoritative numbers).
 4. Run `charly vm build <vm-name>`. See `/charly-vm:vm` known-caveats section for bootc-specific gotchas (rootful storage split, nested-container `--transport containers-storage`, loopback device mount namespace).
 
@@ -201,13 +201,9 @@ Load-time errors raised by the closed `#Vm` CUE schema (`sdk/schema/vm.cue`, see
 
 ## Migration from legacy (box.bootc / box.vm / box.libvirt)
 
-Projects predating this schema had three coupled fields on image entries (`candy:` nodes carrying `base:`/`from:`): `bootc: true`, `vm: {...}`, `libvirt: [...]`. All three were deleted in the hard cutover. Conversion is one-shot:
+Projects predating this schema had three coupled fields on image entries (`candy:` nodes carrying `base:`/`from:`): `bootc: true`, `vm: {...}`, `libvirt: [...]`. All three were deleted in the hard cutover, and the step that harvested them into VM nodes lived in the migration chain that was **removed at the `2026.186.2323` migration-baseline reset**. So `charly migrate` no longer converts those legacy fields: a config still carrying them predates the supported schema floor (`2026.174.1100`) and is **unmigratable** — `charly migrate` refuses it (`predates the supported floor … re-author against the current schema`) and changes nothing on disk. Re-author such a VM by hand as a name-first `<name>: {vm: {…}}` node (the shape this skill documents).
 
-```bash
-charly migrate
-```
-
-Idempotent. Harvests the legacy fields into `vms:` entries, preserving any pre-existing `vms:` keys. See `/charly-build:migrate` for the full command reference and `/charly-internals:cutover-policy` for why hard-cutover was the chosen policy.
+For a config already within the migratable window (`[floor, HEAD)`), `charly migrate` is one idempotent command that brings it to the current schema. See `/charly-build:migrate` for the floor/HEAD gate and the full command reference, and `/charly-internals:cutover-policy` for why hard-cutover was the chosen policy.
 
 ## Cross-References
 
