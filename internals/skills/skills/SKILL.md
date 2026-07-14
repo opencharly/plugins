@@ -11,12 +11,12 @@ description: |
 
 Skills are living documents at `plugins/<plugin>/skills/<name>/SKILL.md`. They are the primary knowledge source for Claude Code — always invoked before codebase exploration. This skill covers when and how to update them.
 
-## Skill Dispatcher — the sole copy lives in CLAUDE.md R0
+## Skill Dispatchers
 
-The trigger → skill dispatcher is the table in CLAUDE.md "Skill Dispatcher"
-(Part I, immediately after R0) — the SOLE copy, deliberately mirrored nowhere
-(duplication drifts). When multiple triggers apply, load ALL matching skills
-in ONE message (parallel `Skill` calls). Full index: `plugins/README.md`.
+Each harness has a complete root dispatcher: Claude Code uses `CLAUDE.md` and
+Codex uses `AGENTS.md`. Keep their trigger → skill mappings equivalent while
+preserving harness-specific tool language. When multiple triggers apply, load
+all matching skills before acting. Full index: `plugins/README.md`.
 
 ## When to Update Skills
 
@@ -177,7 +177,7 @@ content — they live in the superproject's `.claude/workflows/*.js`.
 
 ### Per-directory CLAUDE.md signposts (hybrid)
 
-The repo-root `CLAUDE.md` is the single canonical R0–R10 rule-set.
+The repo-root `CLAUDE.md` is Claude Code's complete R0–R10 rule-set.
 Per-directory `CLAUDE.md` files (`charly/`, `candy/`, `plugins/`, and each
 `box/<distro>` submodule) are THIN signposts only: they name the skills to
 load for that area and point back to root. They MUST NOT restate any rule body —
@@ -185,7 +185,8 @@ duplication drifts (an earlier layer-validator and the reminder hooks both drift
 exactly this way; the reminder hooks now name rules as pointers/triggers, never
 restating their bodies). Subagents and teammates load the full `CLAUDE.md`
 hierarchy from their working directory, so a signpost reaches a worker scoped
-to that subtree without bloating root.
+to that subtree without bloating root. Codex uses the independent root
+`AGENTS.md` dispatcher and does not depend on these Claude signposts.
 
 ## Two-Layer Sync Architecture
 
