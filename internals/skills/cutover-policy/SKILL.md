@@ -48,7 +48,7 @@ The discriminator: *would shipping the current cutover WITHOUT this fix leave th
 
 ## Cutover sizing — the batch law (LARGE by default)
 
-**The mandate (canonical statement: CLAUDE.md "Hard Cutover by Default" → "The Cutover Sizing Law"): a cutover ships the LARGEST coherent scope one R10 gate can honestly prove, and the landing ceremony is paid ONCE per theme, never once per fix.**
+**The mandate (matching statement in each harness root rulebook: "Hard Cutover by Default" → "The Cutover Sizing Law"): a cutover ships the LARGEST coherent scope one R10 gate can honestly prove, and the landing ceremony is paid ONCE per theme, never once per fix.**
 
 **Why.** Every landing has a FIXED cost that is independent of change size: the R10 bed gate (with any re-runs), 2–3 fresh-validator PR legs across the multi-repo chain, landing mechanics (CalVer stamp, tags, pointer bumps), and the coordination round-trips — in practice HOURS per ceremony. A sub-~1.5k-line solo cutover is therefore ceremony-dominated (measured: ~85% overhead on sub-800-line solo landings); the same fixes batched pay the ceremony once. "Atomic" means ONE commit per cutover on `main` — it has NEVER meant "smallest independently landable slice". A cutover that is honestly one theme is one atomic cutover no matter how many fixes it carries.
 

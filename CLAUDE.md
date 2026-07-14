@@ -12,7 +12,7 @@ and the marketplace/plugin manifests.
   (`plugins/internals/agents/*.md`), the dynamic workflows, agent teams, and
   the hooks doctrine.
 
-**Authoritative rules live in the repo-root `CLAUDE.md`** (the superproject's
+**Claude's authoritative rules live in the repo-root `CLAUDE.md`** (the superproject's
 `CLAUDE.md`, one level up when this is a submodule of `opencharly`). R0–R10,
 the hard-cutover policy, AI attribution, and the git-workflow are defined
 there — this file only signposts and never restates them. History lives in

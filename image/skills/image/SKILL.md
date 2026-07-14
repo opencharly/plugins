@@ -228,7 +228,7 @@ Every setting resolves through: **image -> defaults -> hardcoded fallback** (fir
 | `security` | `null` | Container security options. Overrides layer-level security |
 | `network` | `string` | Container network mode (default: shared `charly` network; set `host` for host networking) |
 
-VM-related fields (`vm`, `libvirt`) are not valid on `candy:` image entries — the loader rejects them. VMs are declared as `kind: vm` entities in `vm.yml` — see `/charly-vm:vms-catalog` for authoring and `/charly-build:migrate` for `charly migrate` conversion of legacy configs. `bootc: true` stays on a `candy:` image entry (marks the image as a bootable container); a separate `kind: vm` entity with `source.kind: bootc` references it.
+VM-related fields (`vm`, `libvirt`) are not valid on `candy:` image entries — the loader rejects them. VMs are declared as `kind: vm` entities in `vm.yml` — see `/charly-vm:vms-catalog` for authoring. `bootc: true` stays on a `candy:` image entry (marks the image as a bootable container); a separate `kind: vm` entity with `source.kind: bootc` references it. A config still carrying the removed on-image `vm:`/`libvirt:` fields predates the schema floor and must be re-authored (see `/charly-build:migrate`).
 
 ## Builder and Builds
 
@@ -282,7 +282,7 @@ Self-reference protection: after merging defaults/base, any `builder` entry poin
 
 Validation checks that every builder referenced in `builder:` declares the matching capability in `produce:`.
 
-Source: `sdk/deploykit/order.go` (`BuilderRefForFormat`, relocated from `charly/generate.go` in #67), `charly/graph.go` (`ResolveBoxOrder`, `BoxNeedsBuilder`), `candy/plugin-box/validate_graph.go` (`validateBuilders`).
+Source: `sdk/deploykit/order.go` (`BuilderRefForFormat`), `sdk/deploykit/graph.go` (`ResolveBoxOrder`, `BoxNeedsBuilder` — thin `charly/graph_shim.go` wrappers delegate to it), `candy/plugin-box/validate_graph.go` (`validateBuilders`).
 
 ## Internal Base Images
 
@@ -471,7 +471,7 @@ my-bootc-vm:
         filesystems: [{type: mount, source: ..., target: ...}]
 ```
 
-See `/charly-vm:vms-catalog` for the full VmSpec schema, `/charly-vm:vm` for the `charly vm build/create/ssh` command family, and `/charly-build:migrate` for `charly migrate` to convert legacy `box.vm:` / `box.libvirt:` fields to the new schema.
+See `/charly-vm:vms-catalog` for the full VmSpec schema, `/charly-vm:vm` for the `charly vm build/create/ssh` command family, and `/charly-build:migrate` for the schema floor/HEAD gate — the legacy `box.vm:` / `box.libvirt:` fields predate the floor and are no longer auto-converted, so re-author them as a `kind: vm` node.
 
 ## Ports — inherited from candies, auto-allocated at deploy
 
@@ -580,7 +580,7 @@ experimental:
 - `/charly-build:charly-mcp-cmd` — if the image transitively bundles an mcp-providing candy (e.g. `jupyter`, `chrome-devtools-mcp`), the bundled candy's `mcp:` tests run as part of `charly check live <image> --filter mcp`; see the skill for per-verb details and the port-publishing gotcha.
 - `/charly-vm:vm` — `charly vm build/create/start/stop/ssh` command family; reads `vm.yml`, not `charly.yml`. Covers BIOS vs UEFI firmware, virtio-gpu video model, bootc caveats (rootful storage refresh, `-v /dev:/dev` loopback).
 - `/charly-vm:vms-catalog` — authoring reference for the `kind: vm` entity schema.
-- `/charly-build:migrate` — `charly migrate` converts legacy VM fields to `vm.yml`.
+- `/charly-build:migrate` — `charly migrate` brings a config up to the current schema (the legacy on-image `vm:`/`libvirt:` fields predate the floor and must be re-authored).
 
 ## Cross-kind name reuse
 

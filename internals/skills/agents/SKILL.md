@@ -61,7 +61,7 @@ WORKTREE — the uncommitted working tree on its `feat/<slug>` branch — plus a
 (the branch + absolute worktree path, the WIP state, the exact next steps, any captured
 patch). It is NEVER a "checkpoint commit": un-R10'd non-docs code CANNOT be committed at any
 honest tier — `syntax check only` pairs with "do NOT commit" and a runtime tier needs a live
-R10 that has not run, so the `pre-commit-gate` + attribution rules BLOCK it. The receiving
+R10 that has not run, so the fresh validator must reject it. The receiving
 agent reads the package, confirms the worktree (`git -C <path> status --short` lists the WIP),
 and continues from the working tree — the WIP was never at risk because nothing destructive
 touched it, and the worktree is exactly where a fresh context resumes.
@@ -229,6 +229,15 @@ rosters, coverage gaps in a drop-vs-nest call, and stale rebase bases, none of
 which a one-way audit reveals. The RDD instrument is identical for a delegated decision
 and for your own: a HIGH-RISK claim is proven on a live `disposable: true` bed,
 never accepted on a teammate's report alone.
+
+**A parity / golden / coverage instrument is a CLAIM until proven NON-VACUOUS.** When a
+teammate offers a byte-parity harness, a golden corpus, or an "N cases pass" table as
+evidence, verify the instrument actually EXERCISES what it claims BEFORE the verdict
+counts — count the cases it really runs (a golden corpus with ZERO fixtures "passes"
+every diff; a parity test whose two sides are the same code path proves nothing). The
+motivating incident: a 0-fixture corpus reported green while covering nothing. Read the
+instrument's inputs, not just its exit code — a green from an empty or self-referential
+instrument is a false pass, exactly the class RDD exists to catch.
 
 ### The orchestrator OWNS architectural integrity
 
@@ -446,7 +455,7 @@ lane-local decision.
   schema to `/charly-image:layer` + `charly box validate`.
 - **`pr-validator`** — the FRESH PR evaluator (the disposing half of the two-step
   landing). Spawned with NEW context, it independently re-validates a PR against
-  R0–R10 + the relevant skills, posts the `charly/claude-validation` commit status,
+  R0–R10 + the relevant skills, posts the `charly/pr-validator` commit status,
   and ONLY on PASS generates the merge-time CalVer, rewrites the version surfaces
   on the feat branch, merges (`gh pr merge --squash`), and tags. It is the ONLY
   actor that posts the status or merges; branch protection makes its status the
@@ -526,10 +535,12 @@ discipline as an agent team — it is the workflow expression of the B3 model
 
 - **Partition the parallel work by check bed.** One disjoint disposable
   bed per parallel owner (`check-pod` / `check-k3s-vm` / `check-local` /
-  `check-android-emulator-pod` / …). Distinct beds get distinct container/VM/image
-  names; the author assigns each disjoint host ports too (the loader does NOT
-  check ports — an overlap fails the second bed at deploy), so they run
-  concurrently and safely.
+  `check-android-emulator-pod` / …). Distinct beds get distinct `charly-<bed>`
+  container/VM/domain names, and a bed run tags every fixture IMAGE it builds with
+  a per-run `<bed-root>-<runCalver>` tag (#75), so two beds building the SAME
+  fixture image NAME never race the store-global tag namespace; the author assigns
+  each disjoint host ports too (the loader does NOT check ports — an overlap fails
+  the second bed at deploy), so they run concurrently and safely.
 - **Check-test at EVERY stage, never only at the end.** Each parallel owner
   **verifies before it changes** (Risk Driven Development — proves its bed's
   high-risk assumptions, above all the composition, on its live bed/backend
@@ -625,6 +636,29 @@ them:
   EXPECTED for a sub-agent, NEVER "the skills are absent". Spawn prompts therefore instruct
   `Read`-by-path (giving the SKILL.md PATHS), with `Skill(name)` as an optional shortcut.
 
+**5. A teammate IDLE notification is turn-boundary noise, not proof it died or stalled.**
+The harness emits an idle signal every time a teammate YIELDS its turn — which a working
+teammate does constantly (between tool batches, at every checkpoint). Treating the first
+idle as "went silent" and nudging or replacing on it is a false-positive that discards
+live work. Before nudging or escalating, CONFIRM real inactivity from durable state:
+`find <teammate-worktree> -newermt '-15 min'` (any file touched recently → it is working),
+its `git status` dirty-count moving, or its transcript growing. Only a teammate with NO
+worktree activity across a real window AND no checkpoint is genuinely wedged — the
+nudge-then-replace reflex is correct ONLY after that confirmation.
+
+**6. Confirm a background child's TERMINAL state from its completion signal before
+respawning — never from its output-file size.** A bash `run_in_background` child of a
+TEAMMATE is harness-REAPED when that teammate yields its turn (the motivating incident:
+the children were killed 9s and 47s after the teammate's idles, while the identical
+command run in the FOREGROUND passed). So a teammate runs any owned work it needs to
+completion SYNCHRONOUSLY (foreground), and hands a bed or any other turn-outliving job to
+the PERSISTENT session (see "The binding rule" below); it never leaves a bg child to
+finish after it yields. An `Agent`-tool child MAY survive the parent's yields, but its
+terminal state is authoritative ONLY from its COMPLETION signal (the `<task-notification>`
+/ exit code / durable verdict file), NEVER from the size or tail of its output file (a
+half-written log is indistinguishable from a reaped one). Respawn only after the
+completion signal confirms the child actually ended.
+
 ## The binding rule: running a bed is R10-class
 
 `charly check run <bed>` and `charly update` perform an unattended destroy + rebuild.
@@ -641,6 +675,14 @@ Therefore, for ANY agent or workflow that runs them:
   authorize the commit; only the full final-code run does.
 - **No scope-shrinking flags (R10 flag-override clause).** Never pass `--no-rebuild` / `--keep`
   / `--on-*` / scenario filters unless the user named the flag this turn.
+- **DECLARE an intended live bed run to the orchestrator and wait for a slot.** Any agent
+  about to run a real `charly check run <bed>` / `charly update` first announces it and
+  waits to be scheduled — the orchestrator owns bed serialization (the per-exclusive-token
+  groups, and host build/store capacity). A bed launched without declaring it races an
+  already-running roster (the bed-mutex incident); the live-bed schedule is the
+  orchestrator's, never the individual agent's. (Shared FIXTURE images no longer need a
+  mutex — bed runs tag them per-run `<bed-root>-<runCalver>`, collision-free by
+  construction; `/charly-check:check`.)
 - **Paste-proof survives delegation.** Sub-agents are built to *summarize*,
   but R10 demands *pasted* proof. The executors return the raw verdict + exit
   code + failing-log tail; the **delegating (main) agent pastes it** into the
@@ -700,66 +742,18 @@ Hooks in this project do TWO things and nothing more. The full inventory
    second-pass *triggers* (rule label + a few-word essence + an anchor) so every
    rule gets a "verify THIS turn against it" nudge; the `Stop` reminder prompts a
    re-audit of the turn's changes + the per-repo CHANGELOG entry. They are
-   reminders, NOT copies: a trigger never restates the rule BODY — CLAUDE.md is
-   the single current source, and that is where each trigger points (duplicating
-   rule bodies drifts).
-2. **Deterministic `PreToolUse` gates** that BLOCK (exit 2) only unambiguous,
-   CLAUDE.md-stated invariants: hook bypass via `--no-verify` (`git commit
-   --no-verify` — the `-n` short alias, bundled forms included, scanned as a
-   flag BEFORE the message provider — AND `git push --no-verify`) or via a
-   `core.hooksPath` override in git's global options (`git -c
-   core.hooksPath=… commit/push` — the config spelling of the same bypass;
-   the scan covers the global-opts span only, so `git commit -c <commit>`
-   and a message mentioning the key never false-trigger, and env-var config
-   injection is out of scope: the gate is a discipline backstop, not a
-   security boundary),
-   a missing `Assisted-by: Claude (<tier>)` trailer on a READABLE message — an
-   inline `-m` value, a heredoc body (both live in the command string), or a
-   `-F <file>` the gate READS (every commit Claude is involved in must attribute —
-   a pure-human hand-commit never reaches this PreToolUse gate; scoped to the
-   commit invocation's own arg span). A message the gate CANNOT read to find the
-   tier — a `$(...)`/backtick substitution, a piped or unreadable `-F`, or an
-   editor message (no -m/-F) — fails CLOSED (inline the trailer with `-m`, or point
-   `-F` at a readable file); `--amend`/reuse inherit an already-gated message and
-   are exempt. And a command the gate cannot TOKENIZE — an unbalanced or unquoted
-   quote, e.g. an apostrophe in a heredoc body — fails CLOSED and is blocked, so
-   balance the quotes or use `git commit -F <file>`),
-   any tier OUTSIDE the legal-on-commit set
-   {`fully tested and validated`, `analysed on a live system`, `documentation
-   reviewed`} (the AI-Attribution table forbids `theoretical suggestion`
-   everywhere and pairs `syntax check only` with "do NOT commit"), the
-   `documentation reviewed` tier on a commit whose staged diff is NOT
-   all-documentation (`*.md`/CHANGELOG/README/LICENSE/VISION/`*.txt`,
-   comment-only code edits, or a submodule pointer bump to an all-documentation
-   submodule commit — the tier-vs-diff coherence check, conservative-safe:
-   it never lets a behavioral change pass as docs), a direct push to `main`
-   (a `git push` whose refspec destination is `main` / `refs/heads/main` — `main`
-   advances ONLY via an agent-validated PR merge; a bare `git push` with no
-   refspec is left to the authoritative server-side branch protection), force-push
-   (`git push --force` / `--force-with-lease` / `-f`, bundled forms included),
-   a commit at ANY legal tier (`fully tested and validated` / `analysed on a
-   live system` / `documentation reviewed`) that stages no
-   `CHANGELOG/<YYYY.DDD.HHMM>.md` entry in a repo that tracks a `CHANGELOG/`
-   (history -> each repo's per-repo per-CalVer `CHANGELOG/`; exempt: a repo with
-   no `CHANGELOG/`, and a commit whose staged diff is EXCLUSIVELY submodule
-   pointer bumps — the pure-pointer-bump whose narrative lives in the submodule;
-   fires whenever a tier is parsed from a READABLE message (inline `-m`, heredoc,
-   or a `-F <file>`), like the absent-trailer check — an unreadable message fails
-   CLOSED at the attribution stage before this),
-   and a commit staging a `*.go` change whose touched MODULE is not
-   `golangci-lint`-clean (the Go-lint criterion — the CONFIGURED `golangci-lint
-   run`, never `--fix`/`--enable-only`, per touched module with `GOWORK=off` for
-   `candy/plugin-*` candies; `unused` needs whole-package analysis so the gate
-   lints the MODULE, not just the changed files; fail-OPEN when golangci-lint is
-   absent or times out — the `pr-validator` remains the real gate; it exists so
-   dead/unused code cannot slip in the way the P10 VM-CLI sweep's 21 orphaned
-   symbols did).
+   reminders, NOT copies: a trigger never restates the rule BODY. Claude hooks
+   point to `CLAUDE.md`; Codex follows its complete `AGENTS.md` rulebook.
+2. **Deterministic `PreToolUse` gates** that cover immediate command mechanics
+   only: hook bypass (`--no-verify` / `-n` / `core.hooksPath`), untokenizable
+   commit commands, configured Go lint for staged Go modules, force-push, and a
+   direct push to `main`. Attribution identity/confidence, change class,
+   CHANGELOG coverage, architecture, and R0–R10 evidence belong exclusively to
+   the fresh `pr-validator`; the hook contains no duplicate policy regexes.
 
-The honest division of labor: **hooks gate mechanical invariants; agents
-judge proof.** Whether a tier is *justified* by the evidence is a reasoning
-task — that stays with `testing-validator` + the pasted-proof rule, NOT a
-regex in a hook. Never re-bloat the reminders into CLAUDE.md rule-body copies —
-name + point, never restate.
+The honest division of labor: **hooks guard command mechanics; agents judge
+policy and proof.** Never re-bloat a hook or reminder into a second copy of
+CLAUDE.md or validator logic — name + point, never restate.
 
 ## Agent teams (experimental — enabled in committed settings)
 
@@ -822,9 +816,16 @@ it shares the deploy namespace's global name-uniqueness and can't collide with
 another deploy by construction — and `validateCheckBeds` requires every bed to set
 `disposable: true` and to resolve to a substrate (pod / vm / local / android, with
 the referenced vm/local/android entity present). Distinct beds therefore get distinct `charly-<bed>`
-container / libvirt-domain / image names — a `vm:` bed's libvirt domain is keyed by the DEPLOY name
+container / libvirt-domain names — a `vm:` bed's libvirt domain is keyed by the DEPLOY name
 (`vmDomainIdentity`), NOT the shared `kind:vm` entity it references, so sibling beds on ONE entity
 (`vm: {from: eval-vm}`) still get distinct `charly-<bed>` domains + per-deploy disk overlays (P33).
+The FIXTURE IMAGES a bed builds are isolated the same way — by a per-run TAG, not a name: a bed run
+tags every image it builds (`charly box build … --tag <bed-root>-<runCalver>`) and passes that tag on
+every deploy step (`bedRunImageTag`, the tag analogue of `vmDomainIdentity`), so two beds building the
+SAME fixture image NAME (e.g. `check-sidecar-pod` + `check-k8s-deploy` both building
+`check-k8s-deploy-app`) no longer race the store-global short-name→newest-local-CalVer resolution —
+the last-write-wins collision #75 fixed (the pre-#75 "collision-free by construction" claim was
+FALSIFIED for beds sharing a fixture image name).
 **Host-port disjointness is NOT
 statically guaranteed, so EVERY eval bed MUST use PORT AUTO-ALLOCATION — never a
 hardcoded host port.** The loader checks no ports, so a hardcoded host port
@@ -991,11 +992,17 @@ The playbook:
    yields an UNSTAMPED binary that reports version `unknown` and FAILS every bed step
    asserting the CalVer stamp (a `vm:` bed pushes the host binary INTO the guest and
    asserts `charly version` there, so an unstamped binary fails the guest witness).
+   **This trap has RECURRED — `task build:binary` (never a bare `go build -o`) is the ONLY
+   sanctioned way to produce a per-worktree binary; a plain `go build` is a silent gate
+   defect that surfaces only at the guest stamp assertion, deep into a long VM bed.**
    Scheduling
    rule when overlapping gates: the SAME bed name must never run twice at the same
    instant (bed→deploy names are deterministic — same `charly-<bed>` names collide);
-   distinct beds are collision-free by construction (this section's isolation
-   invariants); and **verify every bed NAME against the LIVE tree roster**
+   distinct beds are collision-free by construction — their `charly-<bed>` deploy
+   names AND (post-#75) the FIXTURE IMAGES they build, which a bed run tags per-run
+   `<bed-root>-<runCalver>` so two beds building the same fixture image name never
+   race the store-global tag namespace (this section's isolation invariants); and
+   **verify every bed NAME against the LIVE tree roster**
    (`grep '^check-.*:' charly.yml`) BEFORE each launch — rosters change across
    cutovers, so a stale name from notes or memory aborts the run. Cross-gate
    concurrency shares the ONE store-lock ceiling (item 4)
@@ -1031,6 +1038,17 @@ standing operator requirement, and `teammateMode` is snapshotted at session star
 anyway (a mid-session settings flip does nothing). Stopping is also the REUSE
 boundary: a landed teammate is never re-tasked with a different unit — see
 "Teammate context lifecycle" above.
+
+**Stop ONLY your own children, by task id — NEVER pattern-kill by name.** `pgrep -f
+<substring>` / `pkill -f <substring>` matches EVERY process whose argv contains the
+substring, regardless of owner — so a `pkill -f 'charly check run'` from one agent kills
+another agent's (or the operator's) live bed, and a `pkill -f charly` is catastrophic
+(PID-confirmed cross-kill incident: a substring match reaped a sibling's running roster).
+Terminate a child you own with `TaskStop(<name>)` (agents) or the exact task id of the
+`run_in_background` job you launched (bash children) — never a name substring. When a
+genuinely orphaned resource must be cleared, target it by its specific identity
+(`charly vm destroy <entity> --domain <bed>`, `charly remove <name>`, `podman rmi -f
+<id>`), never a broad `pkill`.
 
 ### Speed levers (grounded in the real bed cycle)
 

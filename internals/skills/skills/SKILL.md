@@ -11,12 +11,12 @@ description: |
 
 Skills are living documents at `plugins/<plugin>/skills/<name>/SKILL.md`. They are the primary knowledge source for Claude Code — always invoked before codebase exploration. This skill covers when and how to update them.
 
-## Skill Dispatcher — the sole copy lives in CLAUDE.md R0
+## Skill Dispatchers
 
-The trigger → skill dispatcher is the table in CLAUDE.md "Skill Dispatcher"
-(Part I, immediately after R0) — the SOLE copy, deliberately mirrored nowhere
-(duplication drifts). When multiple triggers apply, load ALL matching skills
-in ONE message (parallel `Skill` calls). Full index: `plugins/README.md`.
+Each harness has a complete root dispatcher: Claude Code uses `CLAUDE.md` and
+Codex uses `AGENTS.md`. Keep their trigger → skill mappings equivalent while
+preserving harness-specific tool language. When multiple triggers apply, load
+all matching skills before acting. Full index: `plugins/README.md`.
 
 ## When to Update Skills
 
@@ -68,35 +68,33 @@ description: |
 ## When to Use This Skill
 ```
 
-## CLAUDE.md vs Skills
+## Rulebooks vs Skills
 
 | Content type | Where it belongs |
 |-------------|-----------------|
-| Project philosophy, architecture, key rules | CLAUDE.md |
+| Project philosophy, architecture, key rules | harness root rulebook (`CLAUDE.md` or `AGENTS.md`) |
 | Command usage, flags, examples | `/charly-core:<cmd>` or `/charly-build:<cmd>` skill |
 | Layer properties, packages, ports | per-pod plugin (`/charly-jupyter:<name>`, `/charly-coder:<name>`, …) or split-foundation plugin (`/charly-distros:*`, `/charly-languages:*`, `/charly-infrastructure:*`, `/charly-tools:*`) for base layers |
 | Image composition, deployment, verification | per-pod plugin or `/charly-distros:<name>` / `/charly-infrastructure:<name>` for base images |
-| Skill disambiguation (which skill to use) | CLAUDE.md R0 "Skill Dispatcher" (the sole copy; never mirrored) |
+| Skill disambiguation (which skill to use) | the active harness root rulebook's R0 Skill Dispatcher |
 | Detailed operational patterns | Relevant `/charly-core:*` / `/charly-build:*` / `/charly-check:*` / `/charly-automation:*` / kind-plugin skill |
-| Hard rule / gate / mandate (the WHAT and the MUST) | CLAUDE.md — stated ONCE, in mandate form, with a `*Detail:*` pointer |
+| Hard rule / gate / mandate (the WHAT and the MUST) | each harness root rulebook, with equivalent policy and an owning-skill pointer |
 | Operationalization / matrix / catalog / worked example (the HOW) | The ONE owning skill (see the Authoritative-copy registry below) |
 | Version history / past changes / renames / cutover narration | the repo's `CHANGELOG/` (per-CalVer `<YYYY.DDD.HHMM>.md`) — never CLAUDE.md or a skill |
 | Long-term thesis / vision / aspiration ("why & where it's going") | `VISION.md` (repo root) — never restating command usage, architecture, or history |
 
-## Mandate in CLAUDE.md, detail in the skill
+## Mandate in the harness rulebook, detail in the skill
 
-The canonical split for every rule: **CLAUDE.md states the rule ONCE, in
-mandate form (≤ a few lines), and points at exactly ONE owning skill via a
-`*Detail:*` pointer; the owning skill carries the operationalization** —
+The canonical split for every rule: **each harness root rulebook states the
+equivalent mandate and points at exactly one owning skill; the owning skill
+carries the operationalization** —
 forbidden-pattern catalogs, decision matrices, worked examples, command
 sequences. Every other document links to the owner and NEVER restates it
 (restated copies drift; the linked original cannot).
 
-Named exceptions where CLAUDE.md itself is the canonical copy (skills link
-TO it, never duplicate it): the **Skill Dispatcher** table, the canonical
-**RDD**, **ADE**, and **SDD** definitions (strict-policy operationalizes the
-first two and the go skill the third, but each definition lives in CLAUDE.md),
-the **Acceptance checklist**, and the **AI Attribution** tier table.
+The complete harness rulebooks own the **Skill Dispatcher**, **RDD**, **ADE**,
+and **SDD** mandates, the acceptance checklist, and AI-attribution tiers. Keep
+their policy equivalent while preserving harness-specific tool language.
 
 ### Authoritative-copy registry
 
@@ -110,9 +108,9 @@ the **Acceptance checklist**, and the **AI Attribution** tier table.
 | Landing mechanics (branch loop, the two-step PR + `pr-validator` merge/tag, CalVer-generated-at-merge, branch protection, multi-repo order) | `/charly-internals:git-workflow` |
 | Agent/workflow/team primitives, hooks doctrine | `/charly-internals:agents` |
 | Kernel/plugin doctrine (core = kernel; every capability a plugin candy), the two authoring shapes, placement, the three-lane transport doctrine, the seams catalog, **the kernel/plugin boundary law** (E/M/B/D/R) + the incomplete-seam mandate | `/charly-internals:plugin` |
-| Skill Dispatcher, RDD/ADE/SDD definitions, Acceptance checklist, attribution tiers (incl. `documentation reviewed`), Documentation-only change class anchor, Key Rules index | CLAUDE.md |
+| Skill Dispatcher, RDD/ADE/SDD mandates, acceptance checklist, attribution tiers, Documentation-only change class anchor, Key Rules index | harness root rulebooks (`CLAUDE.md` and `AGENTS.md`) |
 
-## Mirroring surfaces — sweep when CLAUDE.md wording changes
+## Mirroring surfaces — sweep when rulebook wording changes
 
 **CLAUDE.md's section headings, R-numbers, and named clauses ("flag-override
 clause", "gate by change class", "Documentation-only change class",
@@ -177,7 +175,7 @@ content — they live in the superproject's `.claude/workflows/*.js`.
 
 ### Per-directory CLAUDE.md signposts (hybrid)
 
-The repo-root `CLAUDE.md` is the single canonical R0–R10 rule-set.
+The repo-root `CLAUDE.md` is Claude Code's complete R0–R10 rule-set.
 Per-directory `CLAUDE.md` files (`charly/`, `candy/`, `plugins/`, and each
 `box/<distro>` submodule) are THIN signposts only: they name the skills to
 load for that area and point back to root. They MUST NOT restate any rule body —
@@ -185,7 +183,8 @@ duplication drifts (an earlier layer-validator and the reminder hooks both drift
 exactly this way; the reminder hooks now name rules as pointers/triggers, never
 restating their bodies). Subagents and teammates load the full `CLAUDE.md`
 hierarchy from their working directory, so a signpost reaches a worker scoped
-to that subtree without bloating root.
+to that subtree without bloating root. Codex uses the independent root
+`AGENTS.md` dispatcher and does not depend on these Claude signposts.
 
 ## Two-Layer Sync Architecture
 
@@ -241,7 +240,12 @@ skill's grep self-test caught). Audit and fix them as follows:
    - prose anti-pattern examples (a skill *mentioning* `deprecated.go` as a thing to avoid).
 4. **Claim-keyed sweep (R5)**: a stale claim is fixed across EVERY skill that repeats it,
    not just the file where it surfaced — `git -C plugins grep '<claim>'` returns only
-   CHANGELOG context afterwards.
+   CHANGELOG context afterwards. **Key the grep to the CLAIM CLASS — every wording AND
+   syntactic variant of the false claim — NOT the one surfacing string you just edited:
+   the same false claim survives under a paraphrase and under a singular/plural or
+   wrapper-form variant (a retired-grammar `vms:` fix must ALSO grep the `vm:`-wrapper,
+   `cpus:`, and `deployments:` variants of the same dead grammar; a sweep keyed only to
+   the first string leaves a sibling variant alive and costs a second validator round).**
 5. **Land docs-only**: skill edits are the Documentation-only change class →
    `documentation reviewed` (no beds); the plugins commit carries a
    `CHANGELOG/<YYYY.DDD.HHMM>.md` entry too (every plugins landing does — `plugins`

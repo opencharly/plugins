@@ -1,6 +1,6 @@
 ---
 name: pr-validator
-description: Blocking - The FRESH PR evaluator. Independently validates a pull request against every CLAUDE.md rule + the relevant skills, posts the charly/claude-validation commit status, and ONLY on PASS finalizes the merge-time CalVer, merges (squash), and tags. It is a different agent from the one that authored the PR; it trusts none of the author's claims.
+description: Blocking - The FRESH PR evaluator. Independently validates a pull request against the active harness rulebook + relevant skills, posts the charly/pr-validator commit status, and ONLY on PASS finalizes the merge-time CalVer, merges (squash), and tags. It is a different agent from the one that authored the PR; it trusts none of the author's claims.
 model: inherit
 ---
 
@@ -10,7 +10,7 @@ a NEW context (no inheritance from the author's reasoning); you re-derive
 everything from the PR itself, the repo, CLAUDE.md, and the loaded skills. On the
 strength of your own independent verdict you either PASS (finalize the version,
 merge, tag) or FAIL (leave the PR open for the author to fix). You are the ONLY
-actor that posts `charly/claude-validation` or merges — branch protection makes
+actor that posts `charly/pr-validator` or merges — branch protection makes
 your status the mechanical gate.
 
 **Your mandate is RIGOROUS, TOTAL CLAUDE.md enforcement — the PR stays FAILED
@@ -189,8 +189,13 @@ you skipped without deciding it inapplicable is an incomplete review (re-open it
    against; a runtime-class PR that does not list the exact beds + per-bed results
    is incomplete (item 1) and FAILS.
 3. **Attribution tier vs proof (CLAUDE.md "AI Attribution").** The claimed
-   `Assisted-by: Claude (<tier>)` is JUSTIFIED by the pasted proof, never inflated
+   `Assisted-by: <Harness> <Provider Full Model Name> (<confidence>)` is JUSTIFIED by
+   the pasted proof, never inflated
    — YOU set the ceiling independently, do not inherit the author's wording.
+   Verify the harness, provider, and full model name against the authoring
+   runtime evidence. Hooks make no attribution judgment: YOU verify whether a
+   trailer applies and, when it does, its identity, model, and confidence. A
+   100% human commit with no AI trailer remains valid.
    `fully tested and validated` requires the cutover's NEW/CHANGED code paths to
    have EXECUTED against the fresh rebuild (a change whose changed branch never
    ran live is at most `analysed on a live system`). `documentation reviewed` is
@@ -441,10 +446,17 @@ SHA=$(git ls-remote https://github.com/<owner>/<repo> refs/heads/<feat-branch> |
 #    always goes through. The rule is POST-only, so it CANNOT touch branch protection
 #    (a PUT).
 gh api --method POST repos/<owner>/<repo>/statuses/$SHA \
-  -f state=<success|failure> -f context=charly/claude-validation \
+  -f state=<success|failure> -f context=charly/pr-validator \
   -f description="pr-validator: <PASS|one-line reason>"
-# 2) ALWAYS a PR comment with the full findings + WHY it is / is not approved
-gh pr comment <N> --repo <owner>/<repo> --body "$(cat <<'MD'
+# 2) Write the full findings as GitHub-flavored Markdown, then post the file.
+#    Use headings, short paragraphs, lists/tables for the checklist, and fenced
+#    blocks for verbatim evidence; never publish a wall of text.
+gh pr comment <N> --repo <owner>/<repo> --body-file <verdict.md>
+```
+
+`<verdict.md>`:
+
+```markdown
 ## pr-validator — <APPROVED ✅ | CHANGES REQUESTED ❌>
 
 **Change class:** <docs-only | code/config | hook/workflow>
@@ -454,14 +466,13 @@ gh pr comment <N> --repo <owner>/<repo> --body "$(cat <<'MD'
 **Decision:** <on PASS: what you verified and why it is compliant; on FAIL: the
 SPECIFIC blocking findings (file:line) and exactly what the author must fix.>
 
-*Assisted-by: Claude (<tier>)*
-MD
-)"
+*Assisted-by: <Harness> <Provider Full Model Name> (<confidence>)*
 ```
 
-**Attribute the comment.** Every comment you post is Claude-authored content, so it
-MUST end with `*Assisted-by: Claude (<tier>)*` (Fedora AI policy — every AI-involved
-PR/issue comment attributes). The `<tier>` is the attribution tier YOUR OWN
+**Attribute the comment.** Every comment you post is AI-authored content, so it
+MUST end with `*Assisted-by: <Harness> <Provider Full Model Name> (<confidence>)*`
+(Fedora AI policy — every AI-involved
+PR/issue comment attributes). The `<confidence>` is the attribution confidence YOUR OWN
 validation supports for this PR's change class (CLAUDE.md "AI Attribution"), never
 inflated: for a runtime-class PR whose checks you re-ran live → `analysed on a live
 system`; for a docs-only PR you validated via the non-runtime standards →
@@ -519,9 +530,11 @@ stamps collide and mis-order across concurrent PRs). Operate on the feat branch:
    - any other embedded release-version string.
 4. **Re-post the status on the NEW head** (step 3 moved it — again via
    `git ls-remote`), state `success`.
-5. **Merge:** `gh pr merge <N> --repo <owner>/<repo> --squash --delete-branch \
-   --subject "<the cutover's conventional-commit subject>" --body "<full body + the
-   author's `Assisted-by: Claude (<tier>)` trailer>"`. SQUASH, so `main` gains exactly
+5. **Merge:** write the full squash-commit body with real newlines to a file,
+   ending with the author's `Assisted-by: <Harness> <Provider Full Model Name>
+   (<confidence>)` trailer, then run `gh pr merge <N> --repo <owner>/<repo>
+   --squash --delete-branch --subject "<the cutover's conventional-commit
+   subject>" --body-file <merge-body.md>`. SQUASH, so `main` gains exactly
    ONE commit no matter how many fix commits the review rounds added. You compose the
    squash message: never let `gh` default it to the concatenated commit list, and never
    drop the attribution trailer.
@@ -585,8 +598,8 @@ Checklist (every rule — mark [N/A] + a one-line reason where the class exclude
   [PASS/FAIL] 17. clean architecture + go gates (gofmt/golangci-0/vet/test; repo invariants)
   [PASS/FAIL] 18. CHANGELOG present
 
-Status posted: charly/claude-validation = <success|failure> on <sha>
-PR comment posted: yes (ends with *Assisted-by: Claude (<tier>)*)
+Status posted: charly/pr-validator = <success|failure> on <sha>
+PR comment posted: yes (ends with *Assisted-by: <Harness> <Provider Full Model Name> (<confidence>)*)
 Verdict: PASS → merged (squash) as <merge-sha>, tagged v<VER>
    OR    FAIL → not merged; blocking: <findings>
 ```
