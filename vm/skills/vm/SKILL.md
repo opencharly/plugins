@@ -532,9 +532,9 @@ proves the localpkg deploy path is `check-charly-vm`.
 (This also means a nested `local:` child of a `vm:` bed needs **no** charly in the guest — the
 vm deploy stages what it needs. See `/charly-core:deploy` "Deploy-into nesting".)
 
-### `charly vm stop` state-sync race under QEMU backend
+### `charly vm stop` — authoritative backend probe + stop verification
 
-Under the QEMU backend, `charly vm stop <name>` returns success + exit 0, but `charly vm list -a` still reports the VM as `running` until `charly vm destroy` runs. Libvirt backend unaffected. Workaround: proceed to `charly vm destroy` rather than treating residual "running" as a stop failure.
+`charly vm stop <name>` tears the domain down from whichever backend ACTUALLY holds it (probing libvirt authoritatively via the shared `vmHolder` — the same primitive `charly vm destroy` uses — regardless of the configured/default `vm.backend`) and VERIFIES the domain is no longer RUNNING before reporting success. The verify POLLS for the domain to leave `DomainRunning` (what `charly vm list -a` reports as "running") over the `StopGate` grace — the libvirt stop is an async ACPI poweroff, so the poll waits for the guest to power off rather than re-probing instantly (which would false-positive mid-shutdown). A guest that ignores ACPI / reboots-on-shutdown and is still RUNNING after the grace is a hard failure, never a silent "Stopped VM" — the error points at `charly vm stop --force` (a `destroyDomain` that forces the guest off, the same force backstop `charly vm destroy`'s `gracefulStopDomain` uses). A name with no libvirt domain and no qemu state — a genuinely-absent VM — errors "no such VM" (mirroring `charly vm destroy`), so a typo never false-succeeds. (The pre-#77 "trust the single resolved backend" arm took the qemu no-op path for a libvirt domain and falsely reported "Stopped VM" while the domain kept running; #77 closed it.)
 
 ### Host kernel/module-dir mismatch
 
