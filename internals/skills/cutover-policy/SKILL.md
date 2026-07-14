@@ -61,7 +61,18 @@ The discriminator: *would shipping the current cutover WITHOUT this fix leave th
 - **Gate sizing follows the same law**: run ONLY the beds that EXERCISE the change (CLAUDE.md R10 — "a gate that cannot fail on the change proves nothing (waste)"); an over-broad roster is not diligence. "Cross-cutting → full roster" applies to genuinely shared-state paths (loader / deploy ledger / store / arbiter), not to every change.
 - **Validator chains parallelize independent legs**: sdk and plugins-docs legs of one cutover validate CONCURRENTLY; sequential only where B2's dependency order forces (a consumer pointer needs the merged producer).
 
-**Forbidden internal-voice triggers (the sizing set):** "I'll land this small fix through its own quick PR" (it has a batch) / "each issue gets its own atomic cutover" (only blocking/urgent ones do) / "to keep the diff focused I'll split these" (theme, not diff size, bounds the cutover) / "run the full roster to be safe" (run the beds that can FAIL on the change).
+**The sizing decision procedure — how a piece of work becomes a cutover (apply IN ORDER):**
+
+| # | Question | If YES |
+|---|---|---|
+| 1 | Is it BLOCKING for an open cutover (its R10/claim fails without it)? | Fix in THAT cutover's tree — it is not a separate cutover at all (R2 path 1) |
+| 2 | Is it urgent standalone (an active-gate breaker, a `main` regression, a security issue)? | SOLO cutover, now |
+| 3 | Is it a planned program wave, or a substantial coherent scope in its own right (rule of thumb ≥~1.5k-line diff)? | Its OWN properly-sized cutover |
+| 4 | Otherwise (a small, non-blocking, separable fix or doc divergence) | Route it into the NAMED thematic batch it belongs to — join the open batch, or open the batch (name, owner, first member) if none exists. The batch lands as ONE cutover when its theme is served |
+
+**The three axes — do not conflate them:** (a) **BATCHING** (this law) governs MANY separate small changes → collect them into one theme-coherent cutover; (b) **DECOMPOSITION** (the forbidden-excuse catalog's "a large cutover decomposes into atomic per-unit cutovers landed one after another") governs ONE contract that is too large to land in a single atomic commit → split it into ordered units as FORWARD MOTION only — it is never a reason to make cutovers small by default, and never a deferral device; (c) **the NO-SPLIT rule** governs ONE change's own scope → it may never be carved in two to avoid doing it all now. All three serve the same law: *a cutover is the largest coherent scope that ONE R10 gate can honestly prove — never smaller (batch instead), never incoherently larger (decompose instead).*
+
+**Forbidden internal-voice triggers (the sizing set):** "I'll land this small fix through its own quick PR" (it has a batch) / "each issue gets its own atomic cutover" (only blocking/urgent ones do) / "to keep the diff focused I'll split these" (theme, not diff size, bounds the cutover) / "run the full roster to be safe" (run the beds that can FAIL on the change) / "decompose it into small cutovers" as a DEFAULT (decomposition is the too-BIG remedy, not a sizing preference).
 
 ## Forbidden patterns (by default)
 
