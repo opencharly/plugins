@@ -81,7 +81,7 @@ The `plugin:` verb case is placement-agnostic above the registry. `plugin: comma
 
 ### `Task` struct (`charly/layers.go:604`)
 
-Flat struct with verb-discriminator fields. Exactly one of `Cmd` / `Mkdir` / `Copy` / `Write` / `Link` / `Download` / `Setcap` / `Build` must be non-empty. Shared modifiers (`User`, `Mode`, `To`, `Target`, `Content`, `Extract`, `Include`, `Env`, `Caps`, `Comment`) are validated per-verb in `charly/validate.go:validateCandyTasks`.
+Flat struct with verb-discriminator fields. Exactly one of `Cmd` / `Mkdir` / `Copy` / `Write` / `Link` / `Download` / `Setcap` / `Build` must be non-empty. Shared modifiers (`User`, `Mode`, `To`, `Target`, `Content`, `Extract`, `Include`, `Env`, `Caps`, `Comment`) are validated per-verb in `candy/plugin-box/validate_rules.go:validateCandyTasks`.
 
 ```go
 func (t *Task) Kind() (string, error)   // returns verb or error ("no action" / "conflicting actions")
@@ -531,7 +531,7 @@ charly box inspect my-image --format layers      # Shows layer list for an image
 
 - `/charly-image:layer` — **Canonical author-facing reference** for the task verb catalog, `var:` substitution, YAML anchors, execution order. The emitter pipeline here implements what's documented there.
 - `/charly-build:generate` — User-facing `charly box generate` command.
-- `/charly-internals:go` — Source code map: `charly/tasks.go` (emitter pipeline), `charly/generate.go:writeCandySteps` (orchestrator call site), `charly/layers.go:Task` struct, `charly/validate.go:validateCandyTasks`.
+- `/charly-internals:go` — Source code map: `charly/tasks.go` (emitter pipeline), `charly/generate.go:writeCandySteps` (orchestrator call site), `charly/layers.go:Task` struct, `candy/plugin-box/validate_rules.go:validateCandyTasks`.
 - `/charly-build:validate` — User-facing validation rules (what `validateCandyTasks` enforces).
 - `/charly-build:build` — Building from generated Containerfiles.
 - `/charly-internals:egress` — the emitted Containerfile is egress-validated (`writeContainerfile` → `#RenderedText`, rejecting the `<no value>` template-failure marker) before it is written; the traefik-routes scratch-stage input is likewise validated (`#TraefikRoutes`).
