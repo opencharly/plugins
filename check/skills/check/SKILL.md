@@ -214,6 +214,20 @@ Neither checks host ports —
 disjoint ports across beds are the AUTHOR's responsibility (an overlap fails the
 second bed at deploy via `CheckPortAvailability`).
 
+**Shared-FIXTURE image-tag collisions — a concurrency class beyond ports.**
+`foldCheckBeds` keeps DEPLOY names disjoint and port auto-allocation keeps host ports
+disjoint, but a subtler collision survives both: two beds (or two runs of one bed from
+different worktrees) that BUILD THE SAME FIXTURE IMAGE TAG race in podman's store-global
+tag namespace — the tag is not bed-scoped, so a concurrent build / retag / remove of
+`<fixture>:<tag>` from one tree can pull the tag out from under another tree's bed
+mid-run. It is invisible to a serial roster and surfaces only under simultaneity (a
+pulled or renamed image → a build/probe failure on the OTHER bed). The current rule is a
+MUTEX GROUP: an agent DECLARES an intended live bed run to the orchestrator, which
+SERIALIZES every bed sharing a fixture image tag — the same declaration discipline as the
+exclusive-resource-token groups (see `/charly-internals:agents` "The binding rule"). The
+structural fix that supersedes the mutex — bed-scoped (per-run) fixture image tags, so
+distinct beds can never share a tag — is a separate cutover.
+
 ### Approximate wall-clock (10-CPU 32-GB reference host)
 
 `check-pod` ~110s IDLE but **842s measured under a concurrent roster** (one build →

@@ -230,6 +230,15 @@ which a one-way audit reveals. The RDD instrument is identical for a delegated d
 and for your own: a HIGH-RISK claim is proven on a live `disposable: true` bed,
 never accepted on a teammate's report alone.
 
+**A parity / golden / coverage instrument is a CLAIM until proven NON-VACUOUS.** When a
+teammate offers a byte-parity harness, a golden corpus, or an "N cases pass" table as
+evidence, verify the instrument actually EXERCISES what it claims BEFORE the verdict
+counts — count the cases it really runs (a golden corpus with ZERO fixtures "passes"
+every diff; a parity test whose two sides are the same code path proves nothing). The
+motivating incident: a 0-fixture corpus reported green while covering nothing. Read the
+instrument's inputs, not just its exit code — a green from an empty or self-referential
+instrument is a false pass, exactly the class RDD exists to catch.
+
 ### The orchestrator OWNS architectural integrity
 
 **The orchestrator OWNS architectural integrity.** Every placement decision is
@@ -625,6 +634,29 @@ them:
   EXPECTED for a sub-agent, NEVER "the skills are absent". Spawn prompts therefore instruct
   `Read`-by-path (giving the SKILL.md PATHS), with `Skill(name)` as an optional shortcut.
 
+**5. A teammate IDLE notification is turn-boundary noise, not proof it died or stalled.**
+The harness emits an idle signal every time a teammate YIELDS its turn — which a working
+teammate does constantly (between tool batches, at every checkpoint). Treating the first
+idle as "went silent" and nudging or replacing on it is a false-positive that discards
+live work. Before nudging or escalating, CONFIRM real inactivity from durable state:
+`find <teammate-worktree> -newermt '-15 min'` (any file touched recently → it is working),
+its `git status` dirty-count moving, or its transcript growing. Only a teammate with NO
+worktree activity across a real window AND no checkpoint is genuinely wedged — the
+nudge-then-replace reflex is correct ONLY after that confirmation.
+
+**6. Confirm a background child's TERMINAL state from its completion signal before
+respawning — never from its output-file size.** A bash `run_in_background` child of a
+TEAMMATE is harness-REAPED when that teammate yields its turn (the motivating incident:
+the children were killed 9s and 47s after the teammate's idles, while the identical
+command run in the FOREGROUND passed). So a teammate runs any owned work it needs to
+completion SYNCHRONOUSLY (foreground), and hands a bed or any other turn-outliving job to
+the PERSISTENT session (see "The binding rule" below); it never leaves a bg child to
+finish after it yields. An `Agent`-tool child MAY survive the parent's yields, but its
+terminal state is authoritative ONLY from its COMPLETION signal (the `<task-notification>`
+/ exit code / durable verdict file), NEVER from the size or tail of its output file (a
+half-written log is indistinguishable from a reaped one). Respawn only after the
+completion signal confirms the child actually ended.
+
 ## The binding rule: running a bed is R10-class
 
 `charly check run <bed>` and `charly update` perform an unattended destroy + rebuild.
@@ -641,6 +673,14 @@ Therefore, for ANY agent or workflow that runs them:
   authorize the commit; only the full final-code run does.
 - **No scope-shrinking flags (R10 flag-override clause).** Never pass `--no-rebuild` / `--keep`
   / `--on-*` / scenario filters unless the user named the flag this turn.
+- **DECLARE an intended live bed run to the orchestrator and wait for a slot.** Any agent
+  about to run a real `charly check run <bed>` / `charly update` first announces it and
+  waits to be scheduled — the orchestrator owns bed serialization (the per-exclusive-token
+  groups, and the shared-FIXTURE image-tag mutex: two beds building the same fixture tag
+  from different trees collide in podman's store-global tag namespace, `/charly-check:check`).
+  A bed launched without declaring it races an already-running roster (the bed-mutex +
+  image-tag-collision incident); the live-bed schedule is the orchestrator's, never the
+  individual agent's.
 - **Paste-proof survives delegation.** Sub-agents are built to *summarize*,
   but R10 demands *pasted* proof. The executors return the raw verdict + exit
   code + failing-log tail; the **delegating (main) agent pastes it** into the
@@ -991,11 +1031,17 @@ The playbook:
    yields an UNSTAMPED binary that reports version `unknown` and FAILS every bed step
    asserting the CalVer stamp (a `vm:` bed pushes the host binary INTO the guest and
    asserts `charly version` there, so an unstamped binary fails the guest witness).
+   **This trap has RECURRED — `task build:binary` (never a bare `go build -o`) is the ONLY
+   sanctioned way to produce a per-worktree binary; a plain `go build` is a silent gate
+   defect that surfaces only at the guest stamp assertion, deep into a long VM bed.**
    Scheduling
    rule when overlapping gates: the SAME bed name must never run twice at the same
    instant (bed→deploy names are deterministic — same `charly-<bed>` names collide);
    distinct beds are collision-free by construction (this section's isolation
-   invariants); and **verify every bed NAME against the LIVE tree roster**
+   invariants) — with ONE exception: two distinct beds that build the SAME shared
+   FIXTURE image tag from different trees race in podman's store-global tag namespace
+   (the interim mutex-group rule + the structural bed-scoped-tag fix live in
+   `/charly-check:check`); and **verify every bed NAME against the LIVE tree roster**
    (`grep '^check-.*:' charly.yml`) BEFORE each launch — rosters change across
    cutovers, so a stale name from notes or memory aborts the run. Cross-gate
    concurrency shares the ONE store-lock ceiling (item 4)
@@ -1031,6 +1077,17 @@ standing operator requirement, and `teammateMode` is snapshotted at session star
 anyway (a mid-session settings flip does nothing). Stopping is also the REUSE
 boundary: a landed teammate is never re-tasked with a different unit — see
 "Teammate context lifecycle" above.
+
+**Stop ONLY your own children, by task id — NEVER pattern-kill by name.** `pgrep -f
+<substring>` / `pkill -f <substring>` matches EVERY process whose argv contains the
+substring, regardless of owner — so a `pkill -f 'charly check run'` from one agent kills
+another agent's (or the operator's) live bed, and a `pkill -f charly` is catastrophic
+(PID-confirmed cross-kill incident: a substring match reaped a sibling's running roster).
+Terminate a child you own with `TaskStop(<name>)` (agents) or the exact task id of the
+`run_in_background` job you launched (bash children) — never a name substring. When a
+genuinely orphaned resource must be cleared, target it by its specific identity
+(`charly vm destroy <entity> --domain <bed>`, `charly remove <name>`, `podman rmi -f
+<id>`), never a broad `pkill`.
 
 ### Speed levers (grounded in the real bed cycle)
 
