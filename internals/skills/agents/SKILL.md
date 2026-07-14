@@ -61,7 +61,7 @@ WORKTREE — the uncommitted working tree on its `feat/<slug>` branch — plus a
 (the branch + absolute worktree path, the WIP state, the exact next steps, any captured
 patch). It is NEVER a "checkpoint commit": un-R10'd non-docs code CANNOT be committed at any
 honest tier — `syntax check only` pairs with "do NOT commit" and a runtime tier needs a live
-R10 that has not run, so the `pre-commit-gate` + attribution rules BLOCK it. The receiving
+R10 that has not run, so the fresh validator must reject it. The receiving
 agent reads the package, confirms the worktree (`git -C <path> status --short` lists the WIP),
 and continues from the working tree — the WIP was never at risk because nothing destructive
 touched it, and the worktree is exactly where a fresh context resumes.
@@ -745,63 +745,16 @@ Hooks in this project do TWO things and nothing more. The full inventory
    reminders, NOT copies: a trigger never restates the rule BODY — CLAUDE.md is
    the single current source, and that is where each trigger points (duplicating
    rule bodies drifts).
-2. **Deterministic `PreToolUse` gates** that BLOCK (exit 2) only unambiguous,
-   CLAUDE.md-stated invariants: hook bypass via `--no-verify` (`git commit
-   --no-verify` — the `-n` short alias, bundled forms included, scanned as a
-   flag BEFORE the message provider — AND `git push --no-verify`) or via a
-   `core.hooksPath` override in git's global options (`git -c
-   core.hooksPath=… commit/push` — the config spelling of the same bypass;
-   the scan covers the global-opts span only, so `git commit -c <commit>`
-   and a message mentioning the key never false-trigger, and env-var config
-   injection is out of scope: the gate is a discipline backstop, not a
-   security boundary),
-   a missing `Assisted-by: Claude (<tier>)` trailer on a READABLE message — an
-   inline `-m` value, a heredoc body (both live in the command string), or a
-   `-F <file>` the gate READS (every commit Claude is involved in must attribute —
-   a pure-human hand-commit never reaches this PreToolUse gate; scoped to the
-   commit invocation's own arg span). A message the gate CANNOT read to find the
-   tier — a `$(...)`/backtick substitution, a piped or unreadable `-F`, or an
-   editor message (no -m/-F) — fails CLOSED (inline the trailer with `-m`, or point
-   `-F` at a readable file); `--amend`/reuse inherit an already-gated message and
-   are exempt. And a command the gate cannot TOKENIZE — an unbalanced or unquoted
-   quote, e.g. an apostrophe in a heredoc body — fails CLOSED and is blocked, so
-   balance the quotes or use `git commit -F <file>`),
-   any tier OUTSIDE the legal-on-commit set
-   {`fully tested and validated`, `analysed on a live system`, `documentation
-   reviewed`} (the AI-Attribution table forbids `theoretical suggestion`
-   everywhere and pairs `syntax check only` with "do NOT commit"), the
-   `documentation reviewed` tier on a commit whose staged diff is NOT
-   all-documentation (`*.md`/CHANGELOG/README/LICENSE/VISION/`*.txt`,
-   comment-only code edits, or a submodule pointer bump to an all-documentation
-   submodule commit — the tier-vs-diff coherence check, conservative-safe:
-   it never lets a behavioral change pass as docs), a direct push to `main`
-   (a `git push` whose refspec destination is `main` / `refs/heads/main` — `main`
-   advances ONLY via an agent-validated PR merge; a bare `git push` with no
-   refspec is left to the authoritative server-side branch protection), force-push
-   (`git push --force` / `--force-with-lease` / `-f`, bundled forms included),
-   a commit at ANY legal tier (`fully tested and validated` / `analysed on a
-   live system` / `documentation reviewed`) that stages no
-   `CHANGELOG/<YYYY.DDD.HHMM>.md` entry in a repo that tracks a `CHANGELOG/`
-   (history -> each repo's per-repo per-CalVer `CHANGELOG/`; exempt: a repo with
-   no `CHANGELOG/`, and a commit whose staged diff is EXCLUSIVELY submodule
-   pointer bumps — the pure-pointer-bump whose narrative lives in the submodule;
-   fires whenever a tier is parsed from a READABLE message (inline `-m`, heredoc,
-   or a `-F <file>`), like the absent-trailer check — an unreadable message fails
-   CLOSED at the attribution stage before this),
-   and a commit staging a `*.go` change whose touched MODULE is not
-   `golangci-lint`-clean (the Go-lint criterion — the CONFIGURED `golangci-lint
-   run`, never `--fix`/`--enable-only`, per touched module with `GOWORK=off` for
-   `candy/plugin-*` candies; `unused` needs whole-package analysis so the gate
-   lints the MODULE, not just the changed files; fail-OPEN when golangci-lint is
-   absent or times out — the `pr-validator` remains the real gate; it exists so
-   dead/unused code cannot slip in the way the P10 VM-CLI sweep's 21 orphaned
-   symbols did).
+2. **Deterministic `PreToolUse` gates** that cover immediate command mechanics
+   only: hook bypass (`--no-verify` / `-n` / `core.hooksPath`), untokenizable
+   commit commands, configured Go lint for staged Go modules, force-push, and a
+   direct push to `main`. Attribution identity/confidence, change class,
+   CHANGELOG coverage, architecture, and R0–R10 evidence belong exclusively to
+   the fresh `pr-validator`; the hook contains no duplicate policy regexes.
 
-The honest division of labor: **hooks gate mechanical invariants; agents
-judge proof.** Whether a tier is *justified* by the evidence is a reasoning
-task — that stays with `testing-validator` + the pasted-proof rule, NOT a
-regex in a hook. Never re-bloat the reminders into CLAUDE.md rule-body copies —
-name + point, never restate.
+The honest division of labor: **hooks guard command mechanics; agents judge
+policy and proof.** Never re-bloat a hook or reminder into a second copy of
+CLAUDE.md or validator logic — name + point, never restate.
 
 ## Agent teams (experimental — enabled in committed settings)
 

@@ -119,11 +119,11 @@ git switch -c feat/<slug>            # slug = kebab summary of the change
 # write the cutover narrative to CHANGELOG/<placeholder>.md — a PLACEHOLDER CalVer
 #   (any valid YYYY.DDD.HHMM; the evaluator OVERWRITES it with the merge-time VER).
 git add <only the cutover's files> CHANGELOG/<placeholder>.md
-git commit -m "<conventional commit> ...  Assisted-by: Claude (<tier>)"
+git commit -m "<conventional commit> ...  Assisted-by: <Harness> <Provider Full Model Name> (<confidence>)"
 git push origin feat/<slug>                       # feat push — allowed by the gate
 gh pr create --base main --head feat/<slug> \     # fill the PR template completely (single org source: opencharly/.github/.github/PULL_REQUEST_TEMPLATE.md — no per-repo copy)
   --title "<subject>" \
-  --body "<summary + change class + pasted R10 evidence + tier + R0–R10 checklist>"
+  --body-file <pr-body.md>
 # STOP. Do NOT merge your own PR. Hand off to a FRESH pr-validator (Step 2).
 ```
 
@@ -323,9 +323,8 @@ is the silent-drop failure.
 **Attribution of the pointer-bump commit — derived from what it points at.** When
 the bumped submodule commit is itself all-documentation (a skill / `*.md` edit),
 the superproject pointer-bump commit IS the Documentation-only change class and
-lands at `documentation reviewed`: `pre-commit-gate.sh` recurses into the
-submodule's own `old..new` diff to certify it (objects must be present locally; a
-bump it cannot certify is rejected). A bump that integrates submodule CODE is a
+lands at `documentation reviewed`: the fresh validator inspects the submodule's
+own `old..new` diff to certify it. A bump that integrates submodule CODE is a
 code class and takes a runtime tier, the docs riding along. So a docs-only skill
 cutover lands `plugins` (the `*.md`) at `documentation reviewed`, then the
 superproject pointer bump at `documentation reviewed` too — both halves honest.
@@ -591,11 +590,7 @@ step with a **literal absolute path** `git -C /abs/path …`. NEVER a leading
 `cd`+`\`-continued chain (it scopes every later command into the submodule) and
 NEVER a shell variable for a path — **shell variables do NOT persist between Bash
 tool calls**, so a `WT=…` set in an earlier call is EMPTY later and `git -C
-"$WT/plugins"` silently becomes `git -C /plugins` (this was a real failure). The
-`pre-commit-gate` now also BLOCKS a `git -C "$VAR" commit` form outright and asks for
-the literal absolute path — that block is a parse requirement, not a denial: re-issue
-ONCE with the literal path (the one sanctioned re-issue; anything else after a hook
-block stays forbidden reshape-and-retry). Verify:
+"$WT/plugins"` silently becomes `git -C /plugins` (this was a real failure). Verify:
 `git -C /abs rev-parse --show-toplevel` == the path you edited AND `git -C /abs
 status --short` lists your edits.
 
@@ -607,13 +602,9 @@ touched → box submodules → plugins → superproject). Per-repo mechanics = B
 step 1; pointer-bump safety = B2 step 3.
 Two proven additions:
   - **plugins docs commit at `documentation reviewed`: `git -C <LITERAL-abs-plugins>
-    commit …`.** RDD-proven on the live gate: a literal `-C` scopes
-    `pre-commit-gate.sh` to the plugins all-docs index in ONE shot (it passes even
-    while the superproject has non-doc code staged, and recurses the submodule's
-    `old..new` diff). Do NOT use a `$var` (may be unset → `git diff --cached --raw
-    failed`); do NOT use `cd plugins && git commit` (the gate fires BEFORE the
-    in-command `cd`, so it inspects the SUPERPROJECT index and blocks on staged
-    code). The literal `-C` removes the old "empty the other index first" dance.
+    commit …`.** The literal path keeps repository selection explicit and lets
+    the fresh validator inspect the plugins diff independently. Do NOT use a
+    shell variable that may be unset or an in-command directory change.
   - **box/<distro> re-stamp** (schema-HEAD bump): edit on the submodule's own feat
     branch; **gate = `charly box validate` standalone** (a version-stamp change has
     no build behavior — building proves nothing); commit, open PR, evaluator merges +
@@ -645,10 +636,8 @@ main worktree silently serves STALE SKILLS to sessions, so refreshing it is
 mandatory. (A ` M <sub>` in a worktree used only for the ff-merge is this drift, not
 lost work.)
 
-**Landing gotchas (each cost real time):** the **PreToolUse pre-commit-gate fires
-ONCE per Bash call, BEFORE the command runs** → a `git reset && git commit` in ONE
-call fails (the reset hasn't happened yet); split into separate Bash calls. `task
-build:charly` dirties `pkg/arch/PKGBUILD` (makepkg `pkgver()`) → `git -C <pkg/arch>
+**Landing gotchas (each cost real time):** `task build:charly` dirties
+`pkg/arch/PKGBUILD` (makepkg `pkgver()`) → `git -C <pkg/arch>
 restore PKGBUILD`. `git merge-base --is-ancestor A B` ERRORS if B's object isn't
 fetched (common for a sibling-worktree submodule) → `git fetch` first; cross-check
 `git ls-tree origin/main <sub>` before concluding "DIVERGED". A `git grep --
@@ -673,7 +662,7 @@ that changelog file AND the `v<…>` tag. Every component is fixed-width zero-pa
 filenames and tags sort chronologically under a plain alphanumeric sort.
 
 - **The author writes a PLACEHOLDER** `CHANGELOG/<placeholder>.md` (any valid
-  `YYYY.DDD.HHMM`, only to satisfy `pre-commit-gate.sh`) and — for a schema cutover
+  `YYYY.DDD.HHMM`, so the cutover carries its required history) and — for a schema cutover
   — a PLACEHOLDER `#SchemaVersion` / `migrations.cue` bump. The author owns none of
   the final numbers.
 - **The evaluator, at merge:** `VER=$(date -u +%Y.%j.%H%M)` (guard uniqueness — if
@@ -717,7 +706,7 @@ Fix: Add fuse-overlayfs for container startup
 
 Tested via overlay session on LOCAL system.
 
-Assisted-by: Claude (fully tested and validated)
+Assisted-by: Codex OpenAI GPT-5.6 Sol (fully tested and validated)
 ```
 
 ## If validation FAILS or R10 fails
