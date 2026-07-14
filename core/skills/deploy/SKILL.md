@@ -1132,7 +1132,7 @@ webapp:                            # an operator deploy + a companion member
 
 **Deploy surface:**
 - `/charly-local:local-deploy` — Local-target execution model: the external `deploy:local` plugin, ledger, gates, 15 ReverseOp kinds, sudo batching
-- `/charly-internals:install-plan` — The InstallPlan IR shared by the deploy targets: ALL FIVE substrates (local/vm/pod/k8s/android) are external out-of-process deploys via plugins over the executor reverse channel — local/vm consume the IR via `kit.WalkPlans` (vm's walk runs inside the guest); pod's plugin walks nothing — its lifecycle hook builds the overlay host-side via the uniform F10 `overlay` host-builder (the retained PodDeployTarget engine — `add_candy:` synthesis via OCITarget); `charly box build` itself emits via the separate writeCandySteps → emitTasks generator, not the IR
+- `/charly-internals:install-plan` — The InstallPlan IR shared by the deploy targets: ALL FIVE substrates (local/vm/pod/k8s/android) are external out-of-process deploys via plugins over the executor reverse channel — local/vm consume the IR via `kit.WalkPlans` (vm's walk runs inside the guest); pod's plugin walks nothing — its lifecycle hook builds the overlay host-side via the uniform F10 `overlay` host-builder (the retained PodDeployTarget engine — `add_candy:` synthesis via OCITarget); `charly box build` itself emits via the separate WriteCandySteps → EmitTasks generator in `sdk/deploykit` (relocated in #67), not the IR
 - `/charly-internals:local-infra` — Supporting Go files for local deploys: hostdistro, ledger, builder_run, shell_profile, reverse_ops, service_render, deploy_ref
 
 **Deploy-adjacent commands:**

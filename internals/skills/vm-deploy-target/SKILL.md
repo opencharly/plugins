@@ -69,7 +69,7 @@ records in the install ledger and replays at `charly bundle del`
 out-of-process adapter. In-proc, two targets implement the bare
 `DeployTarget` (Name + Emit) interface — `OCITarget` (pod-overlay `add_candy:`
 Containerfile synthesis; `charly box build`/`generate` itself uses the separate
-`writeCandySteps` → `emitTasks` generator) and `PodDeployTarget` (the pod
+`WriteCandySteps` → `EmitTasks` generator in `sdk/deploykit`, relocated in #67) and `PodDeployTarget` (the pod
 overlay-BUILD engine) — but both are now BUILD ENGINES invoked HOST-SIDE from a
 lifecycle hook (`candy/plugin-deploy-pod`'s PrepareVenue (M4)), NOT deploy targets
 dispatched by `ResolveTarget`. The deploy LIFECYCLE is the separate

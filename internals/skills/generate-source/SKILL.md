@@ -13,7 +13,7 @@ description: |
 
 `charly box generate` reads `charly.yml` and `candy/`, resolves dependency graphs, and writes Containerfiles to `.build/`. Generation is idempotent and `.build/` is disposable (gitignored). Understanding the generated output is essential for debugging build issues.
 
-Build-mode Containerfile generation is the `writeCandySteps` → `emitTasks` path (the per-verb emitters in `charly/tasks.go`), walking each layer's ops directly to write Containerfile text — NOT the `InstallPlan` IR. The IR + `OCITarget.Emit` is the DEPLOY-mode path: `OCITarget` is constructed only by `PodDeployTarget` for `add_candy:` overlay-Containerfile synthesis, alongside the external out-of-process deploys consuming the same IR. (The local/vm/k8s/android substrates are external plugins via `externalDeployTarget`: `deploy:local` (candy/plugin-deploy-local) and `deploy:vm` (candy/plugin-deploy-vm) DO consume the IR — the plugin walks it via `kit.WalkPlans` over the reverse channel, the vm one over the guest `SSHExecutor` so the walk runs inside the guest — while `deploy:k8s` (candy/plugin-kube) does NOT, generating a Kustomize tree host-side.) Build shares the compiler helpers (`resolveCascadePackages`, `compileShellSnippetSteps`, `renderLocalPkgImageInstall` — one source of truth, R3) with the IR, but not the `OCITarget` walk. For the IR shape and step kinds, see **`/charly-internals:install-plan`**. For local-deploy supporting files (ledger, builder_run, shell_profile, reverse_ops, service_render, deploy_ref), see **`/charly-internals:local-infra`**.
+Build-mode Containerfile generation is the `WriteCandySteps` → `EmitTasks` path in `sdk/deploykit` (`deploykit.Generator`, relocated from `charly/generate.go` in #67, driven by `candy/plugin-build` over the resolved-project envelope + `HostBuild("render-seam")`; the `charly/generate.go` top-level `Generate`/`writeCandySteps` orchestrator is DELETED). `emitTasks` (`charly/tasks.go`) is a thin shim to `deploykit.Generator.EmitTasks` that STAYS for the pod-overlay deploy path (`OCITarget` via `toDeploykit`). The render walks each layer's ops directly to write Containerfile text — NOT the `InstallPlan` IR. The IR + `OCITarget.Emit` is the DEPLOY-mode path: `OCITarget` is constructed only by `PodDeployTarget` for `add_candy:` overlay-Containerfile synthesis, alongside the external out-of-process deploys consuming the same IR. (The local/vm/k8s/android substrates are external plugins via `externalDeployTarget`: `deploy:local` (candy/plugin-deploy-local) and `deploy:vm` (candy/plugin-deploy-vm) DO consume the IR — the plugin walks it via `kit.WalkPlans` over the reverse channel, the vm one over the guest `SSHExecutor` so the walk runs inside the guest — while `deploy:k8s` (candy/plugin-kube) does NOT, generating a Kustomize tree host-side.) Build shares the compiler helpers (`resolveCascadePackages`, `compileShellSnippetSteps`, `renderLocalPkgImageInstall` — one source of truth, R3) with the IR, but not the `OCITarget` walk. For the IR shape and step kinds, see **`/charly-internals:install-plan`**. For local-deploy supporting files (ledger, builder_run, shell_profile, reverse_ops, service_render, deploy_ref), see **`/charly-internals:local-infra`**.
 
 ## Quick Reference
 
@@ -50,7 +50,7 @@ The generated Containerfile follows this order:
 
 ## Task emission pipeline
 
-All install-task logic lives in a single file: `charly/tasks.go` (~380 lines). Authored layer-side as `task:` list in `charly.yml`; emitted as Containerfile directives via this sequence per layer inside `writeCandySteps` (`charly/generate.go:1021`):
+All install-task logic lives in a single file: `charly/tasks.go` (~380 lines) — but `emitTasks` there is a thin shim to `deploykit.Generator.EmitTasks` (the actual per-verb emitters, relocated from `charly/generate.go` in #67). Authored layer-side as `task:` list in `charly.yml`; emitted as Containerfile directives via this sequence per layer inside `WriteCandySteps` (`sdk/deploykit/candy_steps.go`):
 
 ```
 1. # Layer: <name>                 (comment header)
@@ -70,7 +70,7 @@ All install-task logic lives in a single file: `charly/tasks.go` (~380 lines). A
        case "download": emitDownload    (RUN curl + extractor + /tmp/downloads cache)
        case "setcap":   emitSetcapBatch (coalesces; strip on empty caps)
        case "command":  emitCmd         (RUN bash -c 'set -e; ...' + /ctx bind)
-       case "build":    writeCandySteps handles builder placement
+       case "build":    WriteCandySteps (deploykit) handles builder placement
        case "plugin":   builtin ProvisionActor → act shell RUN (in-proc);
                         any other provider → emitPluginFragment → Invoke(OpEmit)
                         → spec.EmitReply.Fragment spliced verbatim
@@ -217,10 +217,10 @@ Key details: passwordless sudo is required because yay calls `pacman -U` as root
 
 The pixi/npm/aur stages above are NOT rendered from an in-core `builders.<name>` vocabulary. Since C10 **both** the four DETECTION-builders (pixi/npm/cargo/aur — selected by a candy's `pixi.toml` / `package.json` / `Cargo.toml` / `aur:` section) **and** an OUT-OF-TREE builder selected by a candy's `external_builder: <word>` field emit their build-time multi-stage through the SAME `OpResolve` seam: the plugin returns a `spec.BuilderResolveReply` the generator splices. The stage TEMPLATES for the four detection-builders live in the shared `sdk/kit.BuilderResolve` (imported by each `candy/plugin-builder-<word>`); the former embedded vocabulary's `stage_template`/`copy_artifact`/`copy_binary`/cargo `install_template` are gone.
 
-- **`emitBuilderStages`** (PRE-main-FROM) — for each candy a builder DETECTS (`candyNeedsBuilder`), connects the externalized builder plugin on-demand (`ensureBuildersConnected` — the SAME scoped connect the deploy build pre-pass uses, R3) and `Invoke(OpResolve)`s it (`resolveDetectionBuilder` → the shared `resolveBuilderStage`), writing the returned `Stage` (a `FROM <ref> AS <name>` block) verbatim and caching the reply per (candy, builder) on the `Generator`. The HOST computes the render context (builder ref, stage name, copy src, uid/gid/home, filesystem-detected manifest/lockfile/build-script, aur packages/options, PRE-RENDERED cache-mount flag strings) into a `spec.BuilderResolveInput`; the plugin (kit.BuilderResolve) owns the stage template.
-- **`emitBuilderArtifacts`** (POST-main-FROM) — writes the cached reply's `CopyArtifacts` (`COPY --from=<stage> …`) + the once-per-builder `CopyBinary` (pixi → `/usr/local/bin/pixi`), deduped across candies.
-- An INLINE detection builder (cargo) has no separate FROM stage — its OpResolve reply carries an `InlineFragment` (the in-candy `RUN … cargo install --path /ctx`) that `writeCandySteps` splices in the candy's step sequence.
-- **`emitExternalBuilderStages` / `emitExternalBuilderArtifacts`** (the `external_builder:` path) run right after their detection counterparts and share `resolveBuilderStage`: a candy sets `external_builder: <word>`, the word resolves to an EXTERNAL `*grpcProvider`, and its OpResolve reply's `Stage`/`CopyArtifacts` splice the same way (it sends a MINIMAL input — candy name only — since an out-of-tree builder renders a self-contained stage).
+- **`EmitBuilderStages`** (PRE-main-FROM, deploykit) — for each candy a builder DETECTS (`candyNeedsBuilder`), connects the externalized builder plugin on-demand (`ensureBuildersConnected` — the SAME scoped connect the deploy build pre-pass uses, R3) and `Invoke(OpResolve)`s it (the shared `resolveBuilderStage` in `charly/generate.go`, STAYS), writing the returned `Stage` (a `FROM <ref> AS <name>` block) verbatim and caching the reply per (candy, builder) on the `Generator`. The HOST computes the render context (builder ref, stage name, copy src, uid/gid/home, filesystem-detected manifest/lockfile/build-script, aur packages/options, PRE-RENDERED cache-mount flag strings) into a `spec.BuilderResolveInput`; the plugin (kit.BuilderResolve) owns the stage template.
+- **`EmitBuilderArtifacts`** (POST-main-FROM, deploykit) — writes the cached reply's `CopyArtifacts` (`COPY --from=<stage> …`) + the once-per-builder `CopyBinary` (pixi → `/usr/local/bin/pixi`), deduped across candies.
+- An INLINE detection builder (cargo) has no separate FROM stage — its OpResolve reply carries an `InlineFragment` (the in-candy `RUN … cargo install --path /ctx`) that `WriteCandySteps` (deploykit) splices in the candy's step sequence.
+- **`EmitExternalBuilderStages` / `EmitExternalBuilderArtifacts`** (the `external_builder:` path, deploykit) run right after their detection counterparts and share `resolveBuilderStage`: a candy sets `external_builder: <word>`, the word resolves to an EXTERNAL `*grpcProvider`, and its OpResolve reply's `Stage`/`CopyArtifacts` splice the same way (it sends a MINIMAL input — candy name only — since an out-of-tree builder renders a self-contained stage).
 
 The pod-overlay build-emit (`stepEmitBuilder`, C1.3) renders the detection builders through the SAME `kit.BuilderResolve` (in-proc), so box-build and pod-overlay share ONE render. An empty `Stage` (or, for cargo, an empty `InlineFragment`), an unresolvable word, or an Invoke error fails LOUDLY (R4) — never a silently-dropped builder stage. Both halves are egress-validated with the rest of the Containerfile before write. See `/charly-build:generate` + `/charly-internals:plugin` (placement).
 
@@ -285,8 +285,9 @@ Covered by `charly/intermediates_test.go` (the test images construct
 
 **All OCI LABEL directives are emitted at the end of the final stage**,
 after the last `USER` directive. This is an intentional cache-efficiency
-choice driven by `charly/generate.go`'s `writeLabels` call being placed
-after `writeCandySteps` + the final `USER` emission.
+choice driven by `sdk/deploykit`'s `WriteLabels` call being placed
+after `WriteCandySteps` + the final `USER` emission (relocated from
+`charly/generate.go` in #67).
 
 Why it matters: the `ai.opencharly.description` LABEL is the most-volatile
 piece of image metadata — it changes every time a scenario is added, edited,
@@ -309,7 +310,7 @@ runtime consumers (`charly config`, `charly start`, `charly status`, `charly che
 
 ### LABEL JSON escaping (`writeJSONLabel`)
 
-`writeJSONLabel` in `charly/generate.go` routes every LABEL value through
+`writeJSONLabel` in `sdk/deploykit/write_labels.go` (relocated from `charly/generate.go` in #67) routes every LABEL value through
 `shellSingleQuote` before emitting `LABEL key=<quoted>`. This is
 required because test/task commands often contain literal `'` characters
 (e.g. `awk '{print $1}'`, `sed 's/foo/bar/'`) which JSON preserves
@@ -388,9 +389,9 @@ distro:
 
 When adopt fires, `resolved.User` / `UID` / `GID` / `Home` are overwritten and `resolved.UserAdopted = true`.
 
-### writeBootstrap — two emission branches
+### WriteBootstrap — two emission branches
 
-`charly/generate.go:writeBootstrap` keys on `img.UserAdopted`:
+`sdk/deploykit` `WriteBootstrap` (relocated from `charly/generate.go` in #67) keys on `img.UserAdopted`:
 
 **Adopt (no useradd):**
 ```dockerfile
@@ -417,7 +418,7 @@ The create branch uses the `if !` form (rather than a `getent passwd <UID> >/dev
 
 Pulls the base image via go-containerregistry and extracts `/etc/passwd` to auto-detect the home dir. The declarative `base_user:` approach is preferred (simpler, no network round-trip, explicit intent); `InspectImageUser` remains as a fallback for bases without a `base_user:` declaration.
 
-Source: `charly/config.go:ResolveBox` (policy reconciliation), `charly/generate.go:writeBootstrap` (emission), `charly/format_config.go:BaseUserDef` (struct), `charly/registry.go:InspectImageUser` (fallback).
+Source: `charly/config.go:ResolveBox` (policy reconciliation), `sdk/deploykit/bootstrap.go:WriteBootstrap` (emission, relocated in #67), `charly/format_config.go:BaseUserDef` (struct), `charly/registry.go:InspectImageUser` (fallback).
 
 ## Tag-section install emission
 
@@ -463,7 +464,7 @@ Tunnel configuration is NOT an OCI label — it is a deploy-time concern carried
 
 Volumes use short names in labels (prefix `charly-<image>-` added at runtime). Empty arrays are omitted. JSON built from sorted slices for cache stability. Runtime commands read OCI labels exclusively (via `ExtractMetadata` in `charly/labels.go`) plus `charly.yml` overlay — they never touch `charly.yml` at runtime. That's why `charly shell myimage` works from any directory as long as the image is in local storage (if not, `ExtractMetadata` returns `ErrImageNotLocal` and the CLI suggests `charly box pull`). See `/charly-image:image` for the build/deploy boundary and `/charly-build:pull` for the sentinel pattern. Labels also include `ai.opencharly.init` for init system identification and `ai.opencharly.service.<init>` for per-init service lists.
 
-Source: `charly/labels.go`, `charly/generate.go` (`writeLabels`).
+Source: `charly/labels.go`, `sdk/deploykit/write_labels.go` (`WriteLabels`, relocated in #67).
 
 ## Runtime-Only Features
 
@@ -531,11 +532,11 @@ charly box inspect my-image --format layers      # Shows layer list for an image
 
 - `/charly-image:layer` — **Canonical author-facing reference** for the task verb catalog, `var:` substitution, YAML anchors, execution order. The emitter pipeline here implements what's documented there.
 - `/charly-build:generate` — User-facing `charly box generate` command.
-- `/charly-internals:go` — Source code map: `charly/tasks.go` (emitter pipeline), `charly/generate.go:writeCandySteps` (orchestrator call site), `charly/layers.go:Task` struct, `candy/plugin-box/validate_rules.go:validateCandyTasks`.
+- `/charly-internals:go` — Source code map: `charly/tasks.go` (emitter pipeline, `emitTasks` shim → deploykit), `sdk/deploykit/candy_steps.go:WriteCandySteps` (orchestrator, relocated in #67), `charly/layers.go:Task` struct, `candy/plugin-box/validate_rules.go:validateCandyTasks`.
 - `/charly-build:validate` — User-facing validation rules (what `validateCandyTasks` enforces).
 - `/charly-build:build` — Building from generated Containerfiles.
 - `/charly-internals:egress` — the emitted Containerfile is egress-validated (`writeContainerfile` → `#RenderedText`, rejecting the `<no value>` template-failure marker) before it is written; the traefik-routes scratch-stage input is likewise validated (`#TraefikRoutes`).
-- Source: `charly/generate.go`, `charly/tasks.go`, `charly/intermediates.go`, `sdk/deploykit/graph.go` (thin `charly/graph_shim.go` wrappers delegate to it).
+- Source: `sdk/deploykit` (render DRIVE, relocated in #67), `charly/tasks.go` (`emitTasks` shim), `charly/generate.go` (staying helpers), `charly/intermediates.go`, `sdk/deploykit/graph.go` (thin `charly/graph_shim.go` wrappers delegate to it).
 
 ## When to Use This Skill
 

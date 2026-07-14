@@ -100,7 +100,7 @@ How it works:
 
 This makes loopback-only services accessible through normal podman/docker port mappings and `tailscale serve`.
 
-Source: `charly/generate.go` (relay service generation), `charly/layers.go` (`PortRelayYAML`).
+Source: `sdk/deploykit/routes.go` (`GenerateTraefikRoutes` / `EmitTraefikRouteStage`, relocated from `charly/generate.go` in #67), `charly/layers.go` (`PortRelayYAML`).
 
 ## Device Auto-Detection
 

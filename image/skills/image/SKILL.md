@@ -282,7 +282,7 @@ Self-reference protection: after merging defaults/base, any `builder` entry poin
 
 Validation checks that every builder referenced in `builder:` declares the matching capability in `produce:`.
 
-Source: `charly/generate.go` (`builderRefForFormat`), `sdk/deploykit/graph.go` (`ResolveBoxOrder`, `BoxNeedsBuilder` — thin `charly/graph_shim.go` wrappers delegate to it), `candy/plugin-box/validate_graph.go` (`validateBuilders`).
+Source: `sdk/deploykit/order.go` (`BuilderRefForFormat`), `sdk/deploykit/graph.go` (`ResolveBoxOrder`, `BoxNeedsBuilder` — thin `charly/graph_shim.go` wrappers delegate to it), `candy/plugin-box/validate_graph.go` (`validateBuilders`).
 
 ## Internal Base Images
 
@@ -332,7 +332,7 @@ This is why `ubuntu-coder`'s resolved identity is `ubuntu:/home/ubuntu` while th
    - `adopt` → overwrite User/UID/GID/Home with the distro's `BaseUser`, set `ResolvedBox.UserAdopted = true`.
    - `auto` → same overwrite IF `base_user` exists AND the image didn't explicitly set `user:`.
    - `create` → no-op.
-4. `writeBootstrap` (`charly/generate.go`) keys on `UserAdopted`: adopt emits only a comment; create emits an idempotent `useradd` (see `/charly-build:generate`).
+4. `WriteBootstrap` (`sdk/deploykit/bootstrap.go`, relocated from `charly/generate.go` in #67) keys on `UserAdopted`: adopt emits only a comment; create emits an idempotent `useradd` (see `/charly-build:generate`).
 
 ### Live verification
 
