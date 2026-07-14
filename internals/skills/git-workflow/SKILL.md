@@ -176,8 +176,13 @@ CONFLICTING instead of fast-forwarding the gitlink to the descendant. The
 compliant recovery is the update-branch EQUIVALENT done LOCALLY: in the feat
 worktree, `git merge origin/main` (git resolves the gitlink to the descendant
 commit automatically), then push the result FAST-FORWARD. A MERGE, never a rebase;
-no force-push — the exact constraints `gh pr update-branch` itself honors. Then
-re-post the status and delta-re-gate as above.
+no force-push — the exact constraints `gh pr update-branch` itself honors. **Then
+VERIFY the merge resolved the gitlink FORWARD** — `git ls-tree HEAD <sub>` (or
+`git diff --submodule=short origin/main..HEAD`) must show the DESCENDANT commit, never
+the ancestor: a recovery that silently re-pins the OLDER submodule bump is the exact
+regression this class produces (a sibling merge advances `main` mid-validation, then a
+naive recovery reverts the gitlink to the older pointer). Only after the descendant-wins
+check re-post the status and delta-re-gate as above.
 
 ### The cross-repo WIP landing sequence — commit-to-rebase without shipping unproven code
 
@@ -259,6 +264,15 @@ A producer PR must be **merged** (not merely green) before the consumer's pointe
 bump — the superproject pointer must reference a commit that is on the submodule's
 real `main`, which only the merge produces.
 
+**A valid base is an ASSEMBLED PAIR, not a lone submodule advance.** A new consumer
+cutover branches from a base that is valid only once BOTH halves have merged: an `sdk`
+`main` advance is a valid consumer base ONLY after its superproject adaptation (the
+gitlink bump + any `charly/go.mod` require) has ALSO merged. Branch a consumer off a bare
+`sdk` main advance whose super side is still open and you pin a superproject state no
+`main` records — the consumer's R10 builds against a half-assembled base and its pointer
+bump references a commit `main` has never seen. Wait for the pair before treating a
+producer advance as a base.
+
 **Submodule-pointer-bump safety (step 3) — bump AFTER the switch, then stage AND
 verify.** A `git switch` / `git checkout` re-materializes each submodule at the
 gitlink the *target branch* records, silently discarding an **unstaged**
@@ -286,6 +300,36 @@ superproject pointer bump at `documentation reviewed` too — both halves honest
 
 **For the full multi-worktree end-to-end — the doc-tier `git -C` literal-path
 rule, and the mandatory post-landing worktree refresh — see B7.**
+
+### Per-module verification — verify by MODULE CLASS, and prove the fix is in the BINARY
+
+Two mechanics that bite every cross-repo landing:
+
+**Verify each Go module by its CLASS, always with `GOWORK=off`** (the repo is a Go
+workspace, so module-level checks must disable it or they pull the workspace's transitive
+requires):
+
+- **`sdk` is a STANDALONE-CONSUMED contract module** (out-of-tree consumers import it
+  directly), so it earns the full standalone battery: `GOWORK=off go mod tidy && go mod
+  verify && go build ./... && go test ./...`. It MUST tidy and build cleanly on its own.
+- **`charly` is a WORKSPACE MEMBER**, not a standalone module: verify it with `GOWORK=off
+  go mod verify` + the WORKSPACE build. A full standalone `go mod tidy` on `charly`
+  POLLUTES its `go.mod` with `candy/plugin-*` pseudo-requires (they resolve through the
+  workspace, not the module graph), and a standalone `go build` that fails ONLY on
+  `candy/plugin-*` imports is an ARCHITECTURAL fact (the plugins are workspace siblings),
+  never a defect to "fix" by hand-editing `go.mod`.
+- **`plugins` candies tidy PER-MODULE** — each candy is its own module; tidy/verify them
+  individually, never as one tree.
+
+**Prove a fix is in the BUILT BINARY by a content marker, NOT by the version stamp.**
+`pkg/arch/calver.sh` derives the CalVer from the HEAD commit's UTC time (`git log -1
+--format=%cd`), so the stamp identifies the SOURCE COMMIT, never the build moment — a
+`task build:charly` on a DIRTY working tree reports the IDENTICAL version as the clean
+commit under it. So `charly version` matching the expected CalVer does NOT prove your
+uncommitted fix compiled in. Prove fix-presence by a content marker instead: `strings
+bin/charly | grep '<a string unique to the fix>'` (a new error message, flag name, or
+symbol). The stamp answers "which commit"; the `strings` marker answers "is my change
+actually in this binary".
 
 ## B3 — agent teams on ONE shared tree (no worktree)
 

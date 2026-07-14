@@ -241,7 +241,12 @@ skill's grep self-test caught). Audit and fix them as follows:
    - prose anti-pattern examples (a skill *mentioning* `deprecated.go` as a thing to avoid).
 4. **Claim-keyed sweep (R5)**: a stale claim is fixed across EVERY skill that repeats it,
    not just the file where it surfaced — `git -C plugins grep '<claim>'` returns only
-   CHANGELOG context afterwards.
+   CHANGELOG context afterwards. **Key the grep to the CLAIM CLASS — every wording AND
+   syntactic variant of the false claim — NOT the one surfacing string you just edited:
+   the same false claim survives under a paraphrase and under a singular/plural or
+   wrapper-form variant (a retired-grammar `vms:` fix must ALSO grep the `vm:`-wrapper,
+   `cpus:`, and `deployments:` variants of the same dead grammar; a sweep keyed only to
+   the first string leaves a sibling variant alive and costs a second validator round).**
 5. **Land docs-only**: skill edits are the Documentation-only change class →
    `documentation reviewed` (no beds); the plugins commit carries a
    `CHANGELOG/<YYYY.DDD.HHMM>.md` entry too (every plugins landing does — `plugins`

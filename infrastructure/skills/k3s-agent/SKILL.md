@@ -35,24 +35,25 @@ server URL (declarative, known at author time) and the pre-shared token
 
 ```yaml
 # charly.yml (assumes k3s-srv already up; see /charly-infrastructure:k3s-server)
-vm:
-  k3s-ag1:
-    source: { kind: cloud_image, url: "…" }
-    disposable: true
-    ram: 4G
-    cpus: 2
 
-deployments:
-  box:
-    "vm:k3s-ag1":
-      target: vm
-      vm_source: k3s-ag1
-      add_candy: [k3s-agent]
-      env:
-        - K3S_SERVER_URL=https://k3s-srv.lan:6443
-        # K3S_CLUSTER fed in for the agent-joined test below — must
-        # match the cluster profile name registered by the server.
-        - K3S_CLUSTER=k3s-srv
+# The VM hardware template (a kind: vm entity — name-first node form).
+k3s-ag1-vm:
+  vm:
+    source: { kind: cloud_image, url: "…" }
+    ram: 4G
+    cpu: 2
+
+# The disposable deploy: overlay the k3s-agent candy into the VM. `from:`
+# selects the template; disposable / add_candy / env live on the deploy node.
+k3s-ag1:
+  vm:
+    from: k3s-ag1-vm
+    disposable: true
+    add_candy: [k3s-agent]
+    env:
+      K3S_SERVER_URL: https://k3s-srv.lan:6443
+      # K3S_CLUSTER must match the cluster profile name registered by the server.
+      K3S_CLUSTER: k3s-srv
 ```
 
 ```bash

@@ -214,6 +214,19 @@ Neither checks host ports —
 disjoint ports across beds are the AUTHOR's responsibility (an overlap fails the
 second bed at deploy via `CheckPortAvailability`).
 
+**Shared-FIXTURE image isolation — a concurrency class beyond ports.**
+`foldCheckBeds` keeps DEPLOY names disjoint and port auto-allocation keeps host ports
+disjoint; a third class — two beds (or two runs of one bed from different worktrees) that
+BUILD THE SAME FIXTURE IMAGE — is handled structurally by **per-run fixture image tags**:
+a bed run tags the fixture `<bed-root>-<runCalver>`, so two beds building the same fixture
+image NAME never share a tag and never race podman's store-global tag namespace. This
+closed a real defect: with a shared unscoped `<fixture>:<tag>`, a concurrent build / retag
+/ remove from one tree could pull the tag out from under another tree's bed mid-run —
+invisible to a serial roster, surfacing only under simultaneity (a pulled or renamed image
+→ a build/probe failure on the OTHER bed). The per-run tag makes distinct beds
+collision-free by construction; the earlier interim rule (an orchestrator-serialized
+MUTEX GROUP over beds sharing a fixture tag) is historical.
+
 ### Approximate wall-clock (10-CPU 32-GB reference host)
 
 `check-pod` ~110s IDLE but **842s measured under a concurrent roster** (one build →

@@ -164,18 +164,18 @@ keys/typos); `charly box validate` runs the full concrete check.
 
 ## Migration from legacy VmConfig
 
-The legacy `VmConfig` type + `BoxConfig.Vm` + `BoxConfig.Libvirt` + `ResolvedBox.Vm` + `LabelVm` + `LabelLibvirt` were **all deleted** in the hard cutover. Field mapping for forensic purposes:
+The legacy `VmConfig` type + `BoxConfig.Vm` + `BoxConfig.Libvirt` + `ResolvedBox.Vm` + `LabelVm` + `LabelLibvirt` were **all deleted** in the hard cutover. The current shape is a name-first `<name>: {vm: {…}}` node. Forensic field mapping (target column in the current node form):
 
-| Legacy location | New location |
+| Legacy location | Current location |
 |---|---|
-| `box.bootc: true` + `box.vm.disk_size` | `vms.<name>.source.kind: bootc` + `vms.<name>.disk_size` |
-| `box.vm.ssh_port` | `vms.<name>.ssh.port` |
-| `box.vm.ram`, `.cpus`, `.rootfs`, `.root_size`, `.kernel_args` | `vms.<name>.ram`, `.cpus`, `source.rootfs`, `source.root_size`, `source.kernel_args` |
-| `box.vm.firmware` | `vms.<name>.firmware` |
-| `box.vm.network` (string) | `vms.<name>.network.mode` |
-| `box.libvirt: ["<xml>", …]` (list of strings) | `vms.<name>.libvirt.snippets: […]` + structured `libvirt.devices.*` |
+| `box.bootc: true` + `box.vm.disk_size` | `<name>.vm.source.kind: bootc` + `<name>.vm.disk_size` |
+| `box.vm.ssh_port` | `<name>.vm.ssh.port` |
+| `box.vm.ram`, `.cpus`, `.rootfs`, `.root_size`, `.kernel_args` | `<name>.vm.ram`, `.cpu` (yaml key now singular), `source.rootfs`, `source.root_size`, `source.kernel_args` |
+| `box.vm.firmware` | `<name>.vm.firmware` |
+| `box.vm.network` (string) | `<name>.vm.network.mode` |
+| `box.libvirt: ["<xml>", …]` (list of strings) | `<name>.vm.libvirt.snippets: […]` + structured `libvirt.devices.*` |
 
-`charly migrate` performs this mapping idempotently. See `/charly-build:migrate` for the command and `/charly-internals:cutover-policy` for the policy.
+`charly migrate` does **not** perform this mapping any more — the harvest lived in the migration chain removed at the `2026.186.2323` baseline reset, so a config still carrying the legacy fields predates the schema floor (`2026.174.1100`) and is unmigratable; re-author it by hand. See `/charly-build:migrate` for the floor/HEAD gate and `/charly-internals:cutover-policy` for the policy.
 
 ## Cross-References
 
