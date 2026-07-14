@@ -53,12 +53,11 @@ inline-merge gate) IN the candy — it imports only the sdk module. It reaches t
 candy cannot do: the loader + build PREP + the resolved-project ENVELOPE via
 `Executor.HostBuild("build-prep", …)` (→ the envelope + a serializable drive-model), the Containerfile
 RENDER's host-coupled seams (RenderService, the builder resolves, ValidateEgress, EmitPluginOp, localpkg,
-bake-plugins) via `HostBuild("render-seam", …)`, and the layer merge via
-`HostBuild("merge", …)` (transitional — the OCI merge engine externalizes to `verb:oci`, then the candy
-swaps to `InvokeProvider` and this seam deletes). `build:box` runs the full drive; `build:generate` calls
+bake-plugins) via `HostBuild("render-seam", …)`. The layer merge is externalized to `verb:oci`
+(candy/plugin-oci — no `HostBuild("merge")` seam). `build:box` runs the full drive; `build:generate` calls
 `HostBuild("build-prep")` with `GenerateOnly`, renders the Containerfiles itself via `sdk/deploykit.Generator`
-(#67 render-DRIVE move — the host no longer renders), and returns the written paths (no podman, no
-merge). The host-builder KINDS (`build-prep`, `render-seam`, `merge`) are class-generic action nouns, never the provider
+(#67 render-DRIVE move — the host no longer renders), and returns the written paths (no podman).
+The host-builder KINDS (`build-prep`, `render-seam`, `bake-plugins`) are class-generic action nouns, never the provider
 WORDS (the F11 uniform-API gate `TestNoSinglePluginAPISurface` forbids a provider word on that surface). The
 Containerfile RENDER DRIVE (`Generate` / `generateContainerfile`) is in `sdk/deploykit` (#67 — driven by
 plugin-build over the envelope + the `render-seam` reverse legs); the host keeps ONLY the loader + build-prep +
@@ -187,7 +186,7 @@ See "Authoring an external COMMAND plugin" below.
   today. The build/render-relevant ones: `build-prep` (the box-build loader + build-prep + resolved-project
   envelope seam the candy drive calls), `render-seam` (the #67 render's host-coupled seams: RenderService,
   builder resolves, ValidateEgress, EmitPluginOp, localpkg), `bake-plugins` (#67 — bake `bake_plugin:`
-  binaries into the final image), and `merge` (the transitional layer-merge seam). The rest: `overlay`
+  binaries into the final image). The rest: `overlay`
   (the pod overlay build), `step-emit` (host-coupled step fragments), `cli` (run-any-charly-command
   reentry), `hostprobe` (doctor's raw host facts), `feature`, `settings`, `retention`, `plugin-binary`
   (the F10 plugin host build), `vm-build`, `resolved-project`, `validate-project`, `config-resolve` +
