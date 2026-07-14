@@ -755,10 +755,12 @@ Hooks in this project do TWO things and nothing more. The full inventory
    and a message mentioning the key never false-trigger, and env-var config
    injection is out of scope: the gate is a discipline backstop, not a
    security boundary),
-   a missing `Assisted-by: Claude (<tier>)` trailer on a READABLE message — an
+   a missing model-aware `Assisted-by: <Harness> (<Provider Full Model Name>; <tier>)`
+   trailer on a READABLE AI-initiated commit message — an
    inline `-m` value, a heredoc body (both live in the command string), or a
-   `-F <file>` the gate READS (every commit Claude is involved in must attribute —
-   a pure-human hand-commit never reaches this PreToolUse gate; scoped to the
+   `-F <file>` the gate READS (every materially authoring AI harness/model pair
+   must attribute; review-only AI is disclosed in the PR, and a pure-human
+   hand-commit never reaches this PreToolUse gate; scoped to the
    commit invocation's own arg span). A message the gate CANNOT read to find the
    tier — a `$(...)`/backtick substitution, a piped or unreadable `-F`, or an
    editor message (no -m/-F) — fails CLOSED (inline the trailer with `-m`, or point

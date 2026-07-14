@@ -55,6 +55,14 @@ evaluator's own spec.
   composes. Atomicity is a property of `main`, NOT of the `feat/` branch — the branch may
   freely accumulate fix commits across review rounds, and `--squash` is what keeps `main`
   one-commit-per-cutover and linear. Two SEPARATE cutovers must never share one PR.
+- **Model-aware AI authorship; human commits stay trailer-free.** Material AI
+  authors add one `Assisted-by: <Harness> (<Provider Full Model Name>; <tier>)` line per
+  unique harness/model pair, all at the commit's earned tier. The PR attribution
+  table also lists review/validation models, but review-only AI is PR disclosure
+  and never changes a 100% human-authored commit: that commit carries NO AI
+  trailer and the final squash remains trailer-free. A validator's mechanical
+  version-stamp commit may identify the validator to satisfy its AI PreToolUse
+  gate; the composed squash body retains only substantive authorship trailers.
 - **Update the PR; never close-and-recreate.** A PR is the unit of a cutover's review
   history. When a review demands changes, APPEND a commit and push it fast-forward — the
   status resets and the evaluator re-runs. Closing a PR is reserved for work that will
@@ -119,7 +127,7 @@ git switch -c feat/<slug>            # slug = kebab summary of the change
 # write the cutover narrative to CHANGELOG/<placeholder>.md — a PLACEHOLDER CalVer
 #   (any valid YYYY.DDD.HHMM; the evaluator OVERWRITES it with the merge-time VER).
 git add <only the cutover's files> CHANGELOG/<placeholder>.md
-git commit -m "<conventional commit> ...  Assisted-by: Claude (<tier>)"
+git commit -m "<conventional commit> ...  Assisted-by: <Harness> (<Provider Full Model Name>; <tier>)"
 git push origin feat/<slug>                       # feat push — allowed by the gate
 gh pr create --base main --head feat/<slug> \     # fill the PR template completely (single org source: opencharly/.github/.github/PULL_REQUEST_TEMPLATE.md — no per-repo copy)
   --title "<subject>" \
@@ -685,7 +693,7 @@ Fix: Add fuse-overlayfs for container startup
 
 Tested via overlay session on LOCAL system.
 
-Assisted-by: Claude (fully tested and validated)
+Assisted-by: Codex (OpenAI GPT-5.6 Sol; fully tested and validated)
 ```
 
 ## If validation FAILS or R10 fails

@@ -177,7 +177,9 @@ content — they live in the superproject's `.claude/workflows/*.js`.
 
 ### Per-directory CLAUDE.md signposts (hybrid)
 
-The repo-root `CLAUDE.md` is the single canonical R0–R10 rule-set.
+The repo-root `CLAUDE.md` is the single canonical R0–R10 rule-set. Root
+`AGENTS.md` is a thin Codex discovery/tool-mapping adapter that points to it;
+it never mirrors the dispatcher or rule bodies.
 Per-directory `CLAUDE.md` files (`charly/`, `candy/`, `plugins/`, and each
 `box/<distro>` submodule) are THIN signposts only: they name the skills to
 load for that area and point back to root. They MUST NOT restate any rule body —
