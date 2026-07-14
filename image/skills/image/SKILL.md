@@ -282,7 +282,7 @@ Self-reference protection: after merging defaults/base, any `builder` entry poin
 
 Validation checks that every builder referenced in `builder:` declares the matching capability in `produce:`.
 
-Source: `charly/generate.go` (`builderRefForFormat`), `charly/graph.go` (`ResolveBoxOrder`, `BoxNeedsBuilder`), `charly/validate.go` (`validateBuilders`).
+Source: `charly/generate.go` (`builderRefForFormat`), `charly/graph.go` (`ResolveBoxOrder`, `BoxNeedsBuilder`), `candy/plugin-box/validate_graph.go` (`validateBuilders`).
 
 ## Internal Base Images
 
