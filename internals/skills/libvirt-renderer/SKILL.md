@@ -217,7 +217,8 @@ libvirt validator. It rejects:
   `firmware:uefi-secure ⇒ libvirt.features.smm:true`.
 
 XML well-formedness of raw `libvirt.snippets` is still checked by
-`ValidateLibvirtSnippet` for **candy/image-level** snippets (`charly/validate.go`);
+`sdk/vmshared`'s `ValidateLibvirtSnippet`, invoked by the **candy/image-level**
+`validateLibvirt` rule in `candy/plugin-box/validate_rules.go`;
 `kind: vm` entity-inline `libvirt.snippets` are modeled typed-open (`[...string]`)
 and not XML-parsed at config time.
 

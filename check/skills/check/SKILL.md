@@ -1710,8 +1710,10 @@ deliberately.
   `check_cmd.go` (the CLI-free live-check gather engine), `check_runner_cmd.go`
   (now only `scorePodTargetEntry`), `check_runner_live.go` (the "score" mode body),
   `check_image_preflight.go` (the "preflight" body), `check_feature_run.go`,
-  `validate_check.go`, the `host_build_check_*.go` check seams, `mcp.go`,
+  the `host_build_check_*.go` check seams, `mcp.go`,
   `mcp_client.go`, plus the `LabelDescriptionSet` type in `labels.go`. The
+  op-level check validation (`validateOps` / `validateCheck`) moved out of core
+  to `candy/plugin-box/validate_check.go`. The
   `charly check` CLI + AI-iteration harness (the management Cmds, the iteration
   loop, the watchdog, clone/note/synccreds/runlocal) live in the compiled-in
   `command:check` plugin `candy/plugin-check/`.
