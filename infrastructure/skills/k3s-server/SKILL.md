@@ -64,21 +64,23 @@ charly secrets get charly/secret K3S_CLUSTER_TOKEN
 
 ```yaml
 # charly.yml
-vm:
-  k3s-srv:
-    source: { kind: cloud_image, url: "…" }
-    disposable: true
-    ram: 4G
-    cpus: 2
 
-deployments:
-  box:
-    "vm:k3s-srv":
-      target: vm
-      vm_source: k3s-srv
-      add_candy: [k3s-server]
-      env:
-        - K3S_SERVER_HOSTNAME=k3s-srv.lan  # optional but recommended
+# The VM hardware template (a kind: vm entity — name-first node form).
+k3s-srv-vm:
+  vm:
+    source: { kind: cloud_image, url: "…" }
+    ram: 4G
+    cpu: 2
+
+# The disposable deploy: overlay the k3s-server candy into the VM. `from:`
+# selects the template; disposable / add_candy / env live on the deploy node.
+k3s-srv:
+  vm:
+    from: k3s-srv-vm
+    disposable: true
+    add_candy: [k3s-server]
+    env:
+      K3S_SERVER_HOSTNAME: k3s-srv.lan  # optional but recommended
 ```
 
 ```bash

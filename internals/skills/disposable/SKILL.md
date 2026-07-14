@@ -350,7 +350,7 @@ passed independently). Omitting `--disposable` means the entry
 stays non-disposable — safe default.
 
 For VMs, edit `vm.yml` directly on the `kind: vm` entity. The
-`disposable: true` field lives alongside `ram:`, `cpus:`, etc. Any
+`disposable: true` field lives alongside `ram:`, `cpu:`, etc. Any
 synced host picks up the change on next `charly vm create` / `charly
 rebuild`.
 
