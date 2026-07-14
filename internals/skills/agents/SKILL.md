@@ -368,8 +368,13 @@ to rulings).
   session survives to receive completion notifications); parity re-derivations;
   **validator routing + post-merge verification** (tag-verify, main ff, the delta
   re-gate INCLUDING the architecture delta); merge sequencing + rebase broadcasts;
-  the task board; agent/worktree lifecycle (spawn, stop-stale, prune, the slot
-  budget); operator escalation.
+  the task board; **the THEMATIC BATCH QUEUES** (the Cutover Sizing Law,
+  `/charly-internals:cutover-policy` "Cutover sizing — the batch law": every
+  non-blocking fix is routed into a named batch with an owner and a start — a
+  teammate brief for a small fix NAMES its batch; a solo landing ceremony for a
+  small non-blocking fix is a routing error the orchestrator corrects); agent/
+  worktree lifecycle (spawn, stop-stale, prune, the slot budget); operator
+  escalation.
 - NEVER: authors cutover code it then validates; grinds mechanical bulk itself
   (delegates); lets a "stays in core" ruling stand without a K-wave exit + tracked
   task.

@@ -622,7 +622,8 @@ BOTH: the schema bump AND the tag. See `/charly-build:migrate`.
 - **Working-tree cleanliness.** After the merge, `git status` is clean in every
   repo (refresh worktrees per B7 step 6). Untracked files that aren't part of the
   cutover (test artifacts, build outputs) belong in `.gitignore`; if they aren't,
-  that's its own immediate-next cutover.
+  that joins the next thematic batch cutover (the Cutover Sizing Law,
+  `/charly-internals:cutover-policy` "Cutover sizing — the batch law").
 - **Report format.** The final message states: what was committed (commit subject +
   hash, per repo), the confidence tier with the proof that supports it, the PR + the
   `pr-validator` verbatim verdict + the merge SHA + the finalized `v<CalVer>` tag,

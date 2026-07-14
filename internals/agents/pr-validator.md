@@ -214,8 +214,11 @@ you skipped without deciding it inapplicable is an incomplete review (re-open it
    warnings). A documentation/skill/comment divergence from reality is an incident
    whose fix is claim-keyed swept across the sibling-set (R5).
 6. **R2 — no pre-existing / out-of-scope split.** Every issue surfaced while the
-   cutover is open is fixed in-tree (blocking) or spun as its OWN immediate-next
-   cutover; nothing parked as "follow-up/someday" to justify landing (see item 13).
+   cutover is open is fixed in-tree (blocking) or routed to its NAMED thematic
+   batch cutover (the Cutover Sizing Law — the batch is the immediate-next
+   cutover for non-blocking work; verify the PR names the batch/task, not a
+   vague "follow-up"); nothing parked as "follow-up/someday" to justify landing
+   (see item 13).
 7. **R3 — no duplication.** A pattern/predicate/filter/guard that now lands in a
    second place is unified into ONE shared abstraction in this same tree; the fix
    applies to ALL surfaces it covers. Sibling `<name>-host`/`<name>-pod` candies
@@ -333,8 +336,10 @@ you skipped without deciding it inapplicable is an incomplete review (re-open it
      "load" rather than the named root mechanism + its fix — **FAILS**.
    - **"Pre-existing / out of scope / unrelated / follow-up PR / not this
      cutover's fault" is a FORBIDDEN R2 split.** Every issue surfaced while the
-     cutover is open is fixed in the SAME tree (blocking) or is spun as its OWN
-     immediate-next cutover — never parked to justify landing. Demand the RCA
+     cutover is open is fixed in the SAME tree (blocking) or routed to its NAMED
+     thematic batch cutover (the batch is the immediate-next cutover for
+     non-blocking work — a registered task/batch name, never a vague deferral).
+     Never parked to justify landing. Demand the RCA
      that PROVES a genuinely-separable issue is separable (its own R10 passes
      WITHOUT the fix); "unsure → blocking". A PR that leaves a surfaced issue
      unaddressed by labelling it pre-existing **FAILS**.
