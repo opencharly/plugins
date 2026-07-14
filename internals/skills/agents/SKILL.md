@@ -455,7 +455,7 @@ lane-local decision.
   schema to `/charly-image:layer` + `charly box validate`.
 - **`pr-validator`** — the FRESH PR evaluator (the disposing half of the two-step
   landing). Spawned with NEW context, it independently re-validates a PR against
-  R0–R10 + the relevant skills, posts the `charly/claude-validation` commit status,
+  R0–R10 + the relevant skills, posts the `charly/pr-validator` commit status,
   and ONLY on PASS generates the merge-time CalVer, rewrites the version surfaces
   on the feat branch, merges (`gh pr merge --squash`), and tags. It is the ONLY
   actor that posts the status or merges; branch protection makes its status the
@@ -742,9 +742,8 @@ Hooks in this project do TWO things and nothing more. The full inventory
    second-pass *triggers* (rule label + a few-word essence + an anchor) so every
    rule gets a "verify THIS turn against it" nudge; the `Stop` reminder prompts a
    re-audit of the turn's changes + the per-repo CHANGELOG entry. They are
-   reminders, NOT copies: a trigger never restates the rule BODY — CLAUDE.md is
-   the single current source, and that is where each trigger points (duplicating
-   rule bodies drifts).
+   reminders, NOT copies: a trigger never restates the rule BODY. Claude hooks
+   point to `CLAUDE.md`; Codex follows its complete `AGENTS.md` rulebook.
 2. **Deterministic `PreToolUse` gates** that cover immediate command mechanics
    only: hook bypass (`--no-verify` / `-n` / `core.hooksPath`), untokenizable
    commit commands, configured Go lint for staged Go modules, force-push, and a

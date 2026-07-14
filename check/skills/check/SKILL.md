@@ -337,8 +337,8 @@ classes only — a live invocation ran but no fresh-rebuild R10 → `analysed on
 live system`; only compile / validate / dry-run ran → `syntax check only` (which
 FORBIDS commit). The Documentation-only change class has no live runner, so it
 has no waypoint: its non-runtime standards either all pass (→ `documentation
-reviewed`) or the change is not ready. The tier DEFINITIONS live in CLAUDE.md
-"AI Attribution"; this column names which tier each gate earns, it does not
+reviewed`) or the change is not ready. The tier DEFINITIONS live in each
+harness root rulebook's "AI Attribution" section; this column names which tier each gate earns, it does not
 redefine them.
 
 Mixed changes take the UNION of their classes' gates (docs ride along with the
