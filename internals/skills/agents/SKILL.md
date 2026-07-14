@@ -455,7 +455,7 @@ lane-local decision.
   schema to `/charly-image:layer` + `charly box validate`.
 - **`pr-validator`** — the FRESH PR evaluator (the disposing half of the two-step
   landing). Spawned with NEW context, it independently re-validates a PR against
-  R0–R10 + the relevant skills, posts the `charly/claude-validation` commit status,
+  R0–R10 + the relevant skills, posts the `charly/pr-validator` commit status,
   and ONLY on PASS generates the merge-time CalVer, rewrites the version surfaces
   on the feat branch, merges (`gh pr merge --squash`), and tags. It is the ONLY
   actor that posts the status or merges; branch protection makes its status the
