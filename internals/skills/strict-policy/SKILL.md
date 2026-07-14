@@ -176,7 +176,7 @@ A **non-blocking** issue (the current change is correct AND complete without it,
 | `virsh list/dumpxml/domstate/…` | `charly vm *` (lifecycle) / `charly check libvirt list/info/domain-xml/…` (introspection) |
 | stray-resource cleanup by hand | `charly reap-orphans` / `charly preempt restore` |
 
-A probe NO `charly` verb expresses is a charly GAP — close it as its own cutover (R2), never with an ad-hoc command. The mandate governs what you RUN against charly-managed resources: DESCRIPTIVE mentions of the underlying machinery (how a collector or executor works internally) are not commands and stay, and host-level operations on non-charly-managed resources (the host package manager, enabling the host libvirt daemon) are out of scope.
+A probe NO `charly` verb expresses is a charly GAP — close it via the sizing decision procedure (urgent → solo cutover; otherwise its thematic batch — R2, the Cutover Sizing Law), never with an ad-hoc command. The mandate governs what you RUN against charly-managed resources: DESCRIPTIVE mentions of the underlying machinery (how a collector or executor works internally) are not commands and stay, and host-level operations on non-charly-managed resources (the host package manager, enabling the host libvirt daemon) are out of scope.
 
 **The rule is preventive.** R4 exists to forbid the patterns BEFORE they crystallize. Each forbidden pattern is the kind of "quick fix" that, once accepted, becomes tribal knowledge ("oh, that test always needs a sleep; that's just how it is"). R4 closes the door before the tribe forms.
 
