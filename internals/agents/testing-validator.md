@@ -76,12 +76,12 @@ charly stop <image>                      # Clean shutdown
 
 The gate is the non-runtime standards (CLAUDE.md R10 "Documentation-only change
 class"): adversarial consistency review, R5 grep self-test, cross-reference
-validation, markdown integrity, the PreToolUse gates. Evidence = the
+validation, markdown integrity, and command-safety gates. Evidence = the
 grep/cross-ref outputs + the review verdict. A bed run is NOT required and adds
 no proof. The honest tier is `documentation reviewed` (never a runtime tier);
-`pre-commit-gate.sh` rejects it on a commit whose staged diff is not
-all-documentation (a submodule pointer bump counts as documentation only when the
-bumped submodule commit is itself all-documentation).
+The fresh `pr-validator` rejects this confidence when the actual PR diff is not
+all-documentation (a submodule pointer bump counts as documentation only when
+the bumped submodule commit is itself all-documentation).
 
 ### For R10 acceptance (the gate, not a smoke test)
 
@@ -120,14 +120,12 @@ all-documentation submodule commit, with ZERO behavior change — no behavioral
 Go / YAML-schema / box/candy-config edit, no other runtime surface)
 has no R10 bed; its applicable standards are the non-runtime ones: adversarial
 consistency review, the R5 grep self-test, cross-reference validation, markdown
-integrity, and the `pre-commit-gate.sh` / `pre-push-gate.sh` gates. It earns
+integrity, and the command-safety gates. It earns
 `documentation reviewed` when ALL of them pass; the `syntax check only → do NOT
 commit` clause (a runtime-class rule) does not apply. The moment a cutover ALSO
 touches code or config it is NOT docs-only — that surface's R10 gates it at a
-runtime tier, and the docs ride along in the same commit. (`pre-commit-gate.sh`
-rejects `documentation reviewed` on any commit whose staged diff is not
-all-documentation — a submodule pointer bump qualifies only when the bumped
-submodule commit is itself all-documentation.)
+runtime tier, and the docs ride along in the same commit. The fresh validator,
+not the local hook, enforces that classification from the actual PR diff.
 
 A known rule violation FORBIDS commit at ANY tier — there is no "downgrade
 and ship" path. Fix in the same tree or escalate. See CLAUDE.md.
