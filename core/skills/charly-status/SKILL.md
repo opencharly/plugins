@@ -39,43 +39,66 @@ the surface always renders what it can.
 
 Source layout:
 
-- `charly/status.go` — thin `StatusCmd` + dispatch (the `--nested` and `--json`
-  flags live here).
+The `charly status` surface is split across THREE homes: the **command:status
+plugin** owns the CLI + render + the PURE nested overlay; the **substrate plugin**
+(candy/plugin-substrate) owns the cleanly-movable COLLECTORS (pod live + local +
+the probes); **core** keeps only the kind-blind fan-out orchestration + the
+deploy-cone-coupled collectors (vm/k8s/android + the pod deploy-enrichment),
+which stay host-side until K5.
+
+- `candy/plugin-status/command.go` — the `charly status` Kong grammar + dispatch
+  (the `--nested` and `--json` flags live here); drives the `status-substrate`
+  HostBuild seam + applies the PURE nested overlay + renders.
+- `candy/plugin-status/render.go` — the unified `DeploymentStatus` rendered
+  shape + `RenderTable` / `RenderDetail` / `RenderJSON` / `RenderJSONOne` +
+  cell formatters.
+- `candy/plugin-status/overlay.go` — the PURE nested-overlay fold.
+- `charly/status_substrate_host.go` — the generic `status-substrate` F10
+  host-builder the command:status plugin drives (the host collection engine).
+- `charly/status_collector.go` — `Collector.collectFlat` (the substrate fan-out +
+  merge + sort) / `Collector.Single`; `collectSubstrate` (reaches the substrate
+  plugin's OpStatusCollect for pod/local); `enrichOne` (the DEPLOY-ENRICHMENT
+  half — charly.yml tunnel + image-label fallback, applied to the plugin's LIVE
+  pod rows); `lookupDeploy`; `resolveSystemdState`; `parsePortStrings`;
+  `formatTunnelSummary`. Holds NO enginekit client (the live pod collection
+  moved to the substrate plugin, P14a).
 - `charly/status_substrate.go` — the `SubstrateKind` discriminator
-  (`pod`/`vm`/`k8s`/`local`/`android`), the `CollectOpts` read-only input, the
+  (`pod`/`vm`/`k8s`/`local`/`android`), the `CollectOpts` read-only input (NO
+  engine — the pod/local collectors moved to the plugin), the
   `SubstrateCollector` interface, and the `init()`-time `registerSubstrate`
-  registry.
-- `charly/status_engine.go` — `EngineClient` (only place that touches
-  podman/docker), `ContainerSnapshot`, structured `PortMapping`.
-- `charly/status_collector.go` — `Collector.All` (substrate fan-out + merge +
-  nested overlay + sort) / `Collector.Single`; the pod row builder
-  (`collectOne`, stamps `Kind=SubstratePod`, `Source="podman"`); the
-  worker-pool probe fan-out; `parseQuadletDescription`; charly.yml lookup;
-  `formatLiveMounts`.
-- `charly/status_collect_pod.go` — the `PodCollector` (wraps the engine snapshot +
-  the `collectOne` row builder).
+  registry (vm/k8s/android only now).
 - `charly/status_collect_vm.go` — the `VMCollector` (libvirt domains → vm rows,
-  `Source="libvirt"`).
+  `Source="libvirt"`). STAYS host-side until K5 (deploy-cone-coupled).
 - `charly/status_collect_k8s.go` — the `K8sCollector` (cluster workloads; live
-  client-go probing under `--nested`).
-- `charly/status_collect_local.go` — the `LocalCollector` (install-ledger →
-  `local`-kind rows, `Source="ledger"`).
+  client-go probing under `--nested`). STAYS host-side until K5.
 - `charly/status_collect_adb.go` — the `AndroidCollector` (declared
-  `android` devices → rows via adb `host:devices`, `Source="adb"`).
+  `android` devices → rows via adb `host:devices`, `Source="adb"`). STAYS
+  host-side until K5.
 - `charly/status_nested.go` — the nested overlay (`applyNestedOverlay`): folds the
   DECLARED nested tree onto parent rows and, under `--nested`, probes each
   child's live multi-hop venue via the same `ResolveDeployChain` +
   `NestedExecutor` primitive `charly bundle add` / `charly check live parent.child` use.
-- `charly/status_probes.go` — `Probe` / `HostProbe` / `GuestProbe` interfaces
-  and the 7 concrete probes (`SupervisordProbe`, `DbusProbe`, `CharlyProbe`,
-  `WlProbe`, `SwayProbe` are guest; `CdpProbe`, `VncProbe` are host).
-  `runGuestProbes` builds a single concatenated shell script with
-  per-probe markers and splits the stdout chunks back out.
-- `charly/status_render.go` — the unified `DeploymentStatus` rendered shape +
-  `RenderTable` / `RenderDetail` / `RenderJSON` / `RenderJSONOne` + cell
-  formatters (`cellKind`, …); `formatTunnelSummary`.
 - `charly/status_reap.go` — `ReapOrphansCmd` (the top-level `charly reap-orphans`
   command).
+- `candy/plugin-substrate/status_collect.go` — the COLLECTOR OpStatusCollect
+  dispatch (by word pod/vm/k8s/local/android; vm/k8s/android defer to K5).
+- `candy/plugin-substrate/status_pod.go` — the pod LIVE collection (SnapshotAll +
+  the worker-pool fan-out + `collectPodLive` row builder + `runPodProbes` +
+  `applyQuadletDescription` + `enabledQuadlets` + `parseQuadletDescription` +
+  `formatLiveMounts`).
+- `candy/plugin-substrate/status_local.go` — the local install-ledger collector
+  (`Source="ledger"`).
+- `candy/plugin-substrate/status_probes.go` — `Probe` / `HostProbe` /
+  `GuestProbe` interfaces and the 7 concrete probes (`SupervisordProbe`,
+  `DbusProbe`, `CharlyProbe`, `WlProbe`, `SwayProbe` are guest; `CdpProbe`,
+  `VncProbe` are host). `runGuestProbes` builds a single concatenated shell
+  script with per-probe markers and splits the stdout chunks back out.
+- `sdk/enginekit` — `EngineClient` (the only place that touches podman/docker),
+  `ContainerSnapshot`, structured `PortMapping` — the sdk kit the substrate
+  plugin's pod-live collection imports.
+- `sdk/spec/status_types.go` — `SubstrateKind` + `StatusFromState` (the shared
+  state-vocab mapper, single-sourced for the plugin's pod-live + the host's vm
+  collector).
 
 ## Quick Reference
 
@@ -188,8 +211,8 @@ markers.
 | vnc | host | TCP dial + RFB banner read | `vnc:HOST_PORT` |
 
 Adding a new probe: implement `HostProbe` (network) or `GuestProbe`
-(in-container) in `status_probes.go` and register in the package-level
-`hostProbes` / `guestProbes` slice. No other file needs editing.
+(in-container) in `candy/plugin-substrate/status_probes.go` and register in the
+package-level `hostProbes` / `guestProbes` slice. No other file needs editing.
 
 ## JSON output schema
 
@@ -269,7 +292,7 @@ The `Volumes:` field is rendered from THREE sources, in priority order:
 
 This means a volume deployed with `--bind <name>=<path>` or `--encrypt <name>` shows up in the live form for running containers — what the container is ACTUALLY mounting, including the gocryptfs FUSE plain dir for encrypted volumes. Showing live mounts (rather than the image-label default) is what lets the operator tell, from `charly status` alone, whether an encrypted volume's gocryptfs FUSE is actually mounted: a running container binding `<...>/charly-immich-cache/plain -> /home/user/.immich/cache` with the FUSE unmounted would otherwise be writing plaintext over the cipher tree, and the live form makes that visible.
 
-For programmatic queries the same data is in `charly status --json`'s `volumes` array. Source: `charly/status_collector.go:formatLiveMounts` + `charly/status_engine.go:mountsFromInspect`. Tested by `charly/status_live_mounts_test.go` (17 sub-cases covering the JSON parser, the encryption-path detector, the renderer, and an end-to-end JSON → MountInfo → display chain).
+For programmatic queries the same data is in `charly status --json`'s `volumes` array. Source: `candy/plugin-substrate/status_pod.go:formatLiveMounts` (relocated from core, P14a) + `sdk/enginekit` (the `MountInfo` parser). Tested by `candy/plugin-substrate/status_test.go` (the relocated live-mounts cases: the encryption-path detector + the renderer).
 
 Authoritative direct queries (when you need the raw mount data):
 

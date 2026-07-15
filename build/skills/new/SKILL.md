@@ -19,7 +19,7 @@ Three verbs, in decreasing scope:
 | `charly box new box <name>` | A new discovered image at `box/<name>/charly.yml` (a `candy:` image doc — kind-keyed `candy:` carrying `base:`; there is no `box:` KIND) |
 | `charly box new candy <name>` | A new layer candy at `candy/<name>/charly.yml` (stub kind-keyed `candy:` doc, no `base:`/`from:`) |
 
-All three are **comment-preserving**: the YAML edits route through the `yaml.v3` Node API rather than the value API, so human-authored comments and key order survive round trips. Implementation lives in `charly/scaffold_project.go` + `sdk/kit/yaml.go`.
+All three are **comment-preserving**: the YAML edits route through the `yaml.v3` Node API rather than the value API, so human-authored comments and key order survive round trips. Implementation lives in `sdk/kit/scaffold.go` (`kit.ScaffoldProject` / `kit.AddBox` / `kit.ScaffoldCandy`) + `sdk/kit/yaml.go` (`kit.SetByDotPath` / `kit.MappingChild`); the candy-list EDIT helpers (`addCandyToBox` / `removeCandyFromBox`) live in `candy/plugin-authoring/authoring_edit.go` (P14b).
 
 Each verb also auto-becomes an MCP tool (`box.new.project`, `box.new.box`, `box.new.candy`) via the `charly __cli-model` reflection seam (`charly/cli_model_cmd.go`) consumed by the externalized MCP server (`candy/plugin-mcp`) — so an LLM agent driving `charly mcp serve` can scaffold a project from scratch over RPC. See `/charly-build:charly-mcp-cmd` "Authoring tools".
 
@@ -120,4 +120,4 @@ The scaffolded `charly.yml` from step 3 is minimal (a `candy:` block with `name:
 
 - `/charly-image:layer` -- Layer authoring guide, charly.yml format, install files + the `charly candy set / add-rpm / add-deb / add-pac / add-aur` editing surface
 - `/charly-build:charly-mcp-cmd` -- "Authoring tools" table + the MCP-only build-from-scratch worked example
-- `/charly-internals:go` -- Implementation notes: the `yaml.v3` Node API is the reason edits preserve comments; `charly/scaffold_project.go` + `sdk/kit/yaml.go` house the logic
+- `/charly-internals:go` -- Implementation notes: the `yaml.v3` Node API is the reason edits preserve comments; `sdk/kit/scaffold.go` + `sdk/kit/yaml.go` house the create-side logic (`kit.ScaffoldProject` / `kit.AddBox`), `candy/plugin-authoring/authoring_edit.go` the candy-list edits

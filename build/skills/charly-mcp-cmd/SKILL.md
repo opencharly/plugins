@@ -397,7 +397,7 @@ Every CLI verb under `charly box …` and `charly candy …` auto-becomes an MCP
 | `box.fetch` / `box.refresh` | Pre-prime / re-clone the remote-repo cache. Spec defaults to `default` (opencharly/charly). |
 | `box.write` / `box.cat` | Write / read any file under the project root — escape hatch for free-form auxiliary files (`pixi.toml`, `package.json`, `root.yml`, scripts, `*.service`). Path is resolved against `os.Getwd()` and rejected if it escapes the project root. |
 
-All YAML edits go through the `yaml.v3` *node* API (not value unmarshal) so comments and key order are preserved across edits. The generic comment-preserving setter/node helpers (`kit.SetByDotPath` / `kit.MappingChild`) live in `sdk/kit/yaml.go` (tested in `sdk/kit/yaml_test.go`); the box authoring editors live in `charly/scaffold_project.go` + `charly/scaffold_cmds.go` (tested in `charly/scaffold_project_test.go`); the `candy` authoring command is the compiled-in `command:candy` plugin (`candy/plugin-candy/command.go`).
+All YAML edits go through the `yaml.v3` *node* API (not value unmarshal) so comments and key order are preserved across edits. The generic comment-preserving setter/node helpers (`kit.SetByDotPath` / `kit.MappingChild`) live in `sdk/kit/yaml.go` (tested in `sdk/kit/yaml_test.go`); the box authoring editors live in `candy/plugin-authoring/authoring_edit.go` (P14b — moved from core `charly/scaffold_cmds.go`; tested in `candy/plugin-authoring/authoring_edit_test.go`); the `candy` authoring command is the compiled-in `command:candy` plugin (`candy/plugin-candy/command.go`).
 
 End-to-end MCP-only worked example:
 
