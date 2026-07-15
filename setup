@@ -194,14 +194,46 @@ def codex_skills(project: pathlib.Path, catalog: dict, selected: list[str]) -> d
     return links
 
 
+def skill_inventory_path(skills_root: pathlib.Path) -> pathlib.Path:
+    return skills_root / ".charly-profile.json"
+
+
 def managed_skill_links(skills_root: pathlib.Path) -> dict[pathlib.Path, str]:
     if not skills_root.is_dir():
         return {}
-    return {
-        path: os.readlink(path)
-        for path in skills_root.iterdir()
-        if path.name.startswith("charly-") and path.is_symlink()
+    inventory_path = skill_inventory_path(skills_root)
+    if inventory_path.is_file():
+        inventory = json.loads(inventory_path.read_text())
+        recorded = inventory.get("links", {})
+        return {
+            skills_root / name: target
+            for name, target in recorded.items()
+            if (skills_root / name).is_symlink()
+            and os.readlink(skills_root / name) == target
+        }
+
+    # One-time adoption for profiles generated before the inventory existed. Target
+    # containment, not a filename prefix, proves these links point into this project's
+    # canonical plugin skill tree.
+    plugin_root = (skills_root.parents[1] / "plugins").resolve()
+    adopted = {}
+    for path in skills_root.iterdir():
+        if not path.is_symlink():
+            continue
+        try:
+            path.resolve().relative_to(plugin_root)
+        except ValueError:
+            continue
+        adopted[path] = os.readlink(path)
+    return adopted
+
+
+def write_skill_inventory(skills_root: pathlib.Path, expected: dict[pathlib.Path, str]) -> None:
+    inventory = {
+        "version": 1,
+        "links": {path.name: target for path, target in sorted(expected.items())},
     }
+    skill_inventory_path(skills_root).write_text(serialized(inventory))
 
 
 def sync_codex_skills(expected: dict[pathlib.Path, str], check: bool, dry_run: bool) -> bool:
@@ -222,6 +254,7 @@ def sync_codex_skills(expected: dict[pathlib.Path, str], check: bool, dry_run: b
         if path.exists() or path.is_symlink():
             raise SystemExit(f"refusing to replace non-profile path: {path}")
         path.symlink_to(target, target_is_directory=True)
+    write_skill_inventory(skills_root, expected)
     return True
 
 

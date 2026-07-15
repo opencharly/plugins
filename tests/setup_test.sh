@@ -16,6 +16,10 @@ printf '%s\n' \
     '  "enabledPlugins": {"consumer@example": true}' \
     '}' >"$CONSUMER/.claude/settings.json"
 mkdir -p "$CONSUMER/.agents/plugins"
+mkdir -p "$CONSUMER/.agents/skills" "$TMP/consumer-owned-skill"
+printf '%s\n' '# Consumer-owned skill' >"$TMP/consumer-owned-skill/SKILL.md"
+ln -s "$TMP/consumer-owned-skill" "$CONSUMER/.agents/skills/charly-user-owned"
+consumer_skill_target=$(readlink "$CONSUMER/.agents/skills/charly-user-owned")
 printf '%s\n' \
     '{' \
     '  "name": "consumer-marketplace",' \
@@ -81,6 +85,10 @@ assert unmanaged == [
 names = [p["name"] for p in data["plugins"]]
 assert len(names) == len(set(names)), "duplicate marketplace entries"
 PY
+        [[ $(readlink "$CONSUMER/.agents/skills/charly-user-owned") == "$consumer_skill_target" ]] || {
+            echo "Codex setup changed a consumer-owned skill link" >&2
+            exit 1
+        }
     fi
 }
 
@@ -93,6 +101,11 @@ for harness in claude codex; do
         exit 1
     fi
 done
+
+[[ ! -e "$CONSUMER/.agents/skills/charly-build--validate" ]] || {
+    echo "Codex profile transition retained a deselected generated skill" >&2
+    exit 1
+}
 
 # Explicit --project, idempotence, dry-run, and managed-drift rejection.
 "$ROOT/setup" codex --project "$CONSUMER" developer
