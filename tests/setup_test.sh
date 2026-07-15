@@ -100,6 +100,28 @@ done
 marketplace="$CONSUMER/.agents/plugins/marketplace.json"
 stable=$(sha256sum "$marketplace")
 "$ROOT/setup" codex --project "$CONSUMER" developer >/dev/null
+
+# Managed roots must never escape the project through symlinks.
+for harness in claude codex; do
+    escape_project="$TMP/escape-$harness"
+    escape_target="$TMP/external-$harness"
+    mkdir -p "$escape_project" "$escape_target"
+    git -C "$escape_project" init -q
+    ln -s "$CONSUMER/plugins" "$escape_project/plugins"
+    if [[ $harness == claude ]]; then
+        ln -s "$escape_target" "$escape_project/.claude"
+    else
+        ln -s "$escape_target" "$escape_project/.agents"
+    fi
+    if "$ROOT/setup" "$harness" --project "$escape_project" developer >/dev/null 2>&1; then
+        echo "$harness setup followed a managed-root symlink" >&2
+        exit 1
+    fi
+    if find "$escape_target" -mindepth 1 -print -quit | grep -q .; then
+        echo "$harness setup wrote outside the project" >&2
+        exit 1
+    fi
+done
 [[ $stable == "$(sha256sum "$marketplace")" ]] || { echo "Codex setup is not idempotent" >&2; exit 1; }
 "$ROOT/setup" codex --project "$CONSUMER" --dry-run user >/dev/null
 [[ $stable == "$(sha256sum "$marketplace")" ]] || { echo "Codex dry-run changed the marketplace" >&2; exit 1; }

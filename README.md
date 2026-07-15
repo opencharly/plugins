@@ -132,7 +132,9 @@ repo-native `.agents/skills/` symlinks to the selected canonical
 `plugins/<plugin>/skills/` directories. It never copies skill bodies, invokes a
 plugin CLI, or changes user configuration. Existing unrelated project settings,
 marketplace metadata, plugin entries, and skill paths are preserved; setup owns
-only the Charly entries it generates. It is idempotent and does not change
+only the Charly entries it generates. Managed project roots must not be symlinks;
+setup refuses them instead of following a write path outside the repository. It
+is idempotent and does not change
 models, approval policy, credentials, trust, or permissions. A consumer
 repository must carry the Charly plugins repository at `./plugins`.
 Existing MCP declarations bundled by plugins remain normal plugin content;
