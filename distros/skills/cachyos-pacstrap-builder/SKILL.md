@@ -12,7 +12,7 @@ description: |
 Privileged builder image used to bootstrap a CachyOS root filesystem via
 `pacstrap` inside a container. It is the `bootstrap_builder_image:` for
 `/charly-distros:cachyos-pacstrap` and the `builder_image:` for the
-`/charly-vm:cachyos` VM.
+`/charly-vm:cachyos-bootstrap-vm` VM.
 
 > **Lives in `opencharly/distro-cachyos`** (git submodule at `box/cachyos`). It is
 > `base: arch.arch` — the `arch` base from the **`opencharly/distro-arch`** submodule,
@@ -51,7 +51,7 @@ cachyos distro config) is reachable.
 
 - `/charly-distros:cachyos` — the Docker-Hub CachyOS base (sibling, no pacstrap)
 - `/charly-distros:cachyos-pacstrap` — the rootfs this builder bootstraps
-- `/charly-vm:cachyos` — the VM that uses this as `builder_image:`
+- `/charly-vm:cachyos-bootstrap-vm` — the VM that uses this as `builder_image:`
 - `/charly-distros:arch` / `/charly-distros:arch-builder` — the Arch base + builder it mirrors
 
 ## When to Use This Skill

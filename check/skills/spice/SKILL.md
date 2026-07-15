@@ -1,7 +1,6 @@
 ---
 name: spice
 description: the `spice:` SPICE-wire check verb for VMs — handshake, native-SPICE display screenshots, and input injection, served out-of-process by candy/plugin-spice (the vendored Shells-com/spice library).
-allowed-tools: Bash, Read
 ---
 
 # SPICE — VM display-protocol check verb
@@ -119,7 +118,7 @@ forward.
 
 GUI clients (virt-manager, `remote-viewer --connect qemu+ssh://…`) don't need
 any charly involvement for socket listeners — they auto-forward via libvirt
-RPC fd-passing. See `/charly-vm:arch` "Connecting from a remote workstation"
+RPC fd-passing. See `/charly-vm:arch-cloud-vm` "Connecting from a remote workstation"
 for the complete story.
 
 ## What it does (and doesn't)
@@ -221,7 +220,7 @@ correctly distinct per bed even when several beds share one entity.
   screenshot, send-key, QMP, snapshots, guest agent).
 - `/charly-check:check` — the unified check system and the Op (a plan step)
   that holds every verb discriminator + modifier.
-- `/charly-vm:arch` — the arch VM that ships SPICE by default; "Connecting from
+- `/charly-vm:arch-cloud-vm` — the arch VM that ships SPICE by default; "Connecting from
   a remote workstation".
 - `/charly-internals:plugin` — the external-charly-verb plugin model the spice
   verb follows.

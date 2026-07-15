@@ -110,7 +110,7 @@ ECR Public mirrors the Dockerhub library namespace without rate-limiting.
 - `/charly-coder:ubuntu-coder` — kitchen-sink dev box.
 - `/charly-distros:ubuntu-debootstrap-builder` — privileged debootstrap builder (`base: debian:13`).
 - `/charly-distros:ubuntu-debootstrap` — bootstrap-from-scratch rootfs.
-- `/charly-vm:ubuntu` — the `ubuntu-debootstrap` bootstrap VM + `check-ubuntu-debootstrap-vm` bed.
+- `/charly-vm:ubuntu-debootstrap-vm` — the `ubuntu-debootstrap` bootstrap VM + `check-ubuntu-debootstrap-vm` bed.
 
 ## Verification
 

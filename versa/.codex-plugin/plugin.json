@@ -1,0 +1,24 @@
+{
+  "name": "charly-versa",
+  "version": "1.1.0",
+  "description": "MCP server registration + skill coverage for the versa image — marimo reactive notebooks + Airflow + OSM/GTFS analytics + martin vector tiles + 3D terrain",
+  "author": {
+    "name": "opencharly"
+  },
+  "repository": "https://github.com/opencharly/charly-plugins",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "OpenCharly Versa",
+    "shortDescription": "OpenCharly versa workflows.",
+    "longDescription": "MCP server registration + skill coverage for the versa image — marimo reactive notebooks + Airflow + OSM/GTFS analytics + martin vector tiles + 3D terrain",
+    "developerName": "opencharly",
+    "category": "images",
+    "capabilities": [
+      "Instructions"
+    ],
+    "defaultPrompt": [
+      "Use OpenCharly Versa for this OpenCharly task."
+    ]
+  },
+  "mcpServers": "./.mcp.json"
+}

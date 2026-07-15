@@ -3,7 +3,7 @@ name: git-workflow
 description: |
   Use when committing, branching, pushing, opening PRs, or landing a change with
   gh — the feat/-branch, R10-gated, PR-ONLY, agent-validated, never-force-push
-  landing across the main repo + the sdk/plugins submodules + box/<distro>
+  landing across the main repo, sdk/plugins submodules, and box distro
   submodules. A direct push to main is FORBIDDEN and mechanically disabled; a
   FRESH pr-validator agent validates the PR, merges it (squash), and tags. Covers
   sync-to-upstream, branch/worktree pruning, the fork+PR path, cross-repo @github

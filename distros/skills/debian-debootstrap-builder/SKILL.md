@@ -13,7 +13,7 @@ description: |
 Privileged builder image that ships the **debootstrap** toolchain (the
 `debootstrap-builder` candy). It is the `from: builder:debootstrap` /
 `bootstrap_builder_image:` target for `/charly-distros:debian-debootstrap` and the
-`/charly-vm:debian` bootstrap VM.
+`/charly-vm:debian-debootstrap-vm` bootstrap VM.
 
 > **Lives in `opencharly/distro-debian`** (git submodule at `box/debian`). Build:
 > `charly -C box/debian box build debian-debootstrap-builder`.
@@ -39,7 +39,7 @@ the unified loader.
 
 - `/charly-distros:debian` — the Docker-Hub-equivalent base (`base: debian:13`)
 - `/charly-distros:debian-debootstrap` — the bootstrap-from-scratch rootfs it builds
-- `/charly-vm:debian` — the VM built via the same debootstrap path
+- `/charly-vm:debian-debootstrap-vm` — the VM built via the same debootstrap path
 - `/charly-distros:ubuntu-debootstrap-builder` — the Ubuntu sibling (also `base: debian:13`)
 
 ## When to Use This Skill

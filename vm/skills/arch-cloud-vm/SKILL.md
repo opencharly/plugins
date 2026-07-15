@@ -1,5 +1,5 @@
 ---
-name: arch
+name: arch-cloud-vm
 description: |
   First kind:vm entity with source.kind: cloud_image — fetches the Arch Linux cloud
   qcow2 from pkgbuild.com, applies cloud-init, boots under libvirt/QEMU via BIOS
@@ -301,7 +301,7 @@ cloud-init appends the pubkey to `/home/arch/.ssh/authorized_keys` without calli
 ### Rebuild + boot
 ```bash
 charly vm stop arch --force 2>/dev/null
-charly vm destroy arch 2>/dev/null
+charly vm destroy arch --if-exists
 rm -f ~/.local/share/charly/vm/charly-arch/nvram.fd
 rm -f output/qcow2/{disk.qcow2,seed.iso}
 charly vm build arch

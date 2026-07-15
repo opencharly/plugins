@@ -1,0 +1,23 @@
+{
+  "name": "charly-build",
+  "version": "1.1.0",
+  "description": "Build/authoring CLI verbs — `charly box build`, `generate`, `list`, `inspect`, `merge`, `new`, `pull`, `validate`, plus secrets/settings/migrate/charly-mcp-cmd. Schema authoring (`image`, `layer`, `local-spec`) moved to `kind/*` plugins; check orchestrator moved to `check/`.",
+  "author": {
+    "name": "opencharly"
+  },
+  "repository": "https://github.com/opencharly/charly-plugins",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "OpenCharly Build",
+    "shortDescription": "OpenCharly build workflows.",
+    "longDescription": "Build/authoring CLI verbs — `charly box build`, `generate`, `list`, `inspect`, `merge`, `new`, `pull`, `validate`, plus secrets/settings/migrate/charly-mcp-cmd. Schema authoring (`image`, `layer`, `local-spec`) moved to `kind/*` plugins; check orchestrator moved to `check/`.",
+    "developerName": "opencharly",
+    "category": "commands",
+    "capabilities": [
+      "Instructions"
+    ],
+    "defaultPrompt": [
+      "Use OpenCharly Build for this OpenCharly task."
+    ]
+  }
+}

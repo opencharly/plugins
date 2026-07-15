@@ -152,5 +152,5 @@ Explicitly supported — not either/or. `VmKeyInjection.SMBIOS: enabled` + `VmKe
 - `/charly-internals:vm-deploy-target` — `EnsureCharlyInGuest` caller; SSH/cloud-init readiness waits
 - `/charly-vm:vm` — command-family; cloud-init flow
 - `/charly-vm:vms-catalog` — YAML-authoring reference
-- `/charly-vm:arch` — `charly_install.strategy: auto` worked example; adopt-user pattern
+- `/charly-vm:arch-cloud-vm` — `charly_install.strategy: auto` worked example; adopt-user pattern
 - `/charly-distros:cloud-init` — **guest-side pairing**: the cloud-init package installed inside bootc images reads the seed ISO this renderer produces

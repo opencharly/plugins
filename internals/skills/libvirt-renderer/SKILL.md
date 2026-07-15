@@ -66,7 +66,7 @@ Document rationale for *every* cloud_image VM author:
 | Model | Pros | Cons | When to pick |
 |---|---|---|---|
 | `virtio` (virtio-gpu) | Native `virtio_gpu` kernel DRM driver; Wayland-native; simpler config (just `vram` + `heads`); optional `accel3d: true` for virgl OpenGL passthrough | Only modern Linux kernels (4.16+) | **default for Linux guests** |
-| `qxl` | Legacy SPICE-specific (2010 Red Hat); X11-oriented; requires xf86-video-qxl for acceleration | More knobs to tune (ram_size + vram_size + vram64_size_mb + vgamem_mb quartet); simpledrm→qxldrmfb takeover race under UEFI (see `/charly-vm:arch` Finding B); X11-dominant | Legacy guests only |
+| `qxl` | Legacy SPICE-specific (2010 Red Hat); X11-oriented; requires xf86-video-qxl for acceleration | More knobs to tune (ram_size + vram_size + vram64_size_mb + vgamem_mb quartet); simpledrm→qxldrmfb takeover race under UEFI (see `/charly-vm:arch-cloud-vm` Finding B); X11-dominant | Legacy guests only |
 | `cirrus` | Most compatible | Low resolution, no acceleration | BIOS-fallback only |
 | `none` | No video | — | Headless VMs |
 
@@ -160,7 +160,7 @@ the parent dir. (The same channel is also contributed as a raw snippet by the
 </os>
 ```
 
-When `spec.Firmware == "bios"` or empty, `ResolveOvmfForSpec` returns empty paths, `VmRuntimeParams.OVMFCodePath`/`.NVRAMPath` stay empty, and `buildDomainOS` emits neither `<loader>` nor `<nvram>` (the firmware `switch` has no bios case). No OVMF package dependency, no per-VM NVRAM file, no Secure Boot lock-in. This is what makes `/charly-vm:arch` viable — BIOS boot bypasses the stale BOOTX64.EFI issue by never loading it.
+When `spec.Firmware == "bios"` or empty, `ResolveOvmfForSpec` returns empty paths, `VmRuntimeParams.OVMFCodePath`/`.NVRAMPath` stay empty, and `buildDomainOS` emits neither `<loader>` nor `<nvram>` (the firmware `switch` has no bios case). No OVMF package dependency, no per-VM NVRAM file, no Secure Boot lock-in. This is what makes `/charly-vm:arch-cloud-vm` viable — BIOS boot bypasses the stale BOOTX64.EFI issue by never loading it.
 
 `uefi-secure` does NOT auto-enable SMM: `buildDomainOS` emits the secure-boot
 `<feature>` toggles + secure `<loader>`, but `buildDomainFeatures` only emits
@@ -237,5 +237,5 @@ catching a broken render or `XMLPassthrough` snippet before VM create. It is
 - `/charly-internals:cloud-init-renderer` — paired renderer for seed ISO + user-data
 - `/charly-internals:vm-deploy-target` — consumer that applies the rendered domain
 - `/charly-vm:vm` — command-family skill; video-model decision table
-- `/charly-vm:arch` — BIOS decision RCA; virtio-gpu live-test bisect
+- `/charly-vm:arch-cloud-vm` — BIOS decision RCA; virtio-gpu live-test bisect
 - `/charly-distros:qemu-guest-agent` — virtio-serial channel snippet that this renderer emits in `<devices>`

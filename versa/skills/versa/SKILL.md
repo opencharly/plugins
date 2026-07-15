@@ -43,7 +43,7 @@ MCP-server identity reflect that upstream software identity.
    from CachyOS extra repo; `/opt/cuda` symlinked into
    `/usr/{bin,include,lib64}` for path compatibility with the Fedora
    layout). No AUR builds in this image — `build:` is `[pac]` only.
-5. `marimo` — `/charly-versa:versa-layer` — pixi env (cudf-polars-cu13,
+5. `marimo` — `/charly-versa:marimo-layer` — pixi env (cudf-polars-cu13,
    torch cu130, geopandas, quackosm, gtfs-parquet, folium, marimo,
    airflow Python deps, plus polars-st / geopolars / geoarrow-pyarrow /
    geoarrow-pandas / lonboard for Polars-native spatial ops + deck.gl
@@ -83,7 +83,7 @@ MCP-server identity reflect that upstream software identity.
     `/fonts/`, `/styler/`
 16. `notebook-osm` — `/charly-versa:notebook-osm` — data-only layer
     seeding the OSM+GTFS+pipelines notebook into `/workspace/notebooks/`
-17. `notebook-graph` — `/charly-versa:notebook-graph` — data-only layer
+17. `notebook-graph` — data-only layer in `candy/notebook-graph`
     seeding `gpu-libraries-demo.py` into `/workspace/notebooks/`;
     exercises cuGraph (nx-cugraph backend), cuML (KMeans), PyG
     (GCNConv on cuda:0 with torch_scatter), and graphistry
@@ -242,7 +242,7 @@ This image publishes one MCP endpoint (registered by this plugin's
 
 | Name | Container URL | Tool count | Skill |
 |---|---|---:|---|
-| marimo | `http://localhost:2718/mcp/server` | 10 (read-only inspection) | `/charly-versa:versa-mcp` |
+| marimo | `http://localhost:2718/mcp/server` | 10 (read-only inspection) | `/charly-versa:marimo-mcp` |
 
 The marimo MCP server name reflects the upstream software identity,
 not OUR image identity. There is no `airflow` MCP — no Airflow-3 /
@@ -368,8 +368,8 @@ Python wheel — does not break the `no-build = true` invariant the
 
 ## Cross-references
 
-- `/charly-versa:versa-layer` — marimo runtime layer (pixi env, service)
-- `/charly-versa:versa-mcp` — marimo MCP server tool catalog
+- `/charly-versa:marimo-layer` — marimo runtime layer (pixi env, service)
+- `/charly-versa:marimo-mcp` — marimo MCP server tool catalog
 - `/charly-versa:airflow-layer` — Airflow 3.x compat findings
 - `/charly-versa:notebook-osm` — the dual-DAG OSM+GTFS notebook
 - `/charly-versa:maputnik-layer` — Vite `--base=/` build pattern

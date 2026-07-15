@@ -444,7 +444,7 @@ on shared hosts.
   is Standard 4, fresh-rebuild re-verification is Standard 10.
 - `/charly-vm:vms-catalog` — kind:vm schema, including `disposable:` and
   `lifecycle:` fields.
-- `/charly-vm:arch` — canonical worked example.
+- `/charly-vm:arch-cloud-vm` — canonical worked example.
 - `/charly-core:deploy` — `--disposable` / `--lifecycle` flags on
   `charly bundle add`.
 - `/charly:rebuild` — the rebuild verb command reference (not yet

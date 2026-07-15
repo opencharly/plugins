@@ -1,5 +1,5 @@
 ---
-name: ubuntu
+name: ubuntu-debootstrap-vm
 description: |
   Ubuntu bootstrap VM (kind:vm ubuntu-debootstrap) — source.kind: bootstrap via
   ubuntu-debootstrap-builder + debootstrap, ext4 rootfs, uefi-insecure. Plus the
@@ -62,8 +62,8 @@ don't need a VM disk.
 
 - `/charly-distros:ubuntu-debootstrap-builder` — the builder image this VM uses
 - `/charly-distros:ubuntu-debootstrap` — the container equivalent of this bootstrap path
-- `/charly-vm:debian` — the Debian sibling bootstrap VM
-- `/charly-vm:arch` — the canonical cloud_image VM (BIOS/virtio-gpu/sizing rationale)
+- `/charly-vm:debian-debootstrap-vm` — the Debian sibling bootstrap VM
+- `/charly-vm:arch-cloud-vm` — the canonical cloud_image VM (BIOS/virtio-gpu/sizing rationale)
 - `/charly-vm:vm` — VM lifecycle commands + BIOS/UEFI matrix
 - `/charly-vm:vms-catalog` — VmSpec authoring reference
 

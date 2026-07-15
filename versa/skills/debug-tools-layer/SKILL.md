@@ -119,5 +119,5 @@ than file path because the binary's location varies across distros
 - `/charly-versa:versa` — image composing this layer
 - `/charly-versa:airflow-layer` — services this toolkit debugs
 - `/charly-versa:osm-tools-layer` — martin server this toolkit debugs
-- `/charly-versa:versa-layer` — marimo runtime this toolkit debugs
+- `/charly-versa:marimo-layer` — marimo runtime this toolkit debugs
 - `/charly-coder:dev-tools` — overlapping but heavier (includes qemu, AWS CLI, etc.); not composed by versa
