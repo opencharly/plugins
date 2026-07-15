@@ -52,13 +52,13 @@ records in the install ledger and replays at `charly bundle del`
 ## `externalDeployTarget` — the generic adapter
 
 `externalDeployTarget` (`charly/deploy_target_external.go`) is the generic
-out-of-process adapter. In-proc, two targets implement the bare
-`DeployTarget` (Name + Emit) interface — `OCITarget` (pod-overlay `add_candy:`
-Containerfile synthesis; `charly box build`/`generate` itself uses the separate
-`WriteCandySteps` → `EmitTasks` generator in `sdk/deploykit`, relocated in #67) and `PodDeployTarget` (the pod
-overlay-BUILD engine) — but both are now BUILD ENGINES invoked HOST-SIDE from a
-lifecycle hook (`candy/plugin-deploy-pod`'s PrepareVenue (M4)), NOT deploy targets
-dispatched by `ResolveTarget`. The deploy LIFECYCLE is the separate
+out-of-process adapter. In-proc, NO targets implement the bare
+`DeployTarget` (Name + Emit) interface — the former in-proc overlay walker + the
+pod overlay target were DELETED in P11c (the pod overlay render now lives in the candy
+`plugin-deploy-pod`'s PrepareVenue (M4), via `deploykit.OCITarget` +
+`deploykit.NewRenderGeneratorFromProject`; `charly box build`/`generate` itself uses the
+separate `WriteCandySteps` → `EmitTasks` generator in `sdk/deploykit`, relocated in #67),
+NOT deploy targets dispatched by `ResolveTarget`. The deploy LIFECYCLE is the separate
 `UnifiedDeployTarget` interface (Add/Del/Test/Update/Start/…/Rebuild), and its
 sole implementer is the generic `externalDeployTarget`. **ALL FIVE external
 substrates (`local`/`vm`/`pod`/`k8s`/`android`) route through
@@ -136,7 +136,7 @@ Each Op:
 
 ## Implementation notes
 
-- The `pod` substrate is EXTERNAL (`deploy:pod`, candy/plugin-deploy-pod); `PodDeployTarget` (`charly/deploy_target_pod.go`) is its RETAINED overlay-BUILD engine, invoked HOST-SIDE from `candy/plugin-deploy-pod`'s PrepareVenue (M4) (`charly/build_overlay.go`). Its teardown record is keyed HOST-SIDE by `computeDeployID(name)` like every external deploy (the in-proc pod was record-free).
+- The `pod` substrate is EXTERNAL (`deploy:pod`, candy/plugin-deploy-pod); the pod overlay render MOVED to the candy (P11c — `candy/plugin-deploy-pod/overlay.go`, via `deploykit.OCITarget`), and `charly/build_overlay.go` is now the host-side prep+resolve M-seam the candy reaches over `HostBuild("overlay")`. Its teardown record is keyed HOST-SIDE by `computeDeployID(name)` like every external deploy (the in-proc pod was record-free).
 - `vmNameFromDeployName` strips the `vm:` prefix. `vmEntityForAdd` (`charly/vm_lifecycle_preresolve.go`, used by the host prepare hook) resolves the `kind:vm` entity from a deploy node: the node's `vm:` cross-ref (`node.From`) wins, then the persisted cross-ref, then a legacy `vm:<entity>` prefix, then the deploy name itself.
 - `UnifiedDeployTarget` / `LifecycleTarget` interfaces (`charly/deploy_target_unified.go`) + the `ResolveTarget` dispatcher (`charly/unified_targets.go`) provide the full lifecycle contract (`Add` / `Del` / `Test` / `Update` / `Start` / `Stop` / `Status` / `Logs` / `Shell` / `Rebuild`). `ResolveTarget` returns an `externalDeployTarget` for every externalized substrate (local/vm/pod/k8s/android — all five).
 - Disposability is read per-`BundleNode` via `charly/deploy.go::BundleNode.IsDisposable()` (`disposable: true`, or ephemeral); it is NOT a `VmSpec` field. The disposability-as-authorization gate is NOT applied in the `charly update` path — `charly update <vm>` rebuilds on explicit invocation regardless (it only NOTES non-disposability, never refuses). `externalDeployTarget.Rebuild` delegates through the `grpcSubstrateLifecycle` proxy to the plugin's `OpRebuild` (over `HostBuild("cli")`), which recreates the domain THEN re-applies the deploy node's layers via the shared `charly bundle add <node>` path — the same layer-apply primitive the local/pod Rebuild use (R3).

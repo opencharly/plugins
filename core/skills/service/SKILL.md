@@ -8,7 +8,7 @@ description: |
 
 ## Terminology note
 
-**"pod"** is the user-visible term for a single-container deployment (matches podman's vocabulary and the `target: pod` deploy-yml value). Internally, the Go struct is `PodDeployTarget` and the file is `charly/deploy_target_pod.go`. This skill's body uses the word "container" in many places because it's also the generic runtime artifact — read "container" as the runtime concept and "pod" as the target/deployment kind.
+**"pod"** is the user-visible term for a single-container deployment (matches podman's vocabulary and the `target: pod` deploy-yml value). Internally, the pod overlay render is owned by the candy `candy/plugin-deploy-pod/overlay.go` (P11c — the former in-core pod overlay target + `charly/deploy_target_pod.go` were DELETED; the candy renders via `deploykit.OCITarget` + `deploykit.NewRenderGeneratorFromProject`, IMPORT-PURE). This skill's body uses the word "container" in many places because it's also the generic runtime artifact — read "container" as the runtime concept and "pod" as the target/deployment kind.
 
 `charly start/stop/status/logs/shell` operate on named pod deployments (the unit a user cares about); the underlying runtime is podman/docker (containers), managed via systemd user quadlet.
 
