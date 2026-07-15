@@ -8,6 +8,7 @@ import fcntl
 import json
 import os
 import pathlib
+import stat
 import subprocess
 import sys
 import tempfile
@@ -299,10 +300,14 @@ def serialized(document: dict) -> str:
 
 def atomic_write(path: pathlib.Path, contents: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    mode = stat.S_IMODE(path.stat().st_mode) if path.exists() else 0o644
     with tempfile.NamedTemporaryFile("w", dir=path.parent, delete=False) as temporary:
         temporary.write(contents)
+        temporary.flush()
+        os.fsync(temporary.fileno())
         temporary_path = pathlib.Path(temporary.name)
     try:
+        os.chmod(temporary_path, mode)
         os.replace(temporary_path, path)
     finally:
         temporary_path.unlink(missing_ok=True)
