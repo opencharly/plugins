@@ -412,7 +412,7 @@ you skipped without deciding it inapplicable is an incomplete review (re-open it
       or moved core code — distinguishing a GENERIC kind-AGNOSTIC host mechanism (the
       four in-core M's — plugin loading, prescan-dispatch, the kind-decode
       materialize, the wire broker — or a class-generic `HostBuild` KIND seam such as
-      `image`/`overlay`/`cli`/`step-emit`, which is permitted) from a PER-CAPABILITY
+      `overlay`/`cli`/`step-emit`, which is permitted) from a PER-CAPABILITY
       seam (a provider WORD on the API surface, a `spec.<Kind>` field-read, a kind-word
       `switch`, a per-kind Go map — an R-item that LEAKED into core = blocker). A
       `*Legacy*`-named identifier or file introduced alongside a body move is a
