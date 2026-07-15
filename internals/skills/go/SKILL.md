@@ -180,9 +180,7 @@ The DEPLOY paths (pod/vm + external [local/k8s/android]) route through a shared 
 Layer + ResolvedBox + HostContext
     → BuildDeployPlan (install_build.go) [pure; deploy-path only, NOT charly box build]
     → InstallPlan (install_plan.go)
-    → DeployTarget.Emit (OCITarget/PodDeployTarget) / UnifiedDeployTarget lifecycle
-       ├── OCITarget (build_target_oci.go)          → Containerfile text (pod-overlay add_candy: synthesis)
-       ├── PodDeployTarget (deploy_target_pod.go)   → overlay + quadlet
+    → DeployTarget.Emit (NO in-proc DeployTargets remain — the former in-proc overlay walker + the pod overlay target were DELETED in P11c; the pod overlay render now lives in the candy `plugin-deploy-pod/overlay.go`, via `deploykit.OCITarget` + `deploykit.NewRenderGeneratorFromProject`) / UnifiedDeployTarget lifecycle
        └── externalDeployTarget (deploy_target_external.go) → out-of-process plugin over the OpExecute reverse channel
                                                               (deploy:local — candy/plugin-deploy-local walks the IR
                                                               via kit.WalkPlans, host-engine steps via RunHostStep;
@@ -193,7 +191,7 @@ Layer + ResolvedBox + HostContext
                                                               tree, plugin runs kubectl apply -k; deploy:android)
 ```
 
-`OCITarget` is constructed only by `PodDeployTarget`; `charly box build`/`generate` emit via the `WriteCandySteps` → `EmitTasks` generator in `sdk/deploykit` (`deploykit.Generator`, relocated from `charly/generate.go` in #67; `emitTasks` in `charly/tasks.go` is a thin shim to `deploykit.Generator.EmitTasks` that stays for the pod-overlay), sharing the package-cascade / shell-snippet / localpkg compiler helpers with the IR. Full reference lives in **`/charly-internals:install-plan`** — go there before touching any of those files. Supporting Go files (ledger, builder_run, shell_profile, reverse_ops, service_render, deploy_ref, hostdistro, migrate_services_tool) are covered in **`/charly-internals:local-infra`**.
+`deploykit.OCITarget` is constructed only by the candy `plugin-deploy-pod`'s `buildOverlay`; `charly box build`/`generate` emit via the `WriteCandySteps` → `EmitTasks` generator in `sdk/deploykit` (`deploykit.Generator`, relocated from `charly/generate.go` in #67; `emitTasks` in `charly/tasks.go` is a thin shim to `deploykit.Generator.EmitTasks` that stays for the pod-overlay), sharing the package-cascade / shell-snippet / localpkg compiler helpers with the IR. Full reference lives in **`/charly-internals:install-plan`** — go there before touching any of those files. Supporting Go files (ledger, builder_run, shell_profile, reverse_ops, service_render, deploy_ref, hostdistro, migrate_services_tool) are covered in **`/charly-internals:local-infra`**.
 
 ### VM-path architecture
 
