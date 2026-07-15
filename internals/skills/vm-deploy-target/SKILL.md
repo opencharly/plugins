@@ -15,9 +15,9 @@ description: |
   lifecyclePrepareHook + lifecyclePostTeardownHook (charly/vm_lifecycle_preresolve.go)
   and the grpcSubstrateLifecycle proxy (charly/substrate_lifecycle_grpc.go) that
   consults them generically by word and persists the returned VmDeployState. The
-  bare DeployTarget (Name+Emit) interface has two in-proc BUILD-ENGINE
-  implementers (OCITarget, PodDeployTarget, invoked host-side from a lifecycle
-  hook); the deploy lifecycle is the UnifiedDeployTarget interface, and ALL FIVE
+  bare DeployTarget (Name+Emit) interface has NO in-proc BUILD-ENGINE
+  implementers (the former in-proc overlay walker + pod overlay target were DELETED in P11c — the pod overlay render now lives in the candy `plugin-deploy-pod`, via `deploykit.OCITarget`);
+  the deploy lifecycle is the UnifiedDeployTarget interface, and ALL FIVE
   external substrates (local/vm/pod/k8s/android) route through the generic
   externalDeployTarget. Covers the DeployExecutor interface,
   SSHExecutor, VmDeployState persistence, and the host-side ledger.
@@ -66,13 +66,13 @@ records in the install ledger and replays at `charly bundle del`
 ## `externalDeployTarget` — the generic adapter
 
 `externalDeployTarget` (`charly/deploy_target_external.go`) is the generic
-out-of-process adapter. In-proc, two targets implement the bare
-`DeployTarget` (Name + Emit) interface — `OCITarget` (pod-overlay `add_candy:`
-Containerfile synthesis; `charly box build`/`generate` itself uses the separate
-`WriteCandySteps` → `EmitTasks` generator in `sdk/deploykit`, relocated in #67) and `PodDeployTarget` (the pod
-overlay-BUILD engine) — but both are now BUILD ENGINES invoked HOST-SIDE from a
-lifecycle hook (`candy/plugin-deploy-pod`'s PrepareVenue (M4)), NOT deploy targets
-dispatched by `ResolveTarget`. The deploy LIFECYCLE is the separate
+out-of-process adapter. In-proc, NO targets implement the bare
+`DeployTarget` (Name + Emit) interface — the former in-proc overlay walker + the
+pod overlay target were DELETED in P11c (the pod overlay render now lives in the candy
+`plugin-deploy-pod`'s PrepareVenue (M4), via `deploykit.OCITarget` +
+`deploykit.NewRenderGeneratorFromProject`; `charly box build`/`generate` itself uses the
+separate `WriteCandySteps` → `EmitTasks` generator in `sdk/deploykit`, relocated in #67),
+NOT deploy targets dispatched by `ResolveTarget`. The deploy LIFECYCLE is the separate
 `UnifiedDeployTarget` interface (Add/Del/Test/Update/Start/…/Rebuild), and its
 sole implementer is the generic `externalDeployTarget`. **ALL FIVE external
 substrates (`local`/`vm`/`pod`/`k8s`/`android`) route through
