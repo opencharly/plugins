@@ -1,7 +1,7 @@
 ---
 name: airflow-layer
 description: |
-  Apache Airflow 3.x with LocalExecutor + SQLite (single-node, dev-friendly), 4 supervisord services (init, scheduler, dag-processor, webserver). Layer is service-only — its Python deps live in /charly-versa:versa-layer's pixi env. No MCP wrapper (no upstream v2 release exists; consumers drive Airflow via direct REST /api/v2 calls).
+  Apache Airflow 3.x with LocalExecutor + SQLite (single-node, dev-friendly), 4 supervisord services (init, scheduler, dag-processor, webserver). Layer is service-only — its Python deps live in /charly-versa:marimo-layer's pixi env. No MCP wrapper (no upstream v2 release exists; consumers drive Airflow via direct REST /api/v2 calls).
   Use when working with the airflow layer, Airflow 3.x compatibility findings, the SimpleAuthManager auth-fix pattern, the dag-processor split-from-scheduler architecture change, or the JWT-issuance + REST API trigger flow used by self-authoring notebooks.
 ---
 
@@ -13,7 +13,7 @@ in CeleryExecutor + Postgres + Valkey (those layers stayed available
 under `candy/postgresql/` + `candy/valkey/`).
 
 This layer is **service-only**: it ships no `pixi.toml`. Its Python
-deps (`apache-airflow`) live in `/charly-versa:versa-layer`'s pixi env,
+deps (`apache-airflow`) live in `/charly-versa:marimo-layer`'s pixi env,
 so airflow runs alongside marimo in the same pod with one combined
 Python environment.
 
@@ -159,7 +159,7 @@ and `notebook_gtfs_pipeline` in parallel.
 
 ## Cross-references
 
-- `/charly-versa:versa-layer` — pixi env that owns the airflow Python deps
+- `/charly-versa:marimo-layer` — pixi env that owns the airflow Python deps
 - `/charly-versa:notebook-osm` — canonical user of the REST trigger pattern
 - `/charly-versa:versa` — the image composing this layer
 - `/charly-infrastructure:supervisord` — service mgmt

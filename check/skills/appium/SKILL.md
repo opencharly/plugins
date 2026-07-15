@@ -349,7 +349,7 @@ mitigation if it stops working.
   `target: android` deploy this UI automation runs against.
 - `/charly-check:check` — the unified check system and the Op struct that
   holds every verb discriminator + modifier (one Op per plan step).
-- `/charly-tools:android-emulator` (when authored) — the image these verbs target.
+- `candy/android-emulator` — the image these verbs target.
 
 ## When to Use This Skill
 

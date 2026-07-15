@@ -1,0 +1,31 @@
+{
+  "name": "charly-pod",
+  "version": "1.1.0",
+  "description": "Schema authoring reference for `kind: pod` and `kind: deploy` entities — charly.yml entry shapes, nested deploys, sidecars, and pod networking.",
+  "author": {
+    "name": "opencharly"
+  },
+  "repository": "https://github.com/opencharly/charly-plugins",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "OpenCharly Pod",
+    "shortDescription": "OpenCharly pod workflows.",
+    "longDescription": "Schema authoring reference for `kind: pod` and `kind: deploy` entities — charly.yml entry shapes, nested deploys, sidecars, and pod networking.",
+    "developerName": "opencharly",
+    "category": "kind",
+    "capabilities": [
+      "Instructions"
+    ],
+    "defaultPrompt": [
+      "Use OpenCharly Pod for this OpenCharly task."
+    ]
+  },
+  "homepage": "https://github.com/opencharly/charly",
+  "license": "MIT",
+  "keywords": [
+    "charly",
+    "pod",
+    "deploy",
+    "schema"
+  ]
+}

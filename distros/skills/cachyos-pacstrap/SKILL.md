@@ -64,7 +64,7 @@ by name whenever a box declares `distro: cachyos`.
 
 - `/charly-distros:cachyos` — the recommended Docker-Hub base
 - `/charly-distros:cachyos-pacstrap-builder` — the privileged builder it uses
-- `/charly-vm:cachyos` — the VM built via the same pacstrap path
+- `/charly-vm:cachyos-bootstrap-vm` — the VM built via the same pacstrap path
 
 ## When to Use This Skill
 

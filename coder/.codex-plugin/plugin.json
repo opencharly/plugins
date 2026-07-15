@@ -1,0 +1,24 @@
+{
+  "name": "charly-coder",
+  "version": "1.0.0",
+  "description": "Self-contained skills + MCP wiring for the charly coder/dev images (arch-coder, debian-coder, fedora-coder, ubuntu-coder, charly-arch, check-target). Ships the charly MCP server (port 18765) for programmatic access to the running pod.",
+  "author": {
+    "name": "opencharly"
+  },
+  "repository": "https://github.com/opencharly/charly-plugins",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "OpenCharly Coder",
+    "shortDescription": "OpenCharly coder workflows.",
+    "longDescription": "Self-contained skills + MCP wiring for the charly coder/dev images (arch-coder, debian-coder, fedora-coder, ubuntu-coder, charly-arch, check-target). Ships the charly MCP server (port 18765) for programmatic access to the running pod.",
+    "developerName": "opencharly",
+    "category": "images",
+    "capabilities": [
+      "Instructions"
+    ],
+    "defaultPrompt": [
+      "Use OpenCharly Coder for this OpenCharly task."
+    ]
+  },
+  "mcpServers": "./.mcp.json"
+}

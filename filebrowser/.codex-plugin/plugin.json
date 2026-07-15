@@ -1,0 +1,23 @@
+{
+  "name": "charly-filebrowser",
+  "version": "1.0.0",
+  "description": "Self-contained skills for the filebrowser image (web-based file management on top of an charly volume).",
+  "author": {
+    "name": "opencharly"
+  },
+  "repository": "https://github.com/opencharly/charly-plugins",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "OpenCharly Filebrowser",
+    "shortDescription": "OpenCharly filebrowser workflows.",
+    "longDescription": "Self-contained skills for the filebrowser image (web-based file management on top of an charly volume).",
+    "developerName": "opencharly",
+    "category": "images",
+    "capabilities": [
+      "Instructions"
+    ],
+    "defaultPrompt": [
+      "Use OpenCharly Filebrowser for this OpenCharly task."
+    ]
+  }
+}

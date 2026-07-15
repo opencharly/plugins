@@ -1,7 +1,6 @@
 ---
 name: check-k8s
 description: Kubernetes cluster-probe declarative check verb — the `kube:` check verb (nodes, pods, ingress, storage class, addon health, apply/delete, and arbitrary resource GETs) served out-of-process by the candy/plugin-kube plugin (vendored client-go; no external kubectl required).
-allowed-tools: Bash, Read
 ---
 
 MUST be invoked before any work involving: the declarative `kube:` check

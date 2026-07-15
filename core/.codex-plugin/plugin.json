@@ -1,0 +1,23 @@
+{
+  "name": "charly-core",
+  "version": "1.1.0",
+  "description": "Daily-ops verbs for managing charly-built containers — start, stop, restart, charly-status, logs, shell, deploy, charly-update. Every consumer enables this.",
+  "author": {
+    "name": "opencharly"
+  },
+  "repository": "https://github.com/opencharly/charly-plugins",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "OpenCharly Core",
+    "shortDescription": "OpenCharly core workflows.",
+    "longDescription": "Daily-ops verbs for managing charly-built containers — start, stop, restart, charly-status, logs, shell, deploy, charly-update. Every consumer enables this.",
+    "developerName": "opencharly",
+    "category": "commands",
+    "capabilities": [
+      "Instructions"
+    ],
+    "defaultPrompt": [
+      "Use OpenCharly Core for this OpenCharly task."
+    ]
+  }
+}

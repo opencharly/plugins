@@ -1,0 +1,31 @@
+{
+  "name": "charly-tools",
+  "version": "1.0.0",
+  "description": "CLI utilities and the charly binary deploy artifacts — ripgrep, himalaya, whisper, nano-pdf, summarize, ordercli, gogcli, sherpa-onnx, and the `charly` CLI deploy layers.",
+  "author": {
+    "name": "opencharly"
+  },
+  "repository": "https://github.com/opencharly/charly-plugins",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "OpenCharly Tools",
+    "shortDescription": "OpenCharly tools workflows.",
+    "longDescription": "CLI utilities and the charly binary deploy artifacts — ripgrep, himalaya, whisper, nano-pdf, summarize, ordercli, gogcli, sherpa-onnx, and the `charly` CLI deploy layers.",
+    "developerName": "opencharly",
+    "category": "images",
+    "capabilities": [
+      "Instructions"
+    ],
+    "defaultPrompt": [
+      "Use OpenCharly Tools for this OpenCharly task."
+    ]
+  },
+  "homepage": "https://github.com/opencharly/charly",
+  "license": "MIT",
+  "keywords": [
+    "charly",
+    "cli",
+    "tools",
+    "utilities"
+  ]
+}

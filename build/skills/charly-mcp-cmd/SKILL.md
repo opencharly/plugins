@@ -1,8 +1,7 @@
 ---
 name: charly-mcp-cmd
 description: |
-  MUST be invoked before any work involving: Model Context Protocol — both directions. (1) the declarative `mcp:` check verb (the MCP CLIENT): probing MCP servers declared via mcp_provide, testing MCP tool catalogs, the host-side URL-rewriter (including host-networked containers via `HostConfig.NetworkMode` detection) or port-publishing behavior — served OUT-OF-PROCESS by `candy/plugin-mcp` (there is NO host `charly check` subcommand for it). (2) `charly mcp serve` server: running the charly CLI itself as an MCP server over Streamable HTTP or stdio, auto-generated from Kong reflection (~192 tools including the MCP-first authoring surface — image/layer scaffolding, comment-preserving YAML edits, free-form file writes), destructive-hint annotations, the `--read-only` filter, auto-fallback to `opencharly/charly` when cwd has no `charly.yml` (always fires regardless of CHARLY_PROJECT_DIR being set), and the `charly-mcp` deployment layer with its `/workspace` bind mount.
-  Named `charly-mcp-cmd` (not `mcp`) to disambiguate from Claude Code's built-in `/mcp` slash command (the `-cmd` suffix avoids collision with the existing `/charly-coder:charly-mcp` image skill).
+  MUST be invoked for either Model Context Protocol direction: the declarative out-of-process `mcp:` check verb that probes advertised servers, or `charly mcp serve`, which exposes the reflected Charly CLI over Streamable HTTP or stdio. Covers URL rewriting, host-networked and published ports, tool annotations, read-only filtering, project fallback, authoring tools, and the `charly-mcp` deployment layer. The name avoids collision with harness slash commands and the `/charly-coder:charly-mcp` image skill.
 ---
 
 # MCP - Model Context Protocol (client + server)

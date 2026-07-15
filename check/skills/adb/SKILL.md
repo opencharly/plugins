@@ -231,7 +231,7 @@ port AS the host port.
   format drives — so the verb, the format, and the deploy target never drift.
 - `/charly-check:check` — the unified check system and the Op (a plan step) that
   holds every verb discriminator + modifier.
-- `/charly-tools:android-emulator` (when authored) — the image these verbs target.
+- `candy/android-emulator` — the image these verbs target.
 
 ## When to Use This Skill
 

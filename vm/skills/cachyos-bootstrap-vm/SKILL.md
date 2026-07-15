@@ -1,5 +1,5 @@
 ---
-name: cachyos
+name: cachyos-bootstrap-vm
 description: |
   CachyOS bootstrap VM (kind:vm cachyos-vm) — source.kind: bootstrap via
   cachyos-pacstrap-builder + pacstrap, btrfs rootfs, uefi-insecure. Plus the
@@ -88,7 +88,7 @@ remains the faster path when you don't need a VM disk.
 
 - `/charly-distros:cachyos-pacstrap-builder` — the builder image this VM uses
 - `/charly-distros:cachyos-pacstrap` — the container equivalent of this bootstrap path
-- `/charly-vm:arch` — the canonical cloud_image VM (BIOS/virtio-gpu/sizing rationale)
+- `/charly-vm:arch-cloud-vm` — the canonical cloud_image VM (BIOS/virtio-gpu/sizing rationale)
 - `/charly-vm:vm` — VM lifecycle commands + BIOS/UEFI matrix
 - `/charly-vm:vms-catalog` — VmSpec authoring reference
 

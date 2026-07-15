@@ -1,0 +1,34 @@
+{
+  "name": "charly-languages",
+  "version": "1.0.0",
+  "description": "Programming language runtimes and package managers — python, python-ml, golang, rust, nodejs, pixi, uv.",
+  "author": {
+    "name": "opencharly"
+  },
+  "repository": "https://github.com/opencharly/charly-plugins",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "OpenCharly Languages",
+    "shortDescription": "OpenCharly languages workflows.",
+    "longDescription": "Programming language runtimes and package managers — python, python-ml, golang, rust, nodejs, pixi, uv.",
+    "developerName": "opencharly",
+    "category": "images",
+    "capabilities": [
+      "Instructions"
+    ],
+    "defaultPrompt": [
+      "Use OpenCharly Languages for this OpenCharly task."
+    ]
+  },
+  "homepage": "https://github.com/opencharly/charly",
+  "license": "MIT",
+  "keywords": [
+    "charly",
+    "python",
+    "golang",
+    "rust",
+    "nodejs",
+    "pixi",
+    "uv"
+  ]
+}

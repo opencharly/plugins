@@ -1,6 +1,6 @@
 # OpenCharly Plugins
 
-Claude Code plugins for OpenCharly — the candy factory for you and your agents.
+Claude Code and Codex plugins for OpenCharly — the candy factory for you and your agents.
 
 ## How this marketplace is organized
 
@@ -77,8 +77,7 @@ manager UI.
 
 ## Skill invocation pattern
 
-Every skill uses the namespaced form `/<plugin-name>:<skill-name>` per the
-[Claude Code plugin docs](https://code.claude.com/docs/en/plugins). The
+Every skill uses the namespaced form `/<plugin-name>:<skill-name>`. The
 plugin name carries the `charly-` prefix; the skill name does not. Examples:
 
 - `/charly-core:ssh` — open an interactive shell into a pod.
@@ -97,6 +96,10 @@ short name could be ambiguous, the canonical names are:
 - `charly-automation:openclaw-deploy` (the deployment topic) vs `charly-openclaw:openclaw` (the image).
 - `charly-vm:vms-catalog` (the VM catalog skill) vs the kind-name `vm`.
 - `charly-build:generate` (the build verb) vs `charly-internals:generate-source` (the source-reading reference).
+- `charly-distros:arch` (the distro) vs `charly-vm:arch-cloud-vm` (the cloud VM).
+- `charly-vm:cachyos-bootstrap-vm`, `charly-vm:debian-debootstrap-vm`, and
+  `charly-vm:ubuntu-debootstrap-vm` identify bootstrap VMs without colliding
+  with their distro skills.
 
 ## Recent changes
 
@@ -108,13 +111,27 @@ only the current structure.
 
 ## Installation
 
-See [Claude Code plugin docs](https://code.claude.com/docs/en/discover-plugins)
-for marketplace setup. To install plugins from this marketplace:
+Use the same marketplace and skill tree in either harness:
 
 ```bash
-/plugin marketplace add opencharly/plugins
-/plugin install charly-core charly-jupyter         # for example: install just what you need
+./setup claude                         # full developer mode (default)
+./setup codex developer
+./setup claude user                    # use/author Charly, do not develop it
+./setup codex container jupyter        # operate one generated container family
+./setup codex --check developer        # non-mutating drift check
 ```
 
-The `category:` field in `marketplace.json` lets the `/plugin` UI group
-the listing by use-case bucket.
+`developer` installs all 25 plugins. `user` installs the runtime, authoring,
+checking, kind, and foundation plugins but not contributor internals or a
+container family. `container FAMILY` installs `charly-core` plus one
+self-contained family plugin. The Charly repository always uses `developer`.
+
+The setup command writes only target-repository files: Claude writes
+`.claude/settings.json`; Codex writes `.agents/plugins/marketplace.json` and
+repo-native `.agents/skills/` symlinks to the selected canonical
+`plugins/<plugin>/skills/` directories. It never copies skill bodies, invokes a
+plugin CLI, or changes user configuration. It is idempotent and does not change
+models, approval policy, credentials, trust, or permissions. A consumer
+repository must carry the Charly plugins repository at `./plugins`.
+Existing MCP declarations bundled by plugins remain normal plugin content;
+MCP is not required to install, select, or synchronize the skills.

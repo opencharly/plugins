@@ -87,7 +87,7 @@ topology" for the full operator recipe.
 - `/charly-versa:marimo-layer` — marimo's pixi env + service spec
 - `/charly-versa:marimo-mcp` — the marimo MCP server's tool catalog
 - `/charly-versa:airflow-layer` — Airflow 3.x layer wiring + auth
-- `/charly-versa:airflow-mcp` — the airflow MCP server's tool catalog
+- `/charly-versa:airflow-layer` — the Airflow service layer; consumers use its REST API
 - `/charly-versa:notebook-osm` — the dual-DAG OSM+GTFS notebook
 - `/charly-versa:maputnik-layer` — maputnik static-style editor
 - `/charly-versa:osm-tools-layer` — martin + tippecanoe + reload pattern

@@ -1,7 +1,7 @@
 {
   "name": "charly-build",
   "description": "Build/authoring CLI verbs — `charly box build`, `generate`, `list`, `inspect`, `merge`, `new`, `pull`, `validate`, plus secrets/settings/migrate/charly-mcp-cmd. Schema authoring (`image`, `layer`, `local-spec`) moved to `kind/*` plugins; check orchestrator moved to `check/`.",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "author": { "name": "opencharly" },
   "repository": "https://github.com/opencharly/charly-plugins"
 }

@@ -1,0 +1,245 @@
+#!/usr/bin/env python3
+"""Generate or verify repository-scoped Claude Code and Codex profiles."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import pathlib
+import subprocess
+import sys
+
+
+SOURCE_ROOT = pathlib.Path(__file__).resolve().parent
+MARKETPLACE = "charly-plugins"
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        usage="%(prog)s <claude|codex> [--check|--dry-run] "
+        "[developer|user|container FAMILY] [--project PATH]"
+    )
+    parser.add_argument("harness", choices=("claude", "codex"))
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--check", action="store_true")
+    mode.add_argument("--dry-run", action="store_true")
+    parser.add_argument("profile", nargs="?", default="developer")
+    parser.add_argument("family", nargs="?")
+    parser.add_argument("--project", type=pathlib.Path)
+    args = parser.parse_args()
+    if args.profile not in {"developer", "user", "container"}:
+        parser.error(f"unknown profile: {args.profile}")
+    if args.profile == "container" and not args.family:
+        parser.error("container profile requires a family")
+    if args.profile != "container" and args.family:
+        parser.error(f"unexpected family for {args.profile} profile")
+    return args
+
+
+def git_root(path: pathlib.Path) -> pathlib.Path:
+    result = subprocess.run(
+        ["git", "-C", str(path), "rev-parse", "--show-toplevel"],
+        capture_output=True,
+        text=True,
+    )
+    return pathlib.Path(result.stdout.strip()) if result.returncode == 0 else path.resolve()
+
+
+def is_opencharly(root: pathlib.Path) -> bool:
+    if not (root / "AGENTS.md").is_file():
+        return False
+    result = subprocess.run(
+        ["git", "-C", str(root), "ls-files", "--stage", "plugins"],
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode == 0 and result.stdout.startswith("160000 ")
+
+
+def load_contract(project: pathlib.Path, profile: str, family: str | None):
+    catalog_path = project / "plugins" / ".claude-plugin" / "marketplace.json"
+    if not catalog_path.is_file():
+        raise SystemExit(
+            f"{project} has no repository-local Charly marketplace at "
+            "plugins/.claude-plugin/marketplace.json; add the plugins repository at ./plugins"
+        )
+    catalog = json.loads(catalog_path.read_text())
+    profiles = json.loads((SOURCE_ROOT / "profiles.json").read_text())
+    all_plugins = [entry["name"] for entry in catalog["plugins"]]
+    if profile == "container":
+        if family not in profiles["container_families"]:
+            raise SystemExit(f"unknown container family: {family}")
+        selected = ["charly-core", f"charly-{family}"]
+        label = f"container:{family}"
+    else:
+        selected = profiles[profile]
+        label = profile
+    unknown = set(selected) - set(all_plugins)
+    if unknown:
+        raise SystemExit(f"profile references plugins missing from the project catalog: {sorted(unknown)}")
+    return catalog, all_plugins, selected, label
+
+
+def validate_codex_plugins(project: pathlib.Path, catalog: dict) -> None:
+    for entry in catalog["plugins"]:
+        directory = entry["source"].removeprefix("./")
+        plugin_root = project / "plugins" / directory
+        manifest_path = plugin_root / ".codex-plugin" / "plugin.json"
+        if not manifest_path.is_file():
+            raise SystemExit(f"{plugin_root} has no .codex-plugin/plugin.json")
+        manifest = json.loads(manifest_path.read_text())
+        if manifest.get("name") != entry["name"]:
+            raise SystemExit(
+                f"{manifest_path} name does not match marketplace entry {entry['name']}"
+            )
+        if manifest.get("skills") != "./skills/" or not (plugin_root / "skills").is_dir():
+            raise SystemExit(f"{manifest_path} does not reference the shared ./skills/ tree")
+        mcp = manifest.get("mcpServers")
+        if mcp is not None and (mcp != "./.mcp.json" or not (plugin_root / ".mcp.json").is_file()):
+            raise SystemExit(f"{manifest_path} has an invalid MCP companion reference")
+
+
+def claude_document(path: pathlib.Path, all_plugins: list[str], selected: list[str]) -> dict:
+    if path.is_file():
+        document = json.loads(path.read_text())
+    else:
+        document = {}
+    enabled = document.setdefault("enabledPlugins", {})
+    wanted = set(selected)
+    for plugin in all_plugins:
+        if plugin not in wanted:
+            enabled.pop(f"{plugin}@{MARKETPLACE}", None)
+    for plugin in selected:
+        enabled[f"{plugin}@{MARKETPLACE}"] = True
+    marketplaces = document.setdefault("extraKnownMarketplaces", {})
+    marketplaces[MARKETPLACE] = {
+        "source": {"source": "directory", "path": "./plugins"}
+    }
+    return document
+
+
+def codex_document(catalog: dict, selected: list[str]) -> dict:
+    wanted = set(selected)
+    plugins = []
+    for entry in catalog["plugins"]:
+        source = entry["source"].removeprefix("./")
+        plugins.append(
+            {
+                "name": entry["name"],
+                "source": {"source": "local", "path": f"./plugins/{source}"},
+                "policy": {
+                    "installation": (
+                        "INSTALLED_BY_DEFAULT" if entry["name"] in wanted else "AVAILABLE"
+                    ),
+                    "authentication": "ON_INSTALL",
+                },
+                "category": entry.get("category", "OpenCharly"),
+            }
+        )
+    return {
+        "name": MARKETPLACE,
+        "interface": {"displayName": "OpenCharly"},
+        "plugins": plugins,
+    }
+
+
+def codex_skills(project: pathlib.Path, catalog: dict, selected: list[str]) -> dict[pathlib.Path, str]:
+    """Return repo-native skill links without copying canonical skill content."""
+    wanted = set(selected)
+    links: dict[pathlib.Path, str] = {}
+    skills_root = project / ".agents" / "skills"
+    for entry in catalog["plugins"]:
+        if entry["name"] not in wanted:
+            continue
+        source = entry["source"].removeprefix("./")
+        plugin_skills = project / "plugins" / source / "skills"
+        for skill_file in sorted(plugin_skills.glob("*/SKILL.md")):
+            skill_dir = skill_file.parent
+            link = skills_root / f"{entry['name']}--{skill_dir.name}"
+            links[link] = os.path.relpath(skill_dir, skills_root)
+    return links
+
+
+def managed_skill_links(skills_root: pathlib.Path) -> dict[pathlib.Path, str]:
+    if not skills_root.is_dir():
+        return {}
+    return {
+        path: os.readlink(path)
+        for path in skills_root.iterdir()
+        if path.name.startswith("charly-") and path.is_symlink()
+    }
+
+
+def sync_codex_skills(expected: dict[pathlib.Path, str], check: bool, dry_run: bool) -> bool:
+    skills_root = next(iter(expected)).parent if expected else None
+    if skills_root is None:
+        raise SystemExit("Codex profile selected no skills")
+    actual = managed_skill_links(skills_root)
+    if check:
+        return actual == expected and all(path.resolve().joinpath("SKILL.md").is_file() for path in expected)
+    if dry_run:
+        return True
+    skills_root.mkdir(parents=True, exist_ok=True)
+    for path in set(actual) - set(expected):
+        path.unlink()
+    for path, target in expected.items():
+        if path.is_symlink() and os.readlink(path) == target:
+            continue
+        if path.exists() or path.is_symlink():
+            raise SystemExit(f"refusing to replace non-profile path: {path}")
+        path.symlink_to(target, target_is_directory=True)
+    return True
+
+
+def serialized(document: dict) -> str:
+    return json.dumps(document, indent=2, ensure_ascii=False) + "\n"
+
+
+def main() -> int:
+    args = parse_args()
+    project = git_root(args.project or pathlib.Path.cwd())
+    if is_opencharly(project) and args.profile != "developer":
+        raise SystemExit(
+            "the OpenCharly repository requires the developer profile; "
+            "use reduced profiles from an external consumer repository"
+        )
+
+    catalog, all_plugins, selected, label = load_contract(
+        project, args.profile, args.family
+    )
+    if args.harness == "codex":
+        validate_codex_plugins(project, catalog)
+    if args.harness == "claude":
+        path = project / ".claude" / "settings.json"
+        document = claude_document(path, all_plugins, selected)
+    else:
+        path = project / ".agents" / "plugins" / "marketplace.json"
+        document = codex_document(catalog, selected)
+        skill_links = codex_skills(project, catalog, selected)
+    expected = serialized(document)
+
+    if args.check:
+        skills_ok = args.harness != "codex" or sync_codex_skills(skill_links, True, False)
+        if not path.is_file() or path.read_text() != expected or not skills_ok:
+            print(f"{path} does not match the {label} {args.harness} profile", file=sys.stderr)
+            return 1
+        suffix = f", {len(skill_links)} repo-native skills" if args.harness == "codex" else ""
+        print(f"{args.harness} project profile is {label} ({len(selected)} plugins{suffix})")
+        return 0
+    if args.dry_run:
+        suffix = f" and {len(skill_links)} repo-native skill links" if args.harness == "codex" else ""
+        print(f"would write {path}{suffix} for {label} ({len(selected)} plugins)")
+        return 0
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(expected)
+    if args.harness == "codex":
+        sync_codex_skills(skill_links, False, False)
+    suffix = f" and {len(skill_links)} repo-native skills" if args.harness == "codex" else ""
+    print(f"wrote {path}{suffix} for {label} ({len(selected)} plugins)")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

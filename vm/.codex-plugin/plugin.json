@@ -1,0 +1,32 @@
+{
+  "name": "charly-vm",
+  "version": "2.0.0",
+  "description": "Schema authoring reference for `kind: vm` entities — vms.yml composition, libvirt/QEMU backends, cloud_image vs bootc sources, and the bootc VM catalog.",
+  "author": {
+    "name": "opencharly"
+  },
+  "repository": "https://github.com/opencharly/charly-plugins",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "OpenCharly Vm",
+    "shortDescription": "OpenCharly vm workflows.",
+    "longDescription": "Schema authoring reference for `kind: vm` entities — vms.yml composition, libvirt/QEMU backends, cloud_image vs bootc sources, and the bootc VM catalog.",
+    "developerName": "opencharly",
+    "category": "kind",
+    "capabilities": [
+      "Instructions"
+    ],
+    "defaultPrompt": [
+      "Use OpenCharly Vm for this OpenCharly task."
+    ]
+  },
+  "homepage": "https://github.com/opencharly/charly",
+  "license": "MIT",
+  "keywords": [
+    "charly",
+    "vm",
+    "libvirt",
+    "bootc",
+    "schema"
+  ]
+}

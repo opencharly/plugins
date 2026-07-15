@@ -61,7 +61,7 @@ Per-VM NVRAM path convention: `~/.local/share/charly/vm/charly-<vm-name>/nvram.f
 
 ## BIOS as an escape valve
 
-From `/charly-vm:arch` Finding B: UEFI boot with a stale BOOTX64.EFI (embedded grub.cfg older than the image's on-disk `/boot/grub/grub.cfg`) is a common failure mode for distribution cloud images. BIOS boot sidesteps it entirely — GRUB reads `/boot/grub/grub.cfg` from the root filesystem, which is always current.
+From `/charly-vm:arch-cloud-vm` Finding B: UEFI boot with a stale BOOTX64.EFI (embedded grub.cfg older than the image's on-disk `/boot/grub/grub.cfg`) is a common failure mode for distribution cloud images. BIOS boot sidesteps it entirely — GRUB reads `/boot/grub/grub.cfg` from the root filesystem, which is always current.
 
 When `spec.Firmware == "bios"`:
 
@@ -93,4 +93,4 @@ The libvirt renderer (`buildDomainOS` in `libvirt_yaml_bridge.go`) emits `<loade
 - `/charly-internals:vm-spec` — `spec.Firmware` field
 - `/charly-internals:libvirt-renderer` — `RenderDomainXML` consumer; `<loader>`/`<nvram>` emission conditions
 - `/charly-vm:vm` — command-family; BIOS vs UEFI decision matrix
-- `/charly-vm:arch` — live-test RCA showing why `firmware: bios` is the right default for Arch cloud image
+- `/charly-vm:arch-cloud-vm` — live-test RCA showing why `firmware: bios` is the right default for Arch cloud image

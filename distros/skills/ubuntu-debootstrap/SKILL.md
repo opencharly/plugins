@@ -46,7 +46,7 @@ configs, so the `inherits: debian` resolution needs no reference to
 
 - `/charly-distros:ubuntu` — the recommended Docker-Hub base
 - `/charly-distros:ubuntu-debootstrap-builder` — the privileged builder it uses
-- `/charly-vm:ubuntu` — the VM built via the same debootstrap path
+- `/charly-vm:ubuntu-debootstrap-vm` — the VM built via the same debootstrap path
 
 ## When to Use This Skill
 

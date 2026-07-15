@@ -1,7 +1,7 @@
 {
   "name": "charly-jupyter",
   "description": "MCP server for JupyterLab notebook operations with real-time collaboration",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "author": { "name": "opencharly" },
   "repository": "https://github.com/opencharly/charly-plugins",
   "mcpServers": "./.mcp.json"

@@ -1,7 +1,7 @@
 ---
 name: sidecar
 description: |
-  Topic skill (no dedicated `charly sidecar` command — the surface is the `--sidecar <name>` / `--list-sidecars` flags on `charly config` and the `sidecar:` field in `charly.yml`). MUST be invoked before any work involving: sidecar containers, pod networking, Tailscale exit nodes, `charly config --sidecar`, the `charly.yml` `sidecar:` field, or sidecar-env filtering (`env_accept` / `env_require` routing to the sidecar vs the app container).
+  Topic skill for sidecars configured through `charly config` and `charly.yml`. MUST be invoked for sidecar containers, pod networking, Tailscale exit nodes, sidecar flags, or `env_accept` and `env_require` routing.
 ---
 
 # Sidecar — Deploy-Time Pod Composition

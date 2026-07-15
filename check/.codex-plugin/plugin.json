@@ -1,0 +1,32 @@
+{
+  "name": "charly-check",
+  "version": "1.1.0",
+  "description": "Live-container evaluation and probe verbs — `charly check` orchestrator plus per-protocol live probes (cdp, wl, wl-overlay, dbus, vnc, spice, libvirt, record, adb, appium).",
+  "author": {
+    "name": "opencharly"
+  },
+  "repository": "https://github.com/opencharly/charly-plugins",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "OpenCharly Check",
+    "shortDescription": "OpenCharly check workflows.",
+    "longDescription": "Live-container evaluation and probe verbs — `charly check` orchestrator plus per-protocol live probes (cdp, wl, wl-overlay, dbus, vnc, spice, libvirt, record, adb, appium).",
+    "developerName": "opencharly",
+    "category": "commands",
+    "capabilities": [
+      "Instructions"
+    ],
+    "defaultPrompt": [
+      "Use OpenCharly Check for this OpenCharly task."
+    ]
+  },
+  "homepage": "https://github.com/opencharly/charly",
+  "license": "MIT",
+  "keywords": [
+    "charly",
+    "check",
+    "probe",
+    "automation",
+    "live"
+  ]
+}

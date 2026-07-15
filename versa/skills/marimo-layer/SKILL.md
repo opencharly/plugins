@@ -146,7 +146,7 @@ is dead after the restart anyway).
 ## Cross-references
 
 - `/charly-versa:versa` — the image that composes this layer
-- `/charly-versa:versa-mcp` — the MCP server tool catalog
+- `/charly-versa:marimo-mcp` — the MCP server tool catalog
 - `/charly-versa:notebook-osm` — the canonical notebook using this env
 - `/charly-distros:cuda` — required dep
 - `/charly-infrastructure:supervisord` — required dep

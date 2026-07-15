@@ -1,7 +1,6 @@
 ---
 name: libvirt
 description: the `libvirt:` libvirt-RPC check verb for VMs — domain info, framebuffer screenshots, send-key, passwd, QMP, qemu-guest-agent client, snapshots, events — served out-of-process by candy/plugin-vm.
-allowed-tools: Bash, Read
 ---
 
 # libvirt — VM libvirt-RPC check verb
