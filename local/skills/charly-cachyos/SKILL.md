@@ -49,7 +49,7 @@ repo's `candy/` (resolved via its `discover:` block):
 | `install_opts.builder_image` | `ghcr.io/opencharly/arch-builder:2026.122.2252` (OCI ref, not a candy) |
 | `install_opts` | with_service, allow_repo_changes, allow_root_tasks all true |
 | `env` | `EDITOR=nvim`, `PAGER=less` |
-| `disposable` (deploy) | `true` — `charly update charly-cachyos` is authorized |
+| `disposable` (deploy) | absent/false — this real workstation requires operator authorization; unattended `charly update charly-cachyos` is forbidden |
 
 ## Deploy-scope check probes
 
