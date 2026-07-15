@@ -136,6 +136,38 @@ for payload in payloads:
     assert external.is_symlink(), "invalid inventory changed an external link"
 PY
 
+# A schema-valid but semantically wrong owned target must fail before any write or unlink.
+collision_project="$TMP/collision-project"
+mkdir -p "$collision_project/.agents/skills" "$collision_project/.agents/plugins"
+git -C "$collision_project" init -q
+ln -s "$CONSUMER/plugins" "$collision_project/plugins"
+printf '%s\n' '{"sentinel": true, "plugins": []}' >"$collision_project/.agents/plugins/marketplace.json"
+ln -s ../../plugins/core/skills/validate "$collision_project/.agents/skills/charly-core--ssh"
+ln -s ../../plugins/core/skills/ssh "$collision_project/.agents/skills/charly-retired--ssh"
+printf '%s\n' \
+    '{"version": 1, "links": {' \
+    '  "charly-core--ssh": "../../plugins/core/skills/validate",' \
+    '  "charly-retired--ssh": "../../plugins/core/skills/ssh"' \
+    '}}' >"$collision_project/.agents/skills/.charly-profile.json"
+collision_before=$(sha256sum \
+    "$collision_project/.agents/plugins/marketplace.json" \
+    "$collision_project/.agents/skills/.charly-profile.json")
+if "$ROOT/setup" codex --project "$collision_project" developer >/dev/null 2>&1; then
+    echo "Codex setup accepted a wrong owned skill target" >&2
+    exit 1
+fi
+[[ $collision_before == "$(sha256sum \
+    "$collision_project/.agents/plugins/marketplace.json" \
+    "$collision_project/.agents/skills/.charly-profile.json")" ]] || {
+    echo "Codex collision rejection mutated managed files" >&2
+    exit 1
+}
+[[ $(readlink "$collision_project/.agents/skills/charly-core--ssh") == ../../plugins/core/skills/validate ]]
+[[ -L "$collision_project/.agents/skills/charly-retired--ssh" ]] || {
+    echo "Codex collision rejection removed an obsolete owned link" >&2
+    exit 1
+}
+
 [[ ! -e "$CONSUMER/.agents/skills/charly-build--validate" ]] || {
     echo "Codex profile transition retained a deselected generated skill" >&2
     exit 1

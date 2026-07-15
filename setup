@@ -4,11 +4,13 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import os
 import pathlib
 import subprocess
 import sys
+import tempfile
 
 
 SOURCE_ROOT = pathlib.Path(__file__).resolve().parent
@@ -240,20 +242,7 @@ def managed_skill_links(skills_root: pathlib.Path) -> dict[pathlib.Path, str]:
                 validated[path] = target
         return validated
 
-    # One-time adoption for profiles generated before the inventory existed. Target
-    # containment, not a filename prefix, proves these links point into this project's
-    # canonical plugin skill tree.
-    plugin_root = (skills_root.parents[1] / "plugins").resolve()
-    adopted = {}
-    for path in skills_root.iterdir():
-        if not path.is_symlink():
-            continue
-        try:
-            path.resolve().relative_to(plugin_root)
-        except ValueError:
-            continue
-        adopted[path] = os.readlink(path)
-    return adopted
+    return {}
 
 
 def write_skill_inventory(skills_root: pathlib.Path, expected: dict[pathlib.Path, str]) -> None:
@@ -261,14 +250,32 @@ def write_skill_inventory(skills_root: pathlib.Path, expected: dict[pathlib.Path
         "version": 1,
         "links": {path.name: target for path, target in sorted(expected.items())},
     }
-    skill_inventory_path(skills_root).write_text(serialized(inventory))
+    atomic_write(skill_inventory_path(skills_root), serialized(inventory))
 
 
-def sync_codex_skills(expected: dict[pathlib.Path, str], check: bool, dry_run: bool) -> bool:
+def preflight_codex_skills(
+    expected: dict[pathlib.Path, str], actual: dict[pathlib.Path, str]
+) -> None:
+    for path, target in expected.items():
+        if path.is_symlink():
+            if os.readlink(path) != target:
+                raise SystemExit(f"refusing to replace non-profile path: {path}")
+        elif path.exists():
+            raise SystemExit(f"refusing to replace non-profile path: {path}")
+    for path, target in actual.items():
+        if path not in expected and (not path.is_symlink() or os.readlink(path) != target):
+            raise SystemExit(f"refusing to remove changed profile path: {path}")
+
+
+def sync_codex_skills(
+    expected: dict[pathlib.Path, str],
+    actual: dict[pathlib.Path, str],
+    check: bool,
+    dry_run: bool,
+) -> bool:
     skills_root = next(iter(expected)).parent if expected else None
     if skills_root is None:
         raise SystemExit("Codex profile selected no skills")
-    actual = managed_skill_links(skills_root)
     if check:
         return actual == expected and all(path.resolve().joinpath("SKILL.md").is_file() for path in expected)
     if dry_run:
@@ -290,9 +297,22 @@ def serialized(document: dict) -> str:
     return json.dumps(document, indent=2, ensure_ascii=False) + "\n"
 
 
+def atomic_write(path: pathlib.Path, contents: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile("w", dir=path.parent, delete=False) as temporary:
+        temporary.write(contents)
+        temporary_path = pathlib.Path(temporary.name)
+    try:
+        os.replace(temporary_path, path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
+
+
 def main() -> int:
     args = parse_args()
     project = git_root(args.project or pathlib.Path.cwd())
+    project_fd = os.open(project, os.O_RDONLY)
+    fcntl.flock(project_fd, fcntl.LOCK_EX)
     if is_opencharly(project) and args.profile != "developer":
         raise SystemExit(
             "the OpenCharly repository requires the developer profile; "
@@ -314,12 +334,15 @@ def main() -> int:
         managed_project_path(project, pathlib.Path(".agents/skills"))
         document = codex_document(path, catalog, selected)
         skill_links = codex_skills(project, catalog, selected)
-        # Parse and validate the complete ownership inventory before any project write.
-        managed_skill_links(next(iter(skill_links)).parent)
+        skills_actual = managed_skill_links(next(iter(skill_links)).parent)
+        # Validate the complete reconciliation plan before any project write.
+        preflight_codex_skills(skill_links, skills_actual)
     expected = serialized(document)
 
     if args.check:
-        skills_ok = args.harness != "codex" or sync_codex_skills(skill_links, True, False)
+        skills_ok = args.harness != "codex" or sync_codex_skills(
+            skill_links, skills_actual, True, False
+        )
         if not path.is_file() or path.read_text() != expected or not skills_ok:
             print(f"{path} does not match the {label} {args.harness} profile", file=sys.stderr)
             return 1
@@ -331,10 +354,9 @@ def main() -> int:
         print(f"would write {path}{suffix} for {label} ({len(selected)} plugins)")
         return 0
 
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(expected)
     if args.harness == "codex":
-        sync_codex_skills(skill_links, False, False)
+        sync_codex_skills(skill_links, skills_actual, False, False)
+    atomic_write(path, expected)
     suffix = f" and {len(skill_links)} repo-native skills" if args.harness == "codex" else ""
     print(f"wrote {path}{suffix} for {label} ({len(selected)} plugins)")
     return 0
