@@ -341,8 +341,7 @@ ephemeral entries marked `active`, probes the underlying engine
 (libvirt for VM, podman for pod, kubectl for k8s) and runs `charly bundle
 del <name> --force` for orphans.
 
-Source: `charly/status.go`, `charly/status_engine.go`, `charly/status_collector.go`,
-`charly/status_probes.go`, `charly/status_render.go`, `charly/status_reap.go`.
+Source: `charly/status_collector.go` (the collection engine — substrate fan-out + deploy enrichment; the pod/local live collectors moved to `candy/plugin-substrate` in P14a, the vm/k8s/android collectors + the pod deploy-enrichment stay here until K5), `charly/status_reap.go` (orphan reaping). The status CLI + render moved to `candy/plugin-status`; the live tool probes to `candy/plugin-substrate/status_probes.go` (P14a).
 
 ## Cross-References
 
