@@ -102,6 +102,40 @@ for harness in claude codex; do
     fi
 done
 
+# A malformed ownership inventory must fail closed before any project mutation.
+inventory_project="$TMP/inventory-project"
+mkdir -p "$inventory_project/.agents/skills" "$inventory_project/.agents/plugins"
+git -C "$inventory_project" init -q
+ln -s "$CONSUMER/plugins" "$inventory_project/plugins"
+printf '%s\n' '{"sentinel": true, "plugins": []}' >"$inventory_project/.agents/plugins/marketplace.json"
+python3 - "$ROOT/setup" "$inventory_project" "$TMP/inventory-external" <<'PY'
+import hashlib, json, pathlib, subprocess, sys
+setup, project, external = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2]), pathlib.Path(sys.argv[3])
+external.symlink_to(project / "plugins/core/skills/ssh")
+inventory = project / ".agents/skills/.charly-profile.json"
+marketplace = project / ".agents/plugins/marketplace.json"
+payloads = [
+    {"version": 1, "links": {str(external): "../../plugins/core/skills/ssh"}},
+    {"version": 1, "links": {"../outside": "../../plugins/core/skills/ssh"}},
+    {"version": 1, "links": {"nested/name": "../../plugins/core/skills/ssh"}},
+    {"version": 1, "links": {"nested\\name": "../../plugins/core/skills/ssh"}},
+    {"version": 2, "links": {}},
+    {"version": 1, "links": []},
+    {"version": 1, "links": {"charly-core--ssh": 7}},
+]
+before = hashlib.sha256(marketplace.read_bytes()).digest()
+for payload in payloads:
+    inventory.write_text(json.dumps(payload) + "\n")
+    result = subprocess.run(
+        [str(setup), "codex", "--project", str(project), "developer"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    assert result.returncode != 0, f"accepted invalid inventory: {payload}"
+    assert hashlib.sha256(marketplace.read_bytes()).digest() == before
+    assert external.is_symlink(), "invalid inventory changed an external link"
+PY
+
 [[ ! -e "$CONSUMER/.agents/skills/charly-build--validate" ]] || {
     echo "Codex profile transition retained a deselected generated skill" >&2
     exit 1

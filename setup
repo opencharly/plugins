@@ -195,7 +195,10 @@ def codex_skills(project: pathlib.Path, catalog: dict, selected: list[str]) -> d
 
 
 def skill_inventory_path(skills_root: pathlib.Path) -> pathlib.Path:
-    return skills_root / ".charly-profile.json"
+    path = skills_root / ".charly-profile.json"
+    if path.is_symlink():
+        raise SystemExit(f"refusing symlinked skill inventory: {path}")
+    return path
 
 
 def managed_skill_links(skills_root: pathlib.Path) -> dict[pathlib.Path, str]:
@@ -204,13 +207,38 @@ def managed_skill_links(skills_root: pathlib.Path) -> dict[pathlib.Path, str]:
     inventory_path = skill_inventory_path(skills_root)
     if inventory_path.is_file():
         inventory = json.loads(inventory_path.read_text())
-        recorded = inventory.get("links", {})
-        return {
-            skills_root / name: target
-            for name, target in recorded.items()
-            if (skills_root / name).is_symlink()
-            and os.readlink(skills_root / name) == target
-        }
+        if not isinstance(inventory, dict) or inventory.get("version") != 1:
+            raise SystemExit(f"{inventory_path} has an unsupported inventory version")
+        recorded = inventory.get("links")
+        if not isinstance(recorded, dict):
+            raise SystemExit(f"{inventory_path} links must be an object")
+        plugin_root = (skills_root.parents[1] / "plugins").resolve()
+        validated = {}
+        for name, target in recorded.items():
+            if (
+                not isinstance(name, str)
+                or not name
+                or name in {".", ".."}
+                or "/" in name
+                or "\\" in name
+                or pathlib.Path(name).is_absolute()
+                or pathlib.Path(name).name != name
+            ):
+                raise SystemExit(f"{inventory_path} has an invalid link name")
+            if not isinstance(target, str) or not target or pathlib.Path(target).is_absolute():
+                raise SystemExit(f"{inventory_path} has an invalid target for {name}")
+            path = skills_root / name
+            if path.parent != skills_root:
+                raise SystemExit(f"{inventory_path} link escapes the skills root")
+            try:
+                (path.parent / target).resolve().relative_to(plugin_root)
+            except ValueError as error:
+                raise SystemExit(
+                    f"{inventory_path} target for {name} escapes the project plugin tree"
+                ) from error
+            if path.is_symlink() and os.readlink(path) == target:
+                validated[path] = target
+        return validated
 
     # One-time adoption for profiles generated before the inventory existed. Target
     # containment, not a filename prefix, proves these links point into this project's
@@ -286,6 +314,8 @@ def main() -> int:
         managed_project_path(project, pathlib.Path(".agents/skills"))
         document = codex_document(path, catalog, selected)
         skill_links = codex_skills(project, catalog, selected)
+        # Parse and validate the complete ownership inventory before any project write.
+        managed_skill_links(next(iter(skill_links)).parent)
     expected = serialized(document)
 
     if args.check:
