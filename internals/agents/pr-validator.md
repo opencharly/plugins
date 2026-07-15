@@ -385,21 +385,48 @@ you skipped without deciding it inapplicable is an incomplete review (re-open it
       OUTWARD; "it works where it is" is not a defense. If yes → CHANGES-REQUESTED
       naming the correct placement.
     - **Mechanical sub-checks (deterministic; the floor under the judgment).** No
-      new or grown `charly/*_aliases.go` re-export; no NEW `charly/` import of an sdk
-      mechanism kit (`kit`/`deploykit`/`buildkit`/`loaderkit`/`vmshared`/…) — EXCEPT
-      the residual-call-site import created when a mechanism's BODY moves OUT of core
-      in the SAME PR (net core-LOC NEGATIVE): the remaining core call sites then
-      import the kit DIRECTLY (never an alias, never a duplicate), and EACH residual
-      site is inventoried "until-K<n>" with a tracked exit. An import that brings
-      capability INTO core, or one without the same-PR body-move + inventory, stays a
-      blocker. No "permanent residue" framing (a K-wave exit + a tracked task is
-      required). Pre-existing alias files / kit imports = migration INVENTORY (not
-      blockers); NEW/GROWN ones (outside the migration exception) = blockers.
-    - **VERDICT DUTY.** Every validation report states the placement verdict
+      new or grown `charly/*_aliases.go` re-export — **alias files have NO migration
+      exception** (an alias is a mislocated call site; the fix is MOVING the consumer
+      into its owning plugin, never re-exporting): the residual-call-site exception
+      below covers a plain kit IMPORT/CALL only, NEVER an alias FORM. No NEW `charly/`
+      import of an sdk mechanism kit (`kit`/`deploykit`/`buildkit`/`loaderkit`/
+      `vmshared`/…) — EXCEPT the residual-call-site import created when a mechanism's
+      BODY moves OUT of core in the SAME PR (net core-LOC NEGATIVE): the remaining
+      core call sites then import the kit DIRECTLY (never an alias, never a
+      duplicate), and EACH residual site is inventoried "until-K<n>" with a tracked
+      exit. An import that brings capability INTO core, or one without the same-PR
+      body-move + inventory, stays a blocker. No "permanent residue" framing (a
+      K-wave exit + a tracked task is required). Pre-existing alias files / kit
+      imports = migration INVENTORY (not blockers); NEW/GROWN ones (outside the
+      migration exception) = blockers. **The `pre-commit-gate.sh` ZERO-ALIASES hook
+      is the mechanical floor under this check**: it blocks a NEW `charly/*_aliases.go`
+      file and a declaration-form kit-alias line (`type X = kit.Y` / `var x = kit.Y`)
+      tier-independently, fail-open — a hook block is a HARD FAIL (never a workaround
+      target), and a hook ALLOW does NOT discharge the validator's judgment, because
+      IMPORT-PURITY of a plain kit IMPORT/CALL is validator-judged, not hook-gated.
+    - **PER-ITEM TRACE (mandatory in the POSTED comment).** For each staged
+      `charly/*.go` change, the POSTED validation comment carries an explicit line
+      per item: any new/grown alias file (→ blocker); any new kit import (→ blocker
+      unless the same-PR body-move-out + per-site "until-K<n>" inventory conditions
+      are VERIFIED and STATED); and the boundary-law placement (E/M/B/D/R) for any new
+      or moved core code — distinguishing a GENERIC kind-AGNOSTIC host mechanism (the
+      four in-core M's — plugin loading, prescan-dispatch, the kind-decode
+      materialize, the wire broker — or a class-generic `HostBuild` KIND seam such as
+      `overlay`/`cli`/`step-emit`, which is permitted) from a PER-CAPABILITY
+      seam (a provider WORD on the API surface, a `spec.<Kind>` field-read, a kind-word
+      `switch`, a per-kind Go map — an R-item that LEAKED into core = blocker). A
+      `*Legacy*`-named identifier or file introduced alongside a body move is a
+      relocation smell — flag it: a redesign that DROPS the "Legacy" name+shape is
+      expected, not a kept legacy shape renamed in place. A POSTED comment with NO
+      per-item trace for a diff touching `charly/*.go` is an INCOMPLETE validation
+      (the exact gap that let a real alias slip through unflagged).
+    - **VERDICT DUTY.** The POSTED PR comment states the placement verdict
       explicitly — `placement: CORRECT` or
-      `placement: SHOULD-BE-<core|sdk|candy> (<what moves where>)`. A missing
-      placement verdict is an INCOMPLETE validation. See `/charly-internals:plugin`
-      (the boundary law) + CLAUDE.md ("Core is a PLUGIN HOST").
+      `placement: SHOULD-BE-<core|sdk|candy> (<what moves where>)` — alongside the
+      per-item trace above. A missing placement verdict IN THE POSTED COMMENT is an
+      INCOMPLETE validation: an internal-only report the operator cannot see does not
+      discharge the duty. See `/charly-internals:plugin` (the boundary law) +
+      CLAUDE.md ("Core is a PLUGIN HOST").
 16. **Disposable-Only Autonomy.** Any autonomous destroy/rebuild in the evidence
     happened on a target explicitly marked `disposable: true` (never derived from
     a name/hostname/lifecycle-tag). A destroy of a non-disposable resource without
@@ -592,8 +619,9 @@ Checklist (every rule — mark [N/A] + a one-line reason where the class exclude
                  no unjustified @go(-)/hand-written schema type; per-plugin .cue single-source)
   [PASS/FAIL] 13. concurrency mandate + anti-cheat (no idle/serial passes; concurrent-roster gate; root-cause RCA)
   [PASS/FAIL] 14. hard cutover — one atomic commit; no Phase-2/TODO; plan = contract
-  [PASS/FAIL] 15. ARCHITECTURE GATE — placement review (goal-fit / right-layer / counterfactual-outward / mechanical sub-checks: no new-or-grown alias, no new kit import)
+  [PASS/FAIL] 15. ARCHITECTURE GATE — placement review (goal-fit / right-layer / counterfactual-outward / mechanical sub-checks: no new-or-grown alias, no new kit import; per-item trace in the POSTED comment; a hook ZERO-ALIASES block = hard FAIL, a hook ALLOW does not discharge judgment)
                  placement: <CORRECT | SHOULD-BE-<core|sdk|candy> (<what moves where>)>
+                 per-item trace: <for each staged charly/*.go: alias? kit-import(+exception conditions verified)? boundary-law E/M/B/D/R placement? *Legacy* relocation smell?>
   [PASS/FAIL] 16. disposable-only autonomy (destroy only on disposable: true)
   [PASS/FAIL] 17. clean architecture + go gates (gofmt/golangci-0/vet/test; repo invariants)
   [PASS/FAIL] 18. CHANGELOG present
