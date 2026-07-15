@@ -119,29 +119,46 @@ def claude_document(path: pathlib.Path, all_plugins: list[str], selected: list[s
     return document
 
 
-def codex_document(catalog: dict, selected: list[str]) -> dict:
+def codex_document(path: pathlib.Path, catalog: dict, selected: list[str]) -> dict:
     wanted = set(selected)
-    plugins = []
+    managed = {}
     for entry in catalog["plugins"]:
         source = entry["source"].removeprefix("./")
-        plugins.append(
-            {
-                "name": entry["name"],
-                "source": {"source": "local", "path": f"./plugins/{source}"},
-                "policy": {
-                    "installation": (
-                        "INSTALLED_BY_DEFAULT" if entry["name"] in wanted else "AVAILABLE"
-                    ),
-                    "authentication": "ON_INSTALL",
-                },
-                "category": entry.get("category", "OpenCharly"),
-            }
-        )
-    return {
-        "name": MARKETPLACE,
-        "interface": {"displayName": "OpenCharly"},
-        "plugins": plugins,
-    }
+        managed[entry["name"]] = {
+            "name": entry["name"],
+            "source": {"source": "local", "path": f"./plugins/{source}"},
+            "policy": {
+                "installation": (
+                    "INSTALLED_BY_DEFAULT" if entry["name"] in wanted else "AVAILABLE"
+                ),
+                "authentication": "ON_INSTALL",
+            },
+            "category": entry.get("category", "OpenCharly"),
+        }
+
+    document = json.loads(path.read_text()) if path.is_file() else {}
+    document.setdefault("name", MARKETPLACE)
+    interface = document.setdefault("interface", {})
+    interface.setdefault("displayName", "OpenCharly")
+    existing = document.setdefault("plugins", [])
+    if not isinstance(existing, list):
+        raise SystemExit(f"{path} plugins must be a list")
+    merged = []
+    seen = set()
+    for plugin in existing:
+        name = plugin.get("name") if isinstance(plugin, dict) else None
+        if name in managed:
+            if name not in seen:
+                merged.append(managed[name])
+                seen.add(name)
+        else:
+            merged.append(plugin)
+    for entry in catalog["plugins"]:
+        name = entry["name"]
+        if name not in seen:
+            merged.append(managed[name])
+    document["plugins"] = merged
+    return document
 
 
 def codex_skills(project: pathlib.Path, catalog: dict, selected: list[str]) -> dict[pathlib.Path, str]:
@@ -215,7 +232,7 @@ def main() -> int:
         document = claude_document(path, all_plugins, selected)
     else:
         path = project / ".agents" / "plugins" / "marketplace.json"
-        document = codex_document(catalog, selected)
+        document = codex_document(path, catalog, selected)
         skill_links = codex_skills(project, catalog, selected)
     expected = serialized(document)
 
