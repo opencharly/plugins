@@ -168,6 +168,59 @@ fi
     exit 1
 }
 
+# Managed JSON leaves with the wrong type fail before related files or links appear.
+for case_name in inventory marketplace claude-settings; do
+    type_project="$TMP/type-$case_name"
+    mkdir -p "$type_project"
+    git -C "$type_project" init -q
+    ln -s "$CONSUMER/plugins" "$type_project/plugins"
+    case $case_name in
+        inventory)
+            mkdir -p "$type_project/.agents/skills/.charly-profile.json"
+            harness=codex
+            ;;
+        marketplace)
+            mkdir -p "$type_project/.agents/plugins/marketplace.json"
+            harness=codex
+            ;;
+        claude-settings)
+            mkdir -p "$type_project/.claude/settings.json"
+            harness=claude
+            ;;
+    esac
+    if "$ROOT/setup" "$harness" --project "$type_project" developer >/dev/null 2>&1; then
+        echo "$case_name wrong-type destination was accepted" >&2
+        exit 1
+    fi
+    if [[ -d "$type_project/.agents/skills" ]] &&
+        find "$type_project/.agents/skills" -mindepth 1 -maxdepth 1 -type l -print -quit | grep -q .; then
+        echo "$case_name rejection created skill links" >&2
+        exit 1
+    fi
+done
+
+# Catalog plugin sources are read-only inputs but must remain inside ./plugins.
+catalog="$CONSUMER/plugins/.claude-plugin/marketplace.json"
+catalog_backup="$TMP/marketplace.catalog.json"
+cp "$catalog" "$catalog_backup"
+catalog_marketplace_before=$(sha256sum "$CONSUMER/.agents/plugins/marketplace.json")
+python3 - "$catalog" <<'PY'
+import json, pathlib, sys
+path = pathlib.Path(sys.argv[1])
+data = json.loads(path.read_text())
+data["plugins"][0]["source"] = "../../outside"
+path.write_text(json.dumps(data, indent=2) + "\n")
+PY
+if "$ROOT/setup" codex --project "$CONSUMER" developer >/dev/null 2>&1; then
+    echo "Codex setup accepted an escaping catalog source" >&2
+    exit 1
+fi
+[[ $catalog_marketplace_before == "$(sha256sum "$CONSUMER/.agents/plugins/marketplace.json")" ]] || {
+    echo "catalog-source rejection mutated the project marketplace" >&2
+    exit 1
+}
+cp "$catalog_backup" "$catalog"
+
 [[ ! -e "$CONSUMER/.agents/skills/charly-build--validate" ]] || {
     echo "Codex profile transition retained a deselected generated skill" >&2
     exit 1

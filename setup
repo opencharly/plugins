@@ -50,19 +50,47 @@ def git_root(path: pathlib.Path) -> pathlib.Path:
     return root.resolve()
 
 
-def managed_project_path(project: pathlib.Path, relative: pathlib.Path) -> pathlib.Path:
+def managed_project_path(
+    project: pathlib.Path, relative: pathlib.Path, leaf_kind: str
+) -> pathlib.Path:
     """Return a write target only when every existing component stays in-project."""
     current = project
-    for part in relative.parts:
+    for index, part in enumerate(relative.parts):
         current = current / part
         if current.is_symlink():
             raise SystemExit(f"refusing managed path through symlink: {current}")
+        if current.exists():
+            is_leaf = index == len(relative.parts) - 1
+            expected_kind = leaf_kind if is_leaf else "directory"
+            if expected_kind == "directory" and not current.is_dir():
+                raise SystemExit(f"managed directory path has wrong type: {current}")
+            if expected_kind == "file" and not current.is_file():
+                raise SystemExit(f"managed file path has wrong type: {current}")
     path = project / relative
     try:
         path.parent.resolve().relative_to(project)
     except ValueError as error:
         raise SystemExit(f"refusing managed path outside project: {path}") from error
     return path
+
+
+def catalog_plugin_root(project: pathlib.Path, entry: dict) -> pathlib.Path:
+    source = entry.get("source")
+    if not isinstance(source, str):
+        raise SystemExit("plugin catalog source must be a string")
+    relative = pathlib.PurePosixPath(source)
+    parts = tuple(part for part in relative.parts if part != ".")
+    if relative.is_absolute() or len(parts) != 1 or parts[0] in {"", ".."}:
+        raise SystemExit(f"invalid plugin catalog source: {source}")
+    plugins_root = (project / "plugins").resolve()
+    plugin_root = (project / "plugins" / parts[0]).resolve()
+    try:
+        plugin_root.relative_to(plugins_root)
+    except ValueError as error:
+        raise SystemExit(f"plugin catalog source escapes project plugins: {source}") from error
+    if plugin_root.parent != plugins_root or not plugin_root.is_dir():
+        raise SystemExit(f"plugin catalog source is not a direct plugin directory: {source}")
+    return plugin_root
 
 
 def is_opencharly(root: pathlib.Path) -> bool:
@@ -84,6 +112,11 @@ def load_contract(project: pathlib.Path, profile: str, family: str | None):
             "plugins/.claude-plugin/marketplace.json; add the plugins repository at ./plugins"
         )
     catalog = json.loads(catalog_path.read_text())
+    entries = catalog.get("plugins") if isinstance(catalog, dict) else None
+    if not isinstance(entries, list) or not all(isinstance(entry, dict) for entry in entries):
+        raise SystemExit(f"{catalog_path} plugins must be a list of objects")
+    for entry in entries:
+        catalog_plugin_root(project, entry)
     profiles = json.loads((SOURCE_ROOT / "profiles.json").read_text())
     all_plugins = [entry["name"] for entry in catalog["plugins"]]
     if profile == "container":
@@ -102,8 +135,7 @@ def load_contract(project: pathlib.Path, profile: str, family: str | None):
 
 def validate_codex_plugins(project: pathlib.Path, catalog: dict) -> None:
     for entry in catalog["plugins"]:
-        directory = entry["source"].removeprefix("./")
-        plugin_root = project / "plugins" / directory
+        plugin_root = catalog_plugin_root(project, entry)
         manifest_path = plugin_root / ".codex-plugin" / "plugin.json"
         if not manifest_path.is_file():
             raise SystemExit(f"{plugin_root} has no .codex-plugin/plugin.json")
@@ -142,7 +174,7 @@ def codex_document(path: pathlib.Path, catalog: dict, selected: list[str]) -> di
     wanted = set(selected)
     managed = {}
     for entry in catalog["plugins"]:
-        source = entry["source"].removeprefix("./")
+        source = catalog_plugin_root(path.parents[2], entry).name
         managed[entry["name"]] = {
             "name": entry["name"],
             "source": {"source": "local", "path": f"./plugins/{source}"},
@@ -188,10 +220,14 @@ def codex_skills(project: pathlib.Path, catalog: dict, selected: list[str]) -> d
     for entry in catalog["plugins"]:
         if entry["name"] not in wanted:
             continue
-        source = entry["source"].removeprefix("./")
-        plugin_skills = project / "plugins" / source / "skills"
+        plugin_root = catalog_plugin_root(project, entry)
+        plugin_skills = plugin_root / "skills"
         for skill_file in sorted(plugin_skills.glob("*/SKILL.md")):
             skill_dir = skill_file.parent
+            try:
+                skill_dir.resolve().relative_to(plugin_skills.resolve())
+            except ValueError as error:
+                raise SystemExit(f"skill directory escapes plugin tree: {skill_dir}") from error
             link = skills_root / f"{entry['name']}--{skill_dir.name}"
             links[link] = os.path.relpath(skill_dir, skills_root)
     return links
@@ -201,6 +237,8 @@ def skill_inventory_path(skills_root: pathlib.Path) -> pathlib.Path:
     path = skills_root / ".charly-profile.json"
     if path.is_symlink():
         raise SystemExit(f"refusing symlinked skill inventory: {path}")
+    if path.exists() and not path.is_file():
+        raise SystemExit(f"skill inventory has wrong type: {path}")
     return path
 
 
@@ -330,13 +368,15 @@ def main() -> int:
     if args.harness == "codex":
         validate_codex_plugins(project, catalog)
     if args.harness == "claude":
-        path = managed_project_path(project, pathlib.Path(".claude/settings.json"))
+        path = managed_project_path(
+            project, pathlib.Path(".claude/settings.json"), "file"
+        )
         document = claude_document(path, all_plugins, selected)
     else:
         path = managed_project_path(
-            project, pathlib.Path(".agents/plugins/marketplace.json")
+            project, pathlib.Path(".agents/plugins/marketplace.json"), "file"
         )
-        managed_project_path(project, pathlib.Path(".agents/skills"))
+        managed_project_path(project, pathlib.Path(".agents/skills"), "directory")
         document = codex_document(path, catalog, selected)
         skill_links = codex_skills(project, catalog, selected)
         skills_actual = managed_skill_links(next(iter(skill_links)).parent)
