@@ -1,22 +1,11 @@
 ---
 name: check
 description: |
-  MUST be invoked before any work involving: `charly check` (image / live / run),
-  the plan steps / `description:` field in a candy/box `charly.yml`, the disposable test-bed deploys in a project's `charly.yml`,
-  the `ai.opencharly.description` OCI label (where the baked plan travels), the AI iteration harness loop,
-  `kind: agent` (the agent grader) and the disposable R10 deploys
-  (`disposable: true`, run via `charly check run <bed>`), or any plan step / Op
-  authoring. Covers the unified `charly check` surface: three
-  primary modes (image / live / run),
-  ZERO in-core live-container probe verbs — every live-container check verb (cdp/wl/vnc/dbus/mcp/record/kube/adb/appium/spice/libvirt) is served out-of-process by its plugin candy,
-  verb catalog (file/port/command/http/package/service/process/dns/user/
-  unix_group/interface/kernel-param/mount/addr/matching), runtime variable
-  resolution (`${HOST_PORT:N}`, `${VOLUME_PATH:name}`, `${CONTAINER_IP}`,
-  `${ENV_*}`), charly.yml overlay rules, authoring gotchas learned the hard
-  way (package renames, absent binaries, host vs container network routing),
-  AI-iteration loop semantics (plateau-bounded, progressive plan-step
-  disclosure, watchdog), and the `include: <kind>:<name>` step for composing a
-  bed's plan from existing candy/box/pod/vm plans.
+  MUST be invoked for every `charly check` mode, candy or box plan authoring,
+  disposable test beds, R10 runs, agent grading, baked plan labels, or check
+  operation. Covers image/live/run, the plugin-provided live probe verbs,
+  deterministic verb catalog, runtime variables, overlays, plan inclusion,
+  cross-deployment probing, and the bounded AI-iteration harness.
 ---
 
 # Check — unified declarative + AI-iteration evaluation
@@ -276,9 +265,15 @@ DEPLOY name, `charly-<bed>` (P33), NOT the shared `kind:vm` entity** — a `vm:`
 with `from: charly-vm` runs the domain `charly-check-charly-vm`, so its orphan is torn down with
 `charly vm destroy charly-vm --domain check-charly-vm` (resolve the entity spec, target the per-deploy
 domain); the bare `charly vm destroy charly-vm` targets `charly-charly-vm` — a domain a bed never
-creates — which **exits 0, prints `Destroyed VM …`, and leaves the orphan running**. Confirm
-with `charly vm list`, never with the exit code (`/charly-vm:vm` "`charly vm destroy` — the DEPLOY
-name keys the domain"). See `/charly-internals:agents` "The binding rule".
+creates — and **fails with `no such VM`**. The check runner's expected-absence pre-clean and teardown
+use `--if-exists`, which is idempotent and still cleans managed metadata. Confirm the intended domain
+identity with `charly vm list`; see `/charly-vm:vm` "`charly vm destroy` — the DEPLOY name keys the
+domain" and `/charly-internals:agents` "The binding rule".
+
+Final target and member teardown are recorded acceptance steps. In particular, a targetless group
+records `cleanup-members`; a failed members-down operation fails the bed rather than leaving cleanup
+to inference from a later host inventory. The group fresh-rebuild transition likewise records and
+requires `rebuild-members-down` before bringing the members back up.
 
 ### Prereq for the vm bed
 

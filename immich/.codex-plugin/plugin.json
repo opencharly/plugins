@@ -1,0 +1,23 @@
+{
+  "name": "charly-immich",
+  "version": "1.0.0",
+  "description": "Self-contained skills for the immich photo-management image (immich + immich-ml variants).",
+  "author": {
+    "name": "opencharly"
+  },
+  "repository": "https://github.com/opencharly/charly-plugins",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "OpenCharly Immich",
+    "shortDescription": "OpenCharly immich workflows.",
+    "longDescription": "Self-contained skills for the immich photo-management image (immich + immich-ml variants).",
+    "developerName": "opencharly",
+    "category": "images",
+    "capabilities": [
+      "Instructions"
+    ],
+    "defaultPrompt": [
+      "Use OpenCharly Immich for this OpenCharly task."
+    ]
+  }
+}

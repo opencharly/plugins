@@ -1,7 +1,7 @@
 ---
 name: versatiles-style
 description: |
-  @versatiles/style — TypeScript npm package that generates MapLibre style JSON for the Shortbread vector-tile schema. Installed locally (npm install + copy browser bundle to /opt/versatiles-style/) so the notebook's MapLibre HTML can `<script src>` the locally-served JS without a CDN dependency. Re-exported by the versatiles-frontend layer's http.server at /style/ so the notebook's mo.iframe (which can only fetch absolute URLs) can reach the bundle.
+  The @versatiles/style TypeScript package generates MapLibre style JSON for Shortbread vector tiles. Its local browser bundle avoids a CDN and is re-exported at /style/ for notebook iframe access.
   MUST be invoked before building, deploying, or troubleshooting the versatiles-style layer.
 ---
 

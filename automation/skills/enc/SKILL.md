@@ -1,7 +1,7 @@
 ---
 name: enc
 description: |
-  Topic skill (no dedicated `charly enc` command — the surface is flags + subcommands on `charly config`). MUST be invoked before any work involving: encrypted storage, gocryptfs, or the `--encrypt` / `-v <name>:encrypted` backing flags on `charly config`, the `charly config mount` / `unmount` / `status` / `passwd` subcommands, or `charly-enc-<image>-<volume>.scope` systemd units.
+  Topic skill for encrypted storage through `charly config`. MUST be invoked for gocryptfs, the `--encrypt` and encrypted-volume flags, config mount/unmount/status/passwd, or Charly encrypted-volume systemd units.
 ---
 
 # Enc - Encrypted Storage

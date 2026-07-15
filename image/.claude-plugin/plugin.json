@@ -1,7 +1,7 @@
 {
   "name": "charly-image",
   "description": "Schema authoring reference for `kind: box` and `kind: candy` entities — box charly.yml composition, candy charly.yml task verbs, candy/box inheritance, validation rules.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": { "name": "opencharly" },
   "homepage": "https://github.com/opencharly/charly",
   "repository": "https://github.com/opencharly/charly-plugins",

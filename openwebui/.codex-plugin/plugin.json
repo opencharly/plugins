@@ -1,0 +1,23 @@
+{
+  "name": "charly-openwebui",
+  "version": "1.0.0",
+  "description": "Self-contained skills for the openwebui chat-frontend image. Consumes the jupyter MCP server (enable charly-jupyter alongside) for in-chat code execution.",
+  "author": {
+    "name": "opencharly"
+  },
+  "repository": "https://github.com/opencharly/charly-plugins",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "OpenCharly Openwebui",
+    "shortDescription": "OpenCharly openwebui workflows.",
+    "longDescription": "Self-contained skills for the openwebui chat-frontend image. Consumes the jupyter MCP server (enable charly-jupyter alongside) for in-chat code execution.",
+    "developerName": "opencharly",
+    "category": "images",
+    "capabilities": [
+      "Instructions"
+    ],
+    "defaultPrompt": [
+      "Use OpenCharly Openwebui for this OpenCharly task."
+    ]
+  }
+}

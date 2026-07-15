@@ -68,7 +68,7 @@ USER 1000
 - `/charly-coder:debian-coder` — kitchen-sink dev box on this base.
 - `/charly-distros:debian-debootstrap-builder` — privileged debootstrap builder (`base: debian:13`).
 - `/charly-distros:debian-debootstrap` — bootstrap-from-scratch rootfs (`from: builder:debootstrap`).
-- `/charly-vm:debian` — the `debian-debootstrap` bootstrap VM + `check-debian-debootstrap-vm` bed.
+- `/charly-vm:debian-debootstrap-vm` — the `debian-debootstrap` bootstrap VM + `check-debian-debootstrap-vm` bed.
 
 ## Verification
 

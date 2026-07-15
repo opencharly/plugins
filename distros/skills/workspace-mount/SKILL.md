@@ -53,7 +53,7 @@ operator's `/home/<user>` → `/workspace`. Generic for any pod-in-VM share.
 
 - `/charly-internals:libvirt-renderer` — `mapFilesystem` + `ensureVirtiofsSharedMemory`
 - `/charly-vm:vms-catalog` — `filesystems:` authoring on the kind:vm entity
-- `/charly-vm:cachyos` — the CachyOS VM family that consumes it
+- `/charly-vm:cachyos-bootstrap-vm` — the CachyOS VM family that consumes it
 - `/charly-image:layer` — candy authoring reference
 
 ## When to Use This Skill

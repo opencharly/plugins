@@ -125,14 +125,14 @@ listen:
 `remote-viewer --connect qemu+ssh://…` auto-forward UNIX sockets over
 the libvirt RPC channel — GUI clients work out of the box against a
 remote libvirt with zero `ssh -L` setup. TCP loopback listeners are
-never auto-tunneled, by design. See `/charly-vm:arch`
+never auto-tunneled, by design. See `/charly-vm:arch-cloud-vm`
 "Connecting from a remote workstation".
 
 ## source.kind: cloud_image
 
 Use when the VM is built from an **externally published qcow2** (Arch cloud image from pkgbuild.com, Fedora Cloud, Ubuntu Cloud, Debian Cloud, CentOS Cloud, etc.). The build pipeline fetches the URL, integrity-checks it via sha256 (sidecar auto-resolved when `checksum.value` is empty), creates a qcow2 overlay at `spec.disk_size`, renders a NoCloud seed ISO, and hands off to libvirt/QEMU.
 
-Canonical example: `/charly-vm:arch`. Only existing cloud_image VM in the repo — **read it before authoring another one**. It documents the non-obvious decisions learned the hard way:
+Canonical example: `/charly-vm:arch-cloud-vm`. Only existing cloud_image VM in the repo — **read it before authoring another one**. It documents the non-obvious decisions learned the hard way:
 
 - **BIOS firmware is usually the right default.** Distribution cloud images ship both a BIOS boot partition and an EFI System Partition, but the ESP's bootloader binary often has an **embedded grub.cfg that predates the maintainer's latest `/etc/default/grub`** (Arch's upstream issue with `fbcon=nodefer`). BIOS boot reads `/boot/grub/grub.cfg` directly from the root fs, which is always current.
 - **virtio-gpu, not QXL.** See `/charly-internals:libvirt-renderer` "video model choice" — virtio-gpu is the modern default for Linux guests.
@@ -142,7 +142,7 @@ Canonical example: `/charly-vm:arch`. Only existing cloud_image VM in the repo �
 
 1. Find the upstream qcow2 URL + verify a sha256 sidecar exists (<url>.SHA256 / .sha256 / .sha256sum).
 2. Identify the **pre-existing user account** in the upstream image (`arch`, `ubuntu`, `fedora`, `debian`, `cloud-user`, etc.). This becomes `source.base_user:` — triggers the adopt pattern described below.
-3. Start from `/charly-vm:arch` as a template. Change `url`, `base_user`, distro-specific cloud_init `package:` and `runcmd:`.
+3. Start from `/charly-vm:arch-cloud-vm` as a template. Change `url`, `base_user`, distro-specific cloud_init `package:` and `runcmd:`.
 4. Pick firmware: default to `bios` unless the upstream image explicitly requires UEFI (e.g., secure boot lock-in).
 5. Run `charly vm build <name>` — observe the fetched qcow2 sha256 + rendered seed ISO path.
 6. Run `charly vm create <name>` + `charly vm ssh <name>` to verify cloud-init completed.
@@ -210,7 +210,7 @@ For a config already within the migratable window (`[floor, HEAD)`), `charly mig
 - `/charly-vm:vm` — the `charly vm build/create/start/stop/ssh/console` command family
 - `/charly-build:migrate` — `charly migrate` conversion from legacy
 - `/charly-core:deploy` — `charly bundle add vm:<name>` for in-guest layer application
-- `/charly-vm:arch` — canonical cloud_image VM
+- `/charly-vm:arch-cloud-vm` — canonical cloud_image VM
 - `/charly-internals:vm-spec` — Go type reference
 - `/charly-internals:libvirt-renderer` — libvirt XML emission
 - `/charly-internals:cloud-init-renderer` — NoCloud seed ISO + user-data emission

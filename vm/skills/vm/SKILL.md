@@ -18,7 +18,7 @@ description: |
 
 `charly vm` commands build disk images and manage virtual machines via libvirt (default) or direct QEMU. VMs are declared as **`kind: vm` entities in the unified `charly.yml`** — a first-class primitive alongside `candy:` image entries, each a name-first top-level node (`<name>: {vm: …}`). Two source types:
 
-- **`source.kind: cloud_image`** — fetches a pre-built qcow2 from an external URL (Arch, Fedora, Ubuntu, Debian, CentOS Cloud images). Renders a NoCloud seed ISO with cloud-init. Canonical example: `/charly-vm:arch`.
+- **`source.kind: cloud_image`** — fetches a pre-built qcow2 from an external URL (Arch, Fedora, Ubuntu, Debian, CentOS Cloud images). Renders a NoCloud seed ISO with cloud-init. Canonical example: `/charly-vm:arch-cloud-vm`.
 - **`source.kind: bootc`** — pairs (via its `box:` source field) with a `candy:` image entry that has `bootc: true`. Runs `bootc install to-disk` inside a privileged container.
 
 VMs are not configured on `candy:` image entries — `vm:` / `libvirt:` on a `candy:` image are rejected at load time. `bootc: true` stays on a `candy:` image entry to mark it bootable. The legacy on-image `vm:`/`libvirt:` fields predate the schema floor and are no longer migratable — a config still carrying them must be re-authored as a name-first `kind: vm` node (see `/charly-build:migrate`). For the YAML authoring reference, see `/charly-vm:vms-catalog`; for the Go types, see `/charly-internals:vm-spec`.
@@ -95,7 +95,7 @@ Code-43 workarounds for consumer NVIDIA cards are first-class libvirt fields:
 `libvirt.features.kvm.hidden: on` and `libvirt.features.hyperv.vendor_id`.
 Optional per-hostdev `rom: {bar: off}` / `driver: {name: vfio}` are supported.
 Worked end-to-end example: the CachyOS `check-cachyos-gpu-vm` bed (see
-`/charly-vm:cachyos`, `/charly-check:check`).
+`/charly-vm:cachyos-bootstrap-vm`, `/charly-check:check`).
 
 ## GPU driver-mode switch (vfio ↔ nvidia) — and the device_lock hazard
 
@@ -337,7 +337,7 @@ The `firmware:` field controls the VM boot path. Choice matters more than most a
 
 | Firmware | When to pick |
 |---|---|
-| `bios` (default) | Cloud images (Arch, Fedora Cloud, Ubuntu Cloud, Debian Cloud, CentOS Cloud) that ship a GPT BIOS boot partition. Avoids stale BOOTX64.EFI issues. No OVMF package dependency. No per-VM NVRAM. See `/charly-vm:arch` Finding B for the RCA. |
+| `bios` (default) | Cloud images (Arch, Fedora Cloud, Ubuntu Cloud, Debian Cloud, CentOS Cloud) that ship a GPT BIOS boot partition. Avoids stale BOOTX64.EFI issues. No OVMF package dependency. No per-VM NVRAM. See `/charly-vm:arch-cloud-vm` Finding B for the RCA. |
 | `uefi-insecure` | bootc Fedora images (ship signed BOOTX64.EFI built at image-build time). Guests needing GPT > 2 TiB disks. ARM hosts (aarch64). |
 | `uefi-secure` | Guests needing Secure Boot (signed kernel + initramfs). Locks to Microsoft UEFI CA keys. |
 
@@ -350,7 +350,7 @@ See `/charly-internals:ovmf` for the per-distro OVMF_CODE/OVMF_VARS path table a
 | Model | Default for | Why |
 |---|---|---|
 | `virtio` (virtio-gpu) | **Linux guests — modern default** | Native `virtio_gpu` kernel DRM driver (4.16+), Wayland-native, simpler config, no X-server-specific driver needed |
-| `qxl` | Legacy X11 SPICE use | 2010-era Red Hat SPICE stack; simpledrm→qxldrmfb takeover race under UEFI (see `/charly-vm:arch` Finding B); more knobs (ram_size + vram_size + vram64_size_mb + vgamem_mb) |
+| `qxl` | Legacy X11 SPICE use | 2010-era Red Hat SPICE stack; simpledrm→qxldrmfb takeover race under UEFI (see `/charly-vm:arch-cloud-vm` Finding B); more knobs (ram_size + vram_size + vram64_size_mb + vgamem_mb) |
 | `cirrus` | BIOS fallback only | Low resolution, no acceleration |
 | `none` | Headless VMs | No framebuffer at all |
 
@@ -445,7 +445,7 @@ charly vm ssh <name> -i dev
 
 ## Known live-tested caveats
 
-Non-obvious issues that surface only when VMs actually boot. `/charly-vm:arch` is the canonical cloud_image worked example; the bootc-specific caveats below apply to any `source.kind: bootc` VM.
+Non-obvious issues that surface only when VMs actually boot. `/charly-vm:arch-cloud-vm` is the canonical cloud_image worked example; the bootc-specific caveats below apply to any `source.kind: bootc` VM.
 
 ### Privileged container needs `-v /dev:/dev` (bootc)
 
@@ -465,7 +465,7 @@ When `firmware: uefi-insecure` or `firmware: uefi-secure`, each VM gets its own 
 
 ### Resource sizing over package pruning (cloud_image)
 
-Cloud-init `packages: [spice-vdagent]` pulls GTK3 + X11 (~200 MB download, ~1 GB installed). Running at 2 GiB RAM stalls cloud-init. **Check host inventory (`free -h`, `nproc`) before sizing** — give the VM what it needs (8 GiB + 4 cpus for a desktop-class workload is reasonable on a 16-core / 61 GiB host). See `/charly-vm:arch` Finding C for the live-test bisect.
+Cloud-init `packages: [spice-vdagent]` pulls GTK3 + X11 (~200 MB download, ~1 GB installed). Running at 2 GiB RAM stalls cloud-init. **Check host inventory (`free -h`, `nproc`) before sizing** — give the VM what it needs (8 GiB + 4 cpus for a desktop-class workload is reasonable on a 16-core / 61 GiB host). See `/charly-vm:arch-cloud-vm` Finding C for the live-test bisect.
 
 ### Rootful ↔ rootless podman storage split (bootc)
 
@@ -491,7 +491,7 @@ charly vm build <name> --transport containers-storage
 
 `--transport containers-storage` forces `bootc install` to pull from the machine's local store. Worked example: `/charly-openclaw:openclaw-desktop` "Two-level nested-virtualization proof".
 
-### `charly vm destroy` — the DEPLOY name keys the domain (`--domain`), and it no-ops silently on a miss
+### `charly vm destroy` — the DEPLOY name keys the domain (`--domain`) and missing targets are strict
 
 The libvirt domain is keyed by the **DEPLOY name** — `charly-<VmDomainIdentity(deploy)>` (strip a
 leading `vm:`; flatten `/` and `.` to `-`), NOT the shared `kind:vm` ENTITY (P33). A `vm:` bed named
@@ -503,14 +503,16 @@ construction. A DIRECT `charly vm create/destroy <entity>` (no `--domain`) keeps
 manual cleanup of a legacy pre-P33 orphan (named `charly-<entity>`) uses the bare
 `charly vm destroy <entity>`.
 
-**`charly vm destroy` on a name with no domain exits 0 and prints `Destroyed VM charly-<name>`.**
-It is a silent no-op success — a name whose domain does not exist looks like it worked and leaves the
-real domain running. Always confirm with `charly vm list` afterwards, never with the exit code.
+**`charly vm destroy` on a name with no domain exits non-zero with `no such VM`.** This strict
+operator default prevents a mistyped entity or missing `--domain` from looking successful while the
+real domain remains running. Internal reconcilers whose contract expects absence use the explicit
+`--if-exists` flag; that mode succeeds silently on a missing runtime domain and still removes managed
+autostart, SSH, disk (when requested), and deploy metadata.
 
 ```
 $ charly vm destroy definitely-not-a-vm-xyz ; echo "exit=$?"
-Destroyed VM charly-definitely-not-a-vm-xyz
-exit=0
+no such VM "charly-definitely-not-a-vm-xyz": no libvirt domain and no qemu state — nothing destroyed
+exit=1
 ```
 
 ### `charly bundle add vm:<vm> <localpkg-candy>` exits 0 WITHOUT installing
@@ -551,7 +553,7 @@ Expected. The agent needs a `virtio-serial` channel that charly's QEMU backend d
 ## Cross-References
 
 - `/charly-vm:vms-catalog` — **VM entity authoring reference** (VmSpec schema, source.kind, adopt pattern)
-- `/charly-vm:arch` — canonical cloud_image VM (BIOS / virtio-gpu / resource sizing / stale BOOTX64.EFI RCA)
+- `/charly-vm:arch-cloud-vm` — canonical cloud_image VM (BIOS / virtio-gpu / resource sizing / stale BOOTX64.EFI RCA)
 - `/charly-internals:vm-spec` — Go type reference; validation rules; migration map
 - `/charly-internals:libvirt-renderer` — RenderDomainXML + device emission + passt backend + virtio-gpu
 - `/charly-internals:cloud-init-renderer` — RenderCloudInit + composeUsers + seed ISO + charly_install

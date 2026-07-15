@@ -106,7 +106,7 @@ charly shell cachyos -c "pacman --version"
 
 - `/charly-distros:cachyos-pacstrap-builder` — privileged pacstrap builder (`base: arch.arch`)
 - `/charly-distros:cachyos-pacstrap` — bootstrap-from-scratch rootfs (builds end-to-end)
-- `/charly-vm:cachyos` — bootstrap VM (`cachyos-vm`) + `check-cachyos-vm` check bed
+- `/charly-vm:cachyos-bootstrap-vm` — bootstrap VM (`cachyos-vm`) + `check-cachyos-vm` check bed
 - `/charly-local:charly-cachyos` — the operator CachyOS workstation profile
 - `/charly-versa:versa` — CachyOS-rooted notebook/OSM image in this submodule (`base: cachyos`)
 

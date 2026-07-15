@@ -1,7 +1,7 @@
 ---
 name: maplibre-versatiles-styler
 description: |
-  maplibre-versatiles-styler — interactive MapLibre GL JS control widget. Renders a collapsible sidebar on the map enabling users to switch between VersaTiles style presets (colorful/eclipse/graybeard/neutrino/shadow/satellite), edit color palettes, apply global recoloring, adjust fonts/language, modify satellite imagery settings, and export the resulting style JSON. Bundled locally from the npm package so the notebook's MapLibre cell can `<script src>` it without a CDN dependency. Re-exported by the versatiles-frontend layer's http.server at /styler/.
+  maplibre-versatiles-styler is an interactive MapLibre control for switching presets, editing palettes, recoloring, fonts, language, satellite settings, and exporting style JSON. The local npm bundle avoids a CDN and is re-exported at /styler/.
   MUST be invoked before building, deploying, or troubleshooting the maplibre-versatiles-styler layer.
 ---
 

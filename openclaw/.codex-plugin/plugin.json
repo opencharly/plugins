@@ -1,0 +1,23 @@
+{
+  "name": "charly-openclaw",
+  "version": "1.0.0",
+  "description": "Self-contained skills for the openclaw image family (CachyOS base): the headless openclaw gateway and the maximal non-browser openclaw-full.",
+  "author": {
+    "name": "opencharly"
+  },
+  "repository": "https://github.com/opencharly/charly-plugins",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "OpenCharly Openclaw",
+    "shortDescription": "OpenCharly openclaw workflows.",
+    "longDescription": "Self-contained skills for the openclaw image family (CachyOS base): the headless openclaw gateway and the maximal non-browser openclaw-full.",
+    "developerName": "opencharly",
+    "category": "images",
+    "capabilities": [
+      "Instructions"
+    ],
+    "defaultPrompt": [
+      "Use OpenCharly Openclaw for this OpenCharly task."
+    ]
+  }
+}

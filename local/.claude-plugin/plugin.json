@@ -1,7 +1,7 @@
 {
   "name": "charly-local",
   "description": "Schema authoring reference for `kind: local` entities — local.yml templates, target:local deployments, ssh-host destinations, and the managed ssh-config fragment.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": { "name": "opencharly" },
   "homepage": "https://github.com/opencharly/charly",
   "repository": "https://github.com/opencharly/charly-plugins",

@@ -556,7 +556,7 @@ This is what makes per-distro repos DETERMINISTIC: each distro owns its own tag
 section, so debian and ubuntu can never race over one shared section (the old
 collapse that made the apt suite — trixie vs noble — depend on Go map order).
 Canonical examples: `/charly-tools:charly` (tailscale `debian`→trixie / `ubuntu`→noble),
-`/charly-coder:docker-ce` (per-version repos), `/charly-tools:gh` (compound shared repo).
+`/charly-coder:docker-ce` (per-version repos) and `candy/gh` (compound shared repo).
 
 ### The cascade cannot SUBTRACT — express exclusions structurally
 

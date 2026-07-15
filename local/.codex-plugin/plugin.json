@@ -1,0 +1,32 @@
+{
+  "name": "charly-local",
+  "version": "1.1.0",
+  "description": "Schema authoring reference for `kind: local` entities — local.yml templates, target:local deployments, ssh-host destinations, and the managed ssh-config fragment.",
+  "author": {
+    "name": "opencharly"
+  },
+  "repository": "https://github.com/opencharly/charly-plugins",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "OpenCharly Local",
+    "shortDescription": "OpenCharly local workflows.",
+    "longDescription": "Schema authoring reference for `kind: local` entities — local.yml templates, target:local deployments, ssh-host destinations, and the managed ssh-config fragment.",
+    "developerName": "opencharly",
+    "category": "kind",
+    "capabilities": [
+      "Instructions"
+    ],
+    "defaultPrompt": [
+      "Use OpenCharly Local for this OpenCharly task."
+    ]
+  },
+  "homepage": "https://github.com/opencharly/charly",
+  "license": "MIT",
+  "keywords": [
+    "charly",
+    "local",
+    "ssh",
+    "ansible",
+    "schema"
+  ]
+}

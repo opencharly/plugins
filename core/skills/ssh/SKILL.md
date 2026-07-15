@@ -1,7 +1,6 @@
 ---
 name: ssh
-description: Generic SSH support for charly — `--host <alias>` re-execs any command on a remote machine; `charly ssh tunnel` exposes remote SPICE/VNC endpoints on the local host for external GUI apps.
-allowed-tools: Bash, Read
+description: Generic SSH support for Charly. Use for host-alias remote execution or `charly ssh tunnel` access to remote SPICE and VNC endpoints.
 ---
 
 MUST be invoked before any work involving: `charly --host <alias|target>`
@@ -72,7 +71,7 @@ exit.
 
 **Not needed for virt-manager or `remote-viewer --connect qemu+ssh://`**
 — those auto-forward UNIX-socket listeners through libvirt's RPC
-fd-passing, with zero charly involvement. See `/charly-vm:arch`.
+fd-passing, with zero charly involvement. See `/charly-vm:arch-cloud-vm`.
 
 ## Alias management
 
@@ -99,7 +98,7 @@ and passed through.
 
 ## Cross-References
 
-- `/charly-vm:arch` — "Connecting from a remote workstation" —
+- `/charly-vm:arch-cloud-vm` — "Connecting from a remote workstation" —
   the canonical worked example across all three paths.
 - `/charly-build:settings` — `hosts.<alias>` key schema.
 - `/charly-check:spice` — the declarative `spice:` check verb; the host resolves the VM's SPICE endpoint (honoring `CHARLY_LIBVIRT_URI` for a remote hypervisor).

@@ -44,7 +44,7 @@ The two sides cooperate across the host/guest boundary:
 - This guest-side candy installs cloud-init so the guest reads `/dev/sr0` (the seed ISO) at boot.
 - The `composeUsers` adopt-merge pattern (renderer-side) deposits the SSH pubkey in `~<base_user>/.ssh/authorized_keys` without `useradd`.
 
-For cloud_image VMs (`source.kind: cloud_image`), cloud-init typically comes pre-installed in the upstream qcow2 — this candy isn't needed; author the VM entity directly in `vm.yml`. For bootc VMs that want cloud-init provisioning, add this candy explicitly. See `/charly-vm:vms-catalog` for the authoring guide and `/charly-vm:arch` for a worked example.
+For cloud_image VMs (`source.kind: cloud_image`), cloud-init typically comes pre-installed in the upstream qcow2 — this candy isn't needed; author the VM entity directly in `vm.yml`. For bootc VMs that want cloud-init provisioning, add this candy explicitly. See `/charly-vm:vms-catalog` for the authoring guide and `/charly-vm:arch-cloud-vm` for a worked example.
 
 ## Related Skills
 

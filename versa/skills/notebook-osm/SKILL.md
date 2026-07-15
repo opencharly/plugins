@@ -192,8 +192,8 @@ Expected results (verified):
 ## Cross-references
 
 - `/charly-versa:versa` — image composing this layer
-- `/charly-versa:versa-layer` — the runtime kernel
+- `/charly-versa:marimo-layer` — the runtime kernel
 - `/charly-versa:airflow-layer` — DAG trigger REST API
 - `/charly-versa:osm-tools-layer` — martin + tippecanoe + reload pattern
 - `/charly-versa:maputnik-layer` — companion vector-tile editor
-- `/charly-versa:versa-mcp` — read-only inspection of this notebook's session
+- `/charly-versa:marimo-mcp` — read-only inspection of this notebook's session

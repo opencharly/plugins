@@ -8,7 +8,7 @@ description: |
 # marimo-mcp — marimo's built-in MCP server (read-only inspection)
 
 marimo's notebook server has a built-in MCP endpoint enabled by the
-`--mcp` flag (see `/charly-versa:versa-layer` service spec). It serves
+`--mcp` flag (see `/charly-versa:marimo-layer` service spec). It serves
 10 inspection tools for diagnosing active notebook sessions —
 **read-only**: cells cannot be executed via this MCP. Execution
 requires a browser-attached WebSocket session OR
@@ -109,8 +109,8 @@ explicitly broken in a hard cutover.
 
 ## Cross-references
 
-- `/charly-versa:versa-layer` — layer that runs the server
-- `/charly-versa:airflow-mcp` — the OTHER MCP server in the same pod
+- `/charly-versa:marimo-layer` — layer that runs the server
+- `/charly-versa:airflow-layer` — Airflow service in the same pod; it has no MCP wrapper
 - `/charly-versa:notebook-osm` — example notebook diagnosed via this MCP
 - `/charly-build:charly-mcp-cmd` — MCP probe verb authoring + URL rewriter
 - `/charly-check:check` — `mcp:` declarative check-verb reference

@@ -25,7 +25,7 @@ The canonical Debian base (`/charly-distros:debian`) pulls the upstream-publishe
 (no privileged build). This debootstrap variant exists for **offline /
 air-gapped** builds and as a worked example of the `from: builder:debootstrap` +
 `bootstrap_builder_image:` pattern (the deb-family counterpart of
-`/charly-distros:arch-pacstrap` / `/charly-distros:cachyos-pacstrap`).
+`/charly-distros:arch` / `/charly-distros:cachyos-pacstrap`).
 
 ## Box Properties
 
@@ -46,7 +46,7 @@ and is resolved by name from the submodule's `distro: debian` reference.
 
 - `/charly-distros:debian` — the recommended Docker-Hub base
 - `/charly-distros:debian-debootstrap-builder` — the privileged builder it uses
-- `/charly-vm:debian` — the VM built via the same debootstrap path
+- `/charly-vm:debian-debootstrap-vm` — the VM built via the same debootstrap path
 
 ## When to Use This Skill
 

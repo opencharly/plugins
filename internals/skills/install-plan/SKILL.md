@@ -1,25 +1,13 @@
 ---
 name: install-plan
 description: |
-  The InstallPlan IR — the shared intermediate representation consumed by the DEPLOY
-  targets. ALL FIVE deploy substrates (local/vm/pod/k8s/android) are EXTERNAL out-of-process
-  deploys via externalDeployTarget over the executor reverse channel. The local AND vm
-  substrates DO consume the IR — the plugin walks the InstallPlan over the shared
-  out-of-process walk (sdk/kit.WalkPlans), driving the host for host-engine step
-  kinds via the RunHostStep reverse-channel RPC; for vm the served executor is the guest
-  SSHExecutor, so the SAME walk runs INSIDE the guest. pod's plugin walks NOTHING — pod bakes
-  its steps INTO the image, so its substrateLifecycle hook builds the overlay container image
-  HOST-SIDE via the candy `plugin-deploy-pod` (`deploykit.OCITarget` `add_candy:` synthesis, P11c). The
-  k8s substrate is EXTERNAL (deploy:k8s, served out-of-process by candy/plugin-kube): it
-  does NOT consume the IR — the host preresolver GENERATES a Kustomize tree (the
-  GenerateK8sKustomize shim → compiled-in candy/plugin-k8sgen) and the plugin runs `kubectl apply -k`.
-  Build-mode Containerfile emission is the SEPARATE `WriteCandySteps` → `EmitTasks` path in `sdk/deploykit` (relocated from `charly/generate.go` in #67; the `charly/generate.go` top-level orchestrator is DELETED; `emitTasks` in `charly/tasks.go` is a thin shim to `deploykit.Generator.EmitTasks` that stays for the pod-overlay).
-  MUST be invoked before reading or modifying any of:
-  charly/install_plan.go, charly/install_build.go, charly/build_target_oci.go, charly/oci_step_emit.go,
-  charly/deploy_target_external.go, charly/vm_lifecycle_preresolve.go,
-  charly/substrate_lifecycle_grpc.go, charly/build_overlay.go, charly/k8s_generate.go, charly/k8s_deploy_preresolve.go,
-  candy/plugin-deploy-pod/overlay.go, sdk/deploykit/oci_target.go,
-  sdk/spec/deploy_wire.go, or when adding a new step kind / deploy target / reverse-op kind.
+  InstallPlan is the shared deployment IR. Use for the external local, VM, pod,
+  Kubernetes, and Android deploy targets; executor reverse-channel walking;
+  host-engine steps; guest SSH execution; pod overlay builds; Kustomize
+  generation; Containerfile emission; deploy wire types; or any new step,
+  target, or reverse operation. MUST be invoked before changing the InstallPlan,
+  build target, external deploy target, lifecycle preresolution, overlay,
+  Kubernetes generation, or SDK deploy-wire implementation.
 ---
 
 # InstallPlan IR — shared IR for build + deploy

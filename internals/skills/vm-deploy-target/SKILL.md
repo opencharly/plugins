@@ -1,25 +1,11 @@
 ---
 name: vm-deploy-target
 description: |
-  The `vm` deploy substrate applies an InstallPlan INSIDE a running VM over
-  SSH. `vm` is an EXTERNAL out-of-process deploy substrate (like
-  local/android/k8s): the plan WALK runs in candy/plugin-deploy-vm via the
-  shared sdk/kit.WalkPlans over the GUEST SSHExecutor the executor
-  reverse channel serves, and the VM venue lifecycle (boot the
-  domain, build the guest SSH executor, nested-pod-in-guest, teardown, the
-  `charly vm` lifecycle) is IMPLEMENTED IN THE PLUGIN candy/plugin-deploy-vm
-  over generic seams — sdk/kit (ssh-config stanza, guest waits, charly delivery),
-  HostBuild("cli") (the `charly vm`/`charly box build` family), and the served
-  guest executor reverse channel (in-guest nested-pod from-box). Core keeps ONLY
-  generic seams + host-resolved DATA the plugin can't compute with no project: a
-  lifecyclePrepareHook + lifecyclePostTeardownHook (charly/vm_lifecycle_preresolve.go)
-  and the grpcSubstrateLifecycle proxy (charly/substrate_lifecycle_grpc.go) that
-  consults them generically by word and persists the returned VmDeployState. The
-  bare DeployTarget (Name+Emit) interface has NO in-proc BUILD-ENGINE
-  implementers (the former in-proc overlay walker + pod overlay target were DELETED in P11c — the pod overlay render now lives in the candy `plugin-deploy-pod`, via `deploykit.OCITarget`);
-  the deploy lifecycle is the UnifiedDeployTarget interface, and ALL FIVE
-  external substrates (local/vm/pod/k8s/android) route through the generic
-  externalDeployTarget. Covers the DeployExecutor interface,
+  The external VM deploy substrate applies InstallPlan inside a guest through
+  the reverse-channel SSH executor. Use for plugin-deploy-vm, VM boot and guest
+  readiness, Charly delivery, nested pods, lifecycle preparation and teardown,
+  VmDeployState persistence, grpcSubstrateLifecycle, DeployExecutor, or the
+  generic externalDeployTarget and UnifiedDeployTarget seams.
   SSHExecutor, VmDeployState persistence, and the host-side ledger.
   Source: candy/plugin-deploy-vm/lifecycle.go, charly/vm_lifecycle_preresolve.go,
   charly/substrate_lifecycle_grpc.go, charly/deploy_substrate_lifecycle.go,
@@ -390,4 +376,4 @@ When the VM's network uses libvirt user-mode + `<backend type='passt'/>` + `<por
 - `/charly-core:deploy` — `charly bundle add vm:<name>` command + charly.yml schema
 - `/charly-local:local-deploy` — the sibling external substrate (`deploy:local` via `candy/plugin-deploy-local`); same `kit.WalkPlans` + ReverseOps model
 - `/charly-vm:vm` — VM lifecycle; creates the venue the vm deploy runs against
-- `/charly-vm:arch` — canonical worked example — VmDeployState persistence; ssh_key idempotency live-test
+- `/charly-vm:arch-cloud-vm` — canonical worked example — VmDeployState persistence; ssh_key idempotency live-test

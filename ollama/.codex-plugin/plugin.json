@@ -1,0 +1,23 @@
+{
+  "name": "charly-ollama",
+  "version": "1.0.0",
+  "description": "Self-contained skills for running the ollama LLM-server image. Pair with charly-jupyter to expose Ollama models to Jupyter notebooks via the jupyter MCP.",
+  "author": {
+    "name": "opencharly"
+  },
+  "repository": "https://github.com/opencharly/charly-plugins",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "OpenCharly Ollama",
+    "shortDescription": "OpenCharly ollama workflows.",
+    "longDescription": "Self-contained skills for running the ollama LLM-server image. Pair with charly-jupyter to expose Ollama models to Jupyter notebooks via the jupyter MCP.",
+    "developerName": "opencharly",
+    "category": "images",
+    "capabilities": [
+      "Instructions"
+    ],
+    "defaultPrompt": [
+      "Use OpenCharly Ollama for this OpenCharly task."
+    ]
+  }
+}
