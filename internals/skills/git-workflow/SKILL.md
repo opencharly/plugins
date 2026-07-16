@@ -129,7 +129,7 @@ git switch -c feat/<slug>            # slug = kebab summary of the change
 # write the cutover narrative to CHANGELOG/<placeholder>.md — a PLACEHOLDER CalVer
 #   (any valid YYYY.DDD.HHMM; the evaluator OVERWRITES it with the merge-time VER).
 git add <only the cutover's files> CHANGELOG/<placeholder>.md
-git commit -m "<conventional commit> ...  Assisted-by: <Harness> <Provider Full Model Name> (<confidence>)"
+git commit -m "<conventional commit> ...  Assisted-by: <Harness> (<Provider Full Model Name>; <confidence>)"
 git push origin feat/<slug>                       # feat push — allowed by the gate
 gh pr create --base main --head feat/<slug> \     # fill the PR template completely (single org source: opencharly/.github/.github/PULL_REQUEST_TEMPLATE.md — no per-repo copy)
   --title "<subject>" \
@@ -746,18 +746,15 @@ Fix: Add fuse-overlayfs for container startup
 
 Tested via overlay session on LOCAL system.
 
-Assisted-by: Codex OpenAI GPT-5.6 Sol (fully tested and validated)
+Assisted-by: Codex (OpenAI GPT-5.6 Sol; fully tested and validated)
 ```
 
-For THIS harness (Claude Code), the enforced trailer form is exactly
-`Assisted-by: Claude (<tier>)` — no model-name text between `Claude` and the
-opening paren (the pre-commit-gate's attribution check matches on
-`Claude\s*\(`); a validator composing a squash-merge trailer for a
-Claude-authored commit uses this exact form too. The gate itself is a
-Claude-Code PreToolUse mechanism scoped to SUPER-REPO-ROOTED sessions — the
-`sdk` repo carries no commit gate of its own, so a commit made from a
-submodule checkout or a standalone clone is NOT gated at commit time; it is
-caught, if at all, at PR-REVIEW time by the fresh validator instead.
+For every harness, the enforced trailer form is exactly
+`Assisted-by: <Harness> (<Provider Full Model Name>; <confidence>)`. A validator
+composing a squash-merge trailer preserves the authoring harness, full provider
+model name, and proof-supported confidence. Commit-time checks are an advisory
+mechanical backstop only; the fresh PR validator independently verifies the
+trailer on every repository, including a submodule checkout or standalone clone.
 
 ## If validation FAILS or R10 fails
 

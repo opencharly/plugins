@@ -40,6 +40,10 @@ categories, and mutation limits. The target repository's protected base and the
 superproject's gitlink are distinct objects; record both and never infer one from the
 other.
 
+The handoff envelope is transient spawn context, never an author-worktree
+artifact. The phase-one PR comment records the bound identities durably before
+any gated action.
+
 Before candidate actions, load protected policy and dispatched skills from the provided
 protected objects, then bind the live PR base/head and repository map with read-only
 commands. A missing protected object, unreadable required skill, uninitialized declared
@@ -208,7 +212,7 @@ you skipped without deciding it inapplicable is an incomplete review (re-open it
    against; a runtime-class PR that does not list the exact beds + per-bed results
    is incomplete (item 1) and FAILS.
 3. **Attribution tier vs proof (CLAUDE.md "AI Attribution").** The claimed
-   `Assisted-by: <Harness> <Provider Full Model Name> (<confidence>)` is JUSTIFIED by
+   `Assisted-by: <Harness> (<Provider Full Model Name>; <confidence>)` is JUSTIFIED by
    the pasted proof, never inflated
    — YOU set the ceiling independently, do not inherit the author's wording.
    Verify the harness, provider, and full model name against the authoring
@@ -494,13 +498,16 @@ SHA=$(git ls-remote https://github.com/<owner>/<repo> refs/heads/<feat-branch> |
 gh api --method POST repos/<owner>/<repo>/statuses/$SHA \
   -f state=<success|failure> -f context=charly/pr-validator \
   -f description="pr-validator: <PASS|one-line reason>"
-# 2) Write the full findings as GitHub-flavored Markdown, then post the file.
-#    Use headings, short paragraphs, lists/tables for the checklist, and fenced
-#    blocks for verbatim evidence; never publish a wall of text.
-gh pr comment <N> --repo <owner>/<repo> --body-file <verdict.md>
+# 2) Stream the full findings as GitHub-flavored Markdown to GitHub. Use
+#    headings, short paragraphs, lists/tables for the checklist, and fenced
+#    blocks for verbatim evidence; never publish a wall of text or create a
+#    validator-local body file.
+gh pr comment <N> --repo <owner>/<repo> --body-file - <<'VERDICT'
+<full verdict Markdown below>
+VERDICT
 ```
 
-`<verdict.md>`:
+The streamed Markdown:
 
 ```markdown
 ## pr-validator — <APPROVED ✅ | CHANGES REQUESTED ❌>
@@ -512,11 +519,11 @@ gh pr comment <N> --repo <owner>/<repo> --body-file <verdict.md>
 **Decision:** <on PASS: what you verified and why it is compliant; on FAIL: the
 SPECIFIC blocking findings (file:line) and exactly what the author must fix.>
 
-*Assisted-by: <Harness> <Provider Full Model Name> (<confidence>)*
+*Assisted-by: <Harness> (<Provider Full Model Name>; <confidence>)*
 ```
 
 **Attribute the comment.** Every comment you post is AI-authored content, so it
-MUST end with `*Assisted-by: <Harness> <Provider Full Model Name> (<confidence>)*`
+MUST end with `*Assisted-by: <Harness> (<Provider Full Model Name>; <confidence>)*`
 (Fedora AI policy — every AI-involved
 PR/issue comment attributes). The `<confidence>` is the attribution confidence YOUR OWN
 validation supports for this PR's change class (CLAUDE.md "AI Attribution"), never
@@ -576,11 +583,12 @@ stamps collide and mis-order across concurrent PRs). Operate on the feat branch:
    - any other embedded release-version string.
 4. **Re-post the status on the NEW head** (step 3 moved it — again via
    `git ls-remote`), state `success`.
-5. **Merge:** write the full squash-commit body with real newlines to a file,
-   ending with the author's `Assisted-by: <Harness> <Provider Full Model Name>
-   (<confidence>)` trailer, then run `gh pr merge <N> --repo <owner>/<repo>
+5. **Merge:** stream the full squash-commit body with real newlines on standard
+   input, ending with the author's `Assisted-by: <Harness> (<Provider Full Model
+   Name>; <confidence>)` trailer, then run `gh pr merge <N> --repo <owner>/<repo>
    --squash --delete-branch --subject "<the cutover's conventional-commit
-   subject>" --body-file <merge-body.md>`. SQUASH, so `main` gains exactly
+   subject>" --body-file -`. This creates no validator-local body file. SQUASH,
+   so `main` gains exactly
    ONE commit no matter how many fix commits the review rounds added. You compose the
    squash message: never let `gh` default it to the concatenated commit list, and never
    drop the attribution trailer.
@@ -590,8 +598,8 @@ stamps collide and mis-order across concurrent PRs). Operate on the feat branch:
    settings, scoped to opencharly — the classifier IGNORES `autoMode` in a committed repo
    `settings.json`). If the classifier DENIES the merge (verbatim: *"Merge Without Review …
    run outside auto mode"*): you have ALREADY posted the green `success` status (step 4) and
-   finalized the CalVer (step 3), so the PR is merge-ready. Record the verdict + the exact
-   merge command in your durable report and STOP — do NOT retry (a reshaped retry is a bypass
+   finalized the CalVer (step 3), so the PR is merge-ready. Post the verdict + the exact
+   merge command as a follow-up PR comment and STOP — do NOT retry (a reshaped retry is a bypass
    the classifier poisons). The operator (or the main session under fresh in-context consent)
    completes the merge; the green required status guarantees they land exactly what you
    validated.
@@ -646,7 +654,7 @@ Checklist (every rule — mark [N/A] + a one-line reason where the class exclude
   [PASS/FAIL] 18. CHANGELOG present
 
 Status posted: charly/pr-validator = <success|failure> on <sha>
-PR comment posted: yes (ends with *Assisted-by: <Harness> <Provider Full Model Name> (<confidence>)*)
+PR comment posted: yes (ends with *Assisted-by: <Harness> (<Provider Full Model Name>; <confidence>)*)
 Verdict: PASS → merged (squash) as <merge-sha>, tagged v<VER>
    OR    FAIL → not merged; blocking: <findings>
 ```
