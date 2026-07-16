@@ -728,6 +728,18 @@ rather than restate it.
   because there is exactly one binary every bed run depends on; a multi-worktree team
   needs no freeze because there is one binary PER worktree. See "Per-worktree
   binaries" (4e) below for the concurrent-worktree bed-proof detail.
+- **Within-worktree self-freeze — the COMPLEMENTARY rule.** The per-tree freshness
+  guard does not check only at the start of a bed run — it compares the invoked
+  binary against the cwd's sources at EVERY heavy verb the bed executes, mid-run. So
+  editing your OWN worktree's `charly/*.go` — even a comment-only edit — WHILE YOUR
+  OWN bed is mid-flight trips the guard on the bed's NEXT step and fails an
+  otherwise-green run. The two freeze scopes are complementary, not the same rule:
+  (a) ACROSS distinct worktrees, no barrier is needed (the corollary above — each
+  worktree's binary is independent); (b) WITHIN one worktree, freeze YOUR OWN
+  `charly/*.go` for the duration of YOUR OWN bed run — queue edits until the verdict
+  lands, then `task build:binary` + re-run. The failure is SELF-INFLICTED, not a
+  product defect: RCA it as "I edited mid-run" (a stale-source hit citing a file you
+  just touched), rebuild, and re-run fresh — never chase the guard as a bug.
 - **Side-effects (documented elsewhere — pointers, not copies).** `task build:charly`
   rewrites the TRACKED `pkg/arch/PKGBUILD` `pkgver()` stamp (leaves `pkg/arch` — and
   via the gitlink, the superproject — dirty; restore before staging a commit) and
