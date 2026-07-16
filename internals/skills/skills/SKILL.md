@@ -246,6 +246,9 @@ skill's grep self-test caught). Audit and fix them as follows:
    wrapper-form variant (a retired-grammar `vms:` fix must ALSO grep the `vm:`-wrapper,
    `cpus:`, and `deployments:` variants of the same dead grammar; a sweep keyed only to
    the first string leaves a sibling variant alive and costs a second validator round).**
+   The sweep also covers the cutover's OWN freshly-drafted narrative — the CHANGELOG
+   entry (step 5), PR description, and commit message — since a false claim can be
+   reintroduced there even when every pre-existing skill was correctly fixed.
 5. **Land docs-only**: skill edits are the Documentation-only change class →
    `documentation reviewed` (no beds); the plugins commit carries a
    `CHANGELOG/<YYYY.DDD.HHMM>.md` entry too (every plugins landing does — `plugins`
