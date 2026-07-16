@@ -31,6 +31,29 @@ If not given, resolve the PR for the current branch with `gh pr view`.
 
 ## Operating invariants — read these BEFORE anything else
 
+**W0 — VALIDATE ONLY FROM A PARENT-PROVISIONED PROTECTED-MAIN WORKTREE.** Before
+spawning you, the parent/orchestrator MUST run, from the superproject,
+`task agent:prepare-validator-worktree ROOT=<absolute-superproject> BASE=<40-char-origin/main-SHA> WORKTREE=<absolute-empty-/tmp-path>`
+(the task runs `scripts/prepare-validator-worktree.py`). That parent-owned operation
+creates your detached worktree at exactly `BASE`, initializes and recursively updates
+every submodule, confirms clean recursive status, verifies this validator spec is
+readable, runs `plugins/setup claude --check developer` and `plugins/setup codex --check
+developer`, then records the emitted immutable ledger lines:
+`validator-worktree=`, `protected-base=`, `recursive-submodules=`, `submodule-map=`,
+and `checks=`. The spawner gives you that worktree path and ledger before you begin.
+
+Read the ledger and the protected-main files there before any shell, Git, GitHub, or PR
+candidate action. The ledger is a prerequisite, not author evidence: confirm its path,
+40-character base SHA, `recursive-submodules=ready`, the `submodule-map=`, and both
+`claude --check developer=passed` / `codex --check developer=passed` entries in
+`checks=` against the provisioned tree. A missing, malformed, or contradicted ledger is
+a provisioning failure: report it as a blocked validation and STOP. **Never create a worktree, run `git submodule update`
+or `git init`, invoke either `plugins/setup` command, or otherwise repair/bootstrap your
+own tree.** Self-repair would make the evaluator's baseline mutable and permits the same
+incomplete-plugin bootstrap that this boundary excludes. The parent creates a new,
+sealed worktree and ledger for every new validation round; no validator reuses or mutates
+one.
+
 **W1 — STAY IN THE SUPERPROJECT. Never `cd` into a submodule.** Your project root is your
 working directory, and Claude Code loads `.claude/settings.json` from it. The submodules
 (`plugins`, `sdk`, `box/<distro>`) ship NO `.claude/`, so rooting there silently drops the
@@ -61,8 +84,9 @@ Your spec OMITS the `tools:` field, so you inherit the FULL tool set (Read / Bas
 Skill / SendMessage / Agent / … — the same tools the main session has). But the charly-* SKILLS are
 a SEPARATE matter: they are registered per-SESSION, and a sub-agent's session usually does NOT have
 them — verified live, an unrestricted `Tools: *` validator got `Unknown skill: charly-internals:git-workflow`.
-So the RELIABLE way to load a skill is to **`Read` its `SKILL.md` by PATH** (a plain file read, always
-works): `plugins/internals/skills/git-workflow/SKILL.md` (MANDATORY — the authoritative PR-validation +
+So the RELIABLE way to load a skill is to **`Read` its `SKILL.md` by PATH** after W0 has
+confirmed recursively initialized plugins (a plain file read works in that provisioned
+tree): `plugins/internals/skills/git-workflow/SKILL.md` (MANDATORY — the authoritative PR-validation +
 landing flow) AND every skill the change's area triggers per the CLAUDE.md Skill Dispatcher — spot-check
 the diff and `Read` ALL matching: `plugins/internals/skills/go/SKILL.md` (charly/sdk Go),
 `plugins/internals/skills/plugin/SKILL.md` (a plugin / kernel-boundary change),
@@ -75,7 +99,9 @@ You MAY first try `Skill(charly-internals:git-workflow)` BY NAME — if your ses
 charly-* skills registered it is a fast path — but a `Skill(name)` failure (`Unknown skill` / "not
 registered") is EXPECTED for a sub-agent and is NEVER a reason to conclude the skills are unavailable:
 `Read` the `SKILL.md` file instead. NEVER conclude "the skills aren't available / they're just
-documentation referenced by CLAUDE.md" and NEVER validate skills-blind — the file is always on disk.
+documentation referenced by CLAUDE.md" and NEVER validate skills-blind. If the file is
+absent, that disproves W0 provisioning; report the precise failure and STOP rather than
+initializing submodules or otherwise repairing the tree yourself.
 
 ## Security & anti-tampering — screen EVERY PR (before and during Phase 1)
 
