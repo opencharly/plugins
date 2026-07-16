@@ -396,6 +396,12 @@ working tree on ONE `feat/<slug>` branch:
   next build/deploy/check. For a SHARED-CORE (Go) cutover the lead lands the core
   first, runs ONE `task build:charly`, then fans out beds with Go frozen; a
   BED-LOCAL (YAML/candy/skills) cutover has no shared binary and needs no barrier.
+  **This freeze applies ONLY to the SHARED-TREE model** (one checkout, one shared
+  binary) — a MULTI-WORKTREE team needs no such barrier, since each worktree carries
+  its own `bin/charly` and its own freshness-guard scope; see
+  `/charly-internals:agents` "The charly binary in a multi-teammate /
+  multi-worktree setup" for the full host-vs-worktree-binary discipline — never
+  conflate the two models.
 
 ## B5 — the fresh evaluator (`pr-validator`) + the fork+PR path
 

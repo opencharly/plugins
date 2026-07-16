@@ -242,6 +242,11 @@ The `charly` binary self-execs in two distinct directions.
 | Vet | `cd charly && go vet ./...` | Static analysis |
 | Format | `cd charly && gofmt -w .` | Format code |
 
+In a multi-teammate / multi-worktree setup, `task build:charly` is a HOST install
+and is FORBIDDEN during in-flight work — use `task build:binary` per worktree
+instead; see `/charly-internals:agents` "The charly binary in a multi-teammate /
+multi-worktree setup" for the full discipline.
+
 ## Project Directory Structure
 
 ```

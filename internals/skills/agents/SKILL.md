@@ -563,7 +563,11 @@ discipline as an agent team — it is the workflow expression of the B3 model
   any `charly/*.go` source is newer than the installed `/usr/bin/charly` (remediation:
   `task build:charly`). A teammate editing `charly/*.go` WHILE another's bed is mid-run
   trips that guard on the bed's deploy step, so rebuild ONCE at the barrier, then
-  run every bed against the now-stable binary.
+  run every bed against the now-stable binary. **This barrier binds the SHARED-TREE
+  model ONLY** (one checkout, one binary) — a MULTI-WORKTREE team needs no barrier at
+  all, since each worktree's own `bin/charly` is self-consistently gated; see "The
+  charly binary in a multi-teammate / multi-worktree setup" below — never conflate
+  the two models.
 - **Same binding rule** as below: disposable-only, commit-gated-not-run,
   no-scope-shrinking-flags, paste-proof survives delegation.
 
@@ -658,6 +662,83 @@ terminal state is authoritative ONLY from its COMPLETION signal (the `<task-noti
 / exit code / durable verdict file), NEVER from the size or tail of its output file (a
 half-written log is indistinguishable from a reaped one). Respawn only after the
 completion signal confirms the child actually ended.
+
+## The charly binary in a multi-teammate / multi-worktree setup
+
+Every teammate/worktree in a multi-agent run needs its OWN charly binary — conflating
+the host binary with a worktree's own build is the single most common way an
+in-flight cutover leaks onto shared host state. This section is the canonical
+reference; `/charly-internals:git-workflow` and `/charly-internals:go` point here
+rather than restate it.
+
+- **Two binaries, two roles.** `/usr/bin/charly` is the HOST binary — installed via
+  `task build:charly` (the `charly:` Taskfile task: regenerates
+  `charly/plugins_generated.go` from `compiled_plugins:`, builds a CalVer-stamped
+  `bin/charly`, copies it to `candy/charly/bin/charly`, then runs `task: install` —
+  the Arch `opencharly-git` pacman package, or a portable `$HOME/.local/bin/charly`
+  install on non-Arch hosts). Every worktree ALSO has its own `bin/charly`, built via
+  `task build:binary` (the `binary:` task: the SAME CalVer-stamped build +
+  `candy/charly/bin/charly` copy, but NO install step) — gitignored, worktree-local,
+  never touching host state. **During any in-flight work, every teammate uses its OWN
+  worktree's `./bin/charly` for every charly verb** — build, validate, check run,
+  everything.
+- **The host-install boundary — `task build:charly` is FORBIDDEN during in-flight
+  work.** It mutates SHARED host state (the pacman package, or the portable install
+  path) that every concurrent teammate's `$PATH` may resolve, and it publishes an
+  UNMERGED branch's binary onto `/usr/bin/charly` — an R9 violation (deployed binary
+  matches MERGED source) the instant a sibling teammate or the operator invokes the
+  host binary expecting `main`'s behavior. The host binary is rebuilt from MERGED
+  `main` ONLY, post-landing, by the orchestrator/operator, ONE writer at a time (see
+  "Post-merge resync" below). The motivating incident: a teammate's worktree smoke
+  bed (`check-commands-local`, a HOST-LOCAL bed — next bullet) tripped the
+  stale-binary guard, and the teammate "fixed" it by running `task build:charly` — a
+  host install of `/usr/bin/charly` from an unmerged branch.
+- **Stale-binary guard semantics are PER TREE.** `CheckBinaryFreshness`
+  (`charly/main_freshness.go`) walks UP from cwd to find the opencharly source root
+  (the dir containing BOTH `charly/main.go` and `charly.yml`), stats the INVOKED
+  binary via `os.Executable()`, and compares it against the newest `.go` mtime under
+  `<root>/charly/` (60s slack; info-only verbs — version/help/status/inspect/list —
+  are exempt). This is entirely SELF-CONSISTENT per worktree: a guard trip while
+  running `./bin/charly` inside YOUR OWN worktree means YOUR `bin/charly` is older
+  than your own edits — the fix is `task build:binary`, never a host install. A guard
+  trip that resolves to `/usr/bin/charly` means you are on the WRONG PATH (your
+  worktree's `./bin` isn't ahead of it on `$PATH`) or running the WRONG BED CLASS
+  (next bullet) — never "fix" it with `task build:charly`.
+- **Host-local beds are NEVER a worktree gate.** A `local: {host: local}` deploy (or
+  a bed with a nested `local:` member) shells out to bare `charly` on `$PATH` — that
+  resolves `/usr/bin/charly`, NOT your worktree's `./bin/charly`, regardless of which
+  worktree you're standing in. Such a bed can only ever exercise HOST state — never
+  your worktree's in-flight source. In a worktree context, pick a pod or VM bed
+  instead: a pod bed bakes the worktree's binary via `--dev-local-pkg`; a VM bed
+  stages the worktree `charly` into the guest over `kit.EnsureCharlyInGuest`. A guard
+  trip (or any surprising behavior) on a host-local bed while doing worktree work
+  means you picked the WRONG BED CLASS — never a signal to rebuild the host.
+  (Consistent with `/verify-beds`'s blanket REFUSAL of host-local beds, motivated
+  there by workstation safety — applying candies to the operator's own machine — see
+  "The shipped workflows" above; this binary-confusion trap is a related consequence
+  of the same host-local resolution.)
+- **Multi-worktree concurrency corollary.** Because each worktree carries its OWN
+  binary and its OWN freshness-guard scope, teammates working in DISTINCT worktrees
+  need NO freeze barrier between them — each rebuilds its own `./bin/charly` via
+  `task build:binary` whenever it likes, with zero cross-teammate interference. The
+  "freeze `charly/*.go` + ONE `task build:charly`" barrier ("Implementation workflows
+  are bed-scoped too" above, and `/charly-internals:git-workflow` B3) applies ONLY to
+  the SHARED-TREE team model — multiple agents editing ONE checkout with ONE shared
+  binary. The two models are NOT interchangeable: a shared-tree team needs the freeze
+  because there is exactly one binary every bed run depends on; a multi-worktree team
+  needs no freeze because there is one binary PER worktree. See "Per-worktree
+  binaries" (4e) below for the concurrent-worktree bed-proof detail.
+- **Side-effects (documented elsewhere — pointers, not copies).** `task build:charly`
+  rewrites the TRACKED `pkg/arch/PKGBUILD` `pkgver()` stamp (leaves `pkg/arch` — and
+  via the gitlink, the superproject — dirty; restore before staging a commit) and
+  keeps the dual path `bin/charly` ↔ `candy/charly/bin/charly` in sync (a manual
+  `go build -o` does not) — see `/charly-internals:go` "Quick Reference" / "Debug a
+  Build Issue" + `/charly-tools:charly`.
+- **Post-merge resync.** After a wave lands, the orchestrator rebuilds
+  `/usr/bin/charly` from the new `main` (`task build:charly` in the MAIN checkout —
+  never a worktree). Each long-lived worktree is then either removed (its cutover is
+  done) or fast-forwarded to the new `main` + `task build:binary` re-run before reuse
+  — never left pointing at a pre-merge binary while its worktree source has moved on.
 
 ## The binding rule: running a bed is R10-class
 
@@ -967,7 +1048,10 @@ The playbook:
    swallow the real error (it hides the class), and don't let one sibling's
    transient artifact fail an unrelated bed.
 4e. **Per-worktree binaries — bed gates from MULTIPLE branches overlap (PROVEN
-   2026-07-12, spikes S0+S0b).** The freshness guard (`main_freshness.go`) compares
+   2026-07-12, spikes S0+S0b).** See "The charly binary in a multi-teammate /
+   multi-worktree setup" above for the canonical host-vs-worktree-binary rule; this
+   item adds the concurrent-bed proof + the CalVer-stamping detail. The freshness
+   guard (`main_freshness.go`) compares
    `os.Executable()` against the cwd-walked source root, so a worktree with its own
    `task build:binary` output is SELF-CONSISTENT: `PATH=$PWD/bin:$PATH charly check
    run <bed>` runs the FULL R10 sequence (deploy-add → check-live → fresh update →
