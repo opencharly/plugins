@@ -424,8 +424,9 @@ outside contributors alike. There is no direct-merge fast path.
 
 ### Validator handoff is parent-owned and complete
 
-**Before spawning EVERY fresh `pr-validator` round, the parent/orchestrator records a
-self-contained handoff in the clean author worktree.** It names the PR, literal
+**Before spawning EVERY fresh `pr-validator` round, the parent/orchestrator supplies a
+self-contained handoff as transient spawn context. It is never recorded as an
+author-worktree artifact.** It names the PR, literal
 superproject and target paths, current target protected-base and PR-head SHAs,
 protected-policy object SHA, complete repository/gitlink map, clean status, operator
 constraints, required approval categories, and mutation limits. For a submodule PR, the
