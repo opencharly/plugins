@@ -112,11 +112,11 @@ orchestrator — never one teammate marching through a queue.**
 - **Sizing at spawn:** an assignment is ONE task — a single atomic cutover, including its
   multi-repo PR legs — sized to one context budget. The orchestrator decomposes a program
   into per-task teammates; it never hands one teammate a queue of units, related or not.
-- **Durable artifacts make stopping lossless:** scoping maps, verdicts, decomposition tables,
+- **Durable artifacts make stopping lossless:** scoping maps, verdict comments, decomposition tables,
   and handoff notes go to FILES (scratchpad or the PR) BEFORE the teammate stops, so a
   successor starts from disk, never from a predecessor's context. Validator variant: a
   validator MAY stay alive between the legs of ONE PR chain when the next leg is imminent;
-  otherwise stop it and spawn fresh per leg — the durable verdict file carries the
+  otherwise stop it and spawn fresh per leg — the durable PR verdict comment carries the
   coordinates forward.
 - **Mid-task context pressure INSIDE a teammate:** compact-and-continue on the SAME task is
   normal; if the remainder is separable, write the handoff package (above) and the
@@ -407,7 +407,7 @@ session):
 - OWNS: independent adversarial re-validation (R0–R10 + skills + **the ARCHITECTURE
   GATE placement review with the explicit `placement:` verdict**); the squash-merge;
   the merge-time CalVer; **the tag on EVERY repo** (a skipped tag is a defect); the
-  durable verdict file BEFORE any gated action.
+  durable PR verdict comment BEFORE any gated action.
 - NEVER: validates anything it authored; `--admin`/force; close-and-recreate; skips
   the placement verdict.
 
@@ -611,19 +611,19 @@ AND the main session despite the rule); it lands only under the operator's `auto
 rule (user/managed settings) or fresh in-context user consent, never CLAUDE.md prose. See
 `/charly-internals:git-workflow` B5.
 
-**2. A permission denial ENDS the sub-agent's turn — write the verdict durably
+**2. A permission denial ENDS the sub-agent's turn — record the verdict durably
 FIRST.** The denial text instructs the agent to "STOP and explain to the user", and it
 stops; its explanation never reaches the spawning session (observed repeatedly: agents
 idle "available" with no report). So every agent that will attempt a permission-gated
-action MUST, before attempting it: (a) write its full verdict to a known file path, and
-(b) post its PR comment. Posting a **`failure`** status or a comment is NEVER gated —
-Self-Approval only blocks marking a check **passed** — so a FAIL verdict is always
-deliverable. Then attempt the gated action and append its verbatim outcome to the file.
+action MUST, before attempting it, put its full verdict in its workflow's durable channel.
+A `pr-validator` posts its PR comment before the gated action; posting a **`failure`**
+status or a comment is NEVER gated — Self-Approval only blocks marking a check **passed**
+— so a FAIL verdict is always deliverable. Then it records the verbatim outcome in that
+same durable channel.
 
-**3. Reconnect via durable state; never wait on the message channel.** The truth is on
-disk and on the API: the PR's statuses + comments, the verdict file, and the agent's own
-transcript at `~/.claude/projects/<cwd-slug>/<uuid>.jsonl` (a verbatim classifier denial
-is recoverable from there even when the agent died mid-sentence). To WAIT on a condition,
+**3. Reconnect via durable state; never wait on the message channel.** The truth is in
+the workflow's durable records and API state: for a validator, the PR's statuses +
+comments; for a bed, Charly's summary; and the agent's completion result. To WAIT on a condition,
 use a `run_in_background` Bash `until`-loop that EXITS when it resolves — foreground
 `sleep` is blocked — and make the exit condition cover EVERY terminal state (allowed,
 denied, status posted, merged, timed out). **Silence is not success:** a loop that only
@@ -665,7 +665,7 @@ completion SYNCHRONOUSLY (foreground), and hands a bed or any other turn-outlivi
 the PERSISTENT session (see "The binding rule" below); it never leaves a bg child to
 finish after it yields. An `Agent`-tool child MAY survive the parent's yields, but its
 terminal state is authoritative ONLY from its COMPLETION signal (the `<task-notification>`
-/ exit code / durable verdict file), NEVER from the size or tail of its output file (a
+/ exit code / durable workflow record), NEVER from the size or tail of its output file (a
 half-written log is indistinguishable from a reaped one). Respawn only after the
 completion signal confirms the child actually ended.
 

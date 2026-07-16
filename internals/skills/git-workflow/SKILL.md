@@ -129,7 +129,7 @@ git switch -c feat/<slug>            # slug = kebab summary of the change
 # write the cutover narrative to CHANGELOG/<placeholder>.md — a PLACEHOLDER CalVer
 #   (any valid YYYY.DDD.HHMM; the evaluator OVERWRITES it with the merge-time VER).
 git add <only the cutover's files> CHANGELOG/<placeholder>.md
-git commit -m "<conventional commit> ...  Assisted-by: <Harness> <Provider Full Model Name> (<confidence>)"
+git commit -m "<conventional commit> ...  Assisted-by: <Harness> (<Provider Full Model Name>; <confidence>)"
 git push origin feat/<slug>                       # feat push — allowed by the gate
 gh pr create --base main --head feat/<slug> \     # fill the PR template completely (single org source: opencharly/.github/.github/PULL_REQUEST_TEMPLATE.md — no per-repo copy)
   --title "<subject>" \
@@ -427,6 +427,25 @@ working tree on ONE `feat/<slug>` branch:
 The PR path is the SOLE landing path for EVERYONE — write-access holders and
 outside contributors alike. There is no direct-merge fast path.
 
+### Validator handoff is parent-owned and complete
+
+**Before spawning EVERY fresh `pr-validator` round, the parent/orchestrator supplies a
+self-contained handoff as transient spawn context. It is never recorded as an
+author-worktree artifact.** It names the PR, literal
+superproject and target paths, current target protected-base and PR-head SHAs,
+protected-policy object SHA, complete repository/gitlink map, clean status, operator
+constraints, required approval categories, and mutation limits. For a submodule PR, the
+target protected base and superproject gitlink remain separate objects; do not validate
+one by guessing from the other.
+
+The validator begins in that exact worktree, loads protected policy and dispatched skills
+before candidate actions, and verifies the handoff with read-only commands. It has a
+fresh context and role but **does not create another worktree, clone, alternate Git
+directory, cache, home, or `/tmp` workspace.** A missing protected object, unreadable
+required skill, uninitialized declared gitlink, absent approval, or ambiguous handoff is
+`BLOCKED`: post the precise reason as the validator PR comment and stop. Do
+not bootstrap, run setup, retry around the boundary, or substitute candidate policy.
+
 - **Write access (the default):** the author opens the PR (B1 step 1); a FRESH
   `pr-validator` (new context, NOT the author's context, NOT a teammate that
   authored the code) validates → posts `charly/pr-validator` → on PASS
@@ -655,11 +674,15 @@ producer drift (a separate version-adoption cutover, NOT reconciliation).
 
 **6. Refresh EVERY worktree — PART of landing, NEVER a follow-up (R2).** For each
 worktree: the one on `main` → `git -C <wt> merge --ff-only origin/main`; each other
-→ `git -C <wt> checkout --detach origin/main`; THEN `git -C <wt> submodule update
---init --recursive`. The Skill tool serves skills from the MAIN worktree — a stale
-main worktree silently serves STALE SKILLS to sessions, so refreshing it is
-mandatory. (A ` M <sub>` in a worktree used only for the ff-merge is this drift, not
-lost work.)
+→ `git -C <wt> checkout --detach origin/main`; THEN refresh only already-initialized
+submodules with `git -C <wt> submodule update --recursive` (no `--init`). Initialize
+only the paths the next task needs: a root R10 worktree needs `sdk` and `pkg/arch`, so
+use `git -C <wt> submodule update --init --recursive sdk pkg/arch`; box-submodule work
+initializes its own declared path. Never blanket-initialize every submodule merely to
+refresh a worktree: it creates unnecessary per-worktree clone state. The Skill tool
+serves skills from the MAIN worktree — a stale main worktree silently serves STALE SKILLS
+to sessions, so refreshing it is mandatory. (A ` M <sub>` in a worktree used only for
+the ff-merge is this drift, not lost work.)
 
 **Landing gotchas (each cost real time):** `git merge-base --is-ancestor A B` ERRORS if B's object isn't
 fetched (common for a sibling-worktree submodule) → `git fetch` first; cross-check
@@ -729,18 +752,15 @@ Fix: Add fuse-overlayfs for container startup
 
 Tested via overlay session on LOCAL system.
 
-Assisted-by: Codex OpenAI GPT-5.6 Sol (fully tested and validated)
+Assisted-by: Codex (OpenAI GPT-5.6 Sol; fully tested and validated)
 ```
 
-For THIS harness (Claude Code), the enforced trailer form is exactly
-`Assisted-by: Claude (<tier>)` — no model-name text between `Claude` and the
-opening paren (the pre-commit-gate's attribution check matches on
-`Claude\s*\(`); a validator composing a squash-merge trailer for a
-Claude-authored commit uses this exact form too. The gate itself is a
-Claude-Code PreToolUse mechanism scoped to SUPER-REPO-ROOTED sessions — the
-`sdk` repo carries no commit gate of its own, so a commit made from a
-submodule checkout or a standalone clone is NOT gated at commit time; it is
-caught, if at all, at PR-REVIEW time by the fresh validator instead.
+For every harness, the enforced trailer form is exactly
+`Assisted-by: <Harness> (<Provider Full Model Name>; <confidence>)`. A validator
+composing a squash-merge trailer preserves the authoring harness, full provider
+model name, and proof-supported confidence. Commit-time checks are an advisory
+mechanical backstop only; the fresh PR validator independently verifies the
+trailer on every repository, including a submodule checkout or standalone clone.
 
 ## If validation FAILS or R10 fails
 
