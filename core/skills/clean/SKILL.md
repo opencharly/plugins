@@ -21,8 +21,10 @@ and `charly check run`.
 Two artifact classes, two policies (operator principle):
 
 - **One-time / transient → always cleaned immediately.** makepkg leftovers under
-  `pkg/arch` (`src/`, `pkg/`, `*.pkg.tar.zst`, `*.log`). `task build:charly` removes
-  these right after install; `charly clean` sweeps any backlog.
+  `pkg/arch` (`src/`, `pkg/`, `*.pkg.tar.zst`, `*.log`) from a manual bare-host
+  `makepkg` invocation (native-package builds normally run containerized via `task
+  pkg:arch` → `charly box pkg`, which never touches this tree) — `charly clean`
+  sweeps any such leftover.
 - **Reusable → keep-last-N, configurable in `defaults:`.** Container image tags
   and `.check` run output. Retention is set in `charly.yml` `defaults:` and
   applied automatically at creation; `charly clean` applies it on demand.

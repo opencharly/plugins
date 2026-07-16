@@ -359,7 +359,7 @@ placements, ZERO authoring change.
 - List the candy in `compiled_plugins:` (the embedded `charly/charly.yml` for the default binary; a
   consumer's own `charly.yml` for a custom footprint — "which plugins are in the binary" is a normal
   candy-inclusion choice).
-- `pluginsgen` (`charly/internal/pluginsgen`, run by `task build:charly` before `go build`, `GOWORK=off`,
+- `pluginsgen` (`charly/internal/pluginsgen`, run by `task build:binary` before `go build`, `GOWORK=off`,
   stdlib+yaml only) reads `compiled_plugins:` and emits `charly/plugins_generated.go` (one
   `registerCompiledPlugin(<pkg>.NewProvider(), <pkg>.NewMeta())` per candy) + the repo-root `go.work`
   (`use ./charly` + `use ./sdk` + a `use ./candy/<name>` per candy, so `go build ./charly` resolves the

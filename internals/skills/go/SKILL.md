@@ -33,7 +33,7 @@ The operationalization of CLAUDE.md's "Schema Driven Design (SDD)" pillar — th
 |---|---|---|
 | `sdk/schema/*.cue` (the base ingress schema) | `task cue:gen` — `cue exp gengotypes` + `sdk/internal/schemagen` (concat/retag/vocab/version), both over the shared `sdk/schemaconcat` | `sdk/spec/cue_types_gen.go`, `spec/vocab_gen.go`, `spec/version_gen.go` |
 | each plugin's own `schema/*.cue` | the same pipeline (the superproject `task cue:gen` per-plugin params loop, `-pkg=params`) | `candy/plugin-*/params/cue_types_gen.go` |
-| `charly/charly.yml` `compiled_plugins:` | `pluginsgen` (`charly/internal/pluginsgen`, run by `task build:charly`) | `charly/plugins_generated.go` + the repo-root `go.work` |
+| `charly/charly.yml` `compiled_plugins:` | `pluginsgen` (`charly/internal/pluginsgen`, run by `task build:binary`) | `charly/plugins_generated.go` + the repo-root `go.work` |
 | `sdk/proto/plugin.proto` | `task proto:gen` (pinned protoc + protoc-gen-go/-go-grpc) | `sdk/proto/plugin.pb.go`, `plugin_grpc.pb.go` |
 
 Validation at every boundary derives from the SAME schema: ingress — `sharedCueSchema` (`charly/cue_schema.go`, the `#NodeDoc` load gate) + `validateKindValueCUE`; plugin inputs — `registerPluginUnitSchema` + `validateAuthoredPluginInput` (`/charly-internals:plugin`); migrations — the declarative table `candy/plugin-migrate/migrations.cue` (`/charly-build:migrate`); egress — the files charly WRITES (`/charly-internals:egress`).
@@ -235,23 +235,24 @@ The `charly` binary self-execs in two distinct directions.
 
 | Action | Command | Description |
 |--------|---------|-------------|
-| Build | `task build:charly` | Compile to `bin/charly` and install as Arch package. **Rewrites the TRACKED `pkg/arch/PKGBUILD` `pkgver=` stamp**, so it leaves the `pkg/arch` submodule dirty (` M PKGBUILD`) and, via the gitlink, the superproject too. Expected, not a stray artifact — `git -C pkg/arch checkout -- PKGBUILD` before staging a commit, or the pointer bump rides along uninvited |
-| Install | `task build:install` | Install charly as Arch package (uses pre-built binary) |
+| Build | `task build:binary` | Compile to `bin/charly` (CalVer-stamped), NO install. Also copies to `candy/charly/bin/charly` — does NOT touch the tracked `pkg/arch/PKGBUILD` (that file is read only by the containerized `charly box pkg` native-package build) |
+| Package | `task pkg:arch` / `pkg:fedora` / `pkg:debian` / `pkg:all` | Build a distro-native `.pkg.tar.zst`/`.rpm`/`.deb` release artifact into `dist/`, containerized via `charly box pkg`. Install it yourself with your OWN package manager (`pacman -U`/`dnf install`/`apt install`) |
+| Install (portable) | `task install-portable` | Copy `bin/charly` to `$HOME/.local/bin/charly` (solo bootstrap; NOT a multi-teammate dev-loop step — see below) |
 | Run tests | `cd charly && go test ./...` | Run all tests |
 | Run specific test | `cd charly && go test -run TestName ./...` | Run single test |
 | Vet | `cd charly && go vet ./...` | Static analysis |
 | Format | `cd charly && gofmt -w .` | Format code |
 
-In a multi-teammate / multi-worktree setup, `task build:charly` is a HOST install
-and is FORBIDDEN during in-flight work — use `task build:binary` per worktree
-instead; see `/charly-internals:agents` "The charly binary in a multi-teammate /
+In a multi-teammate / multi-worktree setup, NO Taskfile target installs to the
+host during in-flight work — use `task build:binary` per worktree instead; see
+`/charly-internals:agents` "The charly binary in a multi-teammate /
 multi-worktree setup" for the full discipline.
 
 ## Project Directory Structure
 
 ```
 project/
-├── bin/charly                     # Built by `task build:charly` (gitignored)
+├── bin/charly                     # Built by `task build:binary` (gitignored)
 ├── charly/                        # Go module (kong CLI, go-containerregistry)
 │   └── charly.yml             # The binary's embedded default config (//go:embed,
 │                              # embed_defaults.go): distro/builder/init/resource
@@ -589,7 +590,7 @@ charly clean --invalidate 'charly-fedora-2*'
 charly box build <image>
 ```
 
-This also interacts with the dual-path gotcha documented in `/charly-tools:charly`: `bin/charly` (repo-root, used by host-side invocations) and `candy/charly/bin/charly` (what the `charly` candy actually copies into images) must stay in sync. The canonical `task build:charly` path does both; a manual `go build -o bin/charly ./charly` needs an explicit `cp bin/charly candy/charly/bin/charly` follow-up.
+This also interacts with the dual-path gotcha documented in `/charly-tools:charly`: `bin/charly` (repo-root, used by host-side invocations) and `candy/charly/bin/charly` (what the `charly` candy actually copies into images) must stay in sync. The canonical `task build:binary` path does both; a manual `go build -o bin/charly ./charly` needs an explicit `cp bin/charly candy/charly/bin/charly` follow-up.
 
 ## Implementation insights
 
@@ -624,11 +625,13 @@ The layer scaffold writes `rpm:\n  packages:\n  # Add RPM packages here\n` — t
 CLAUDE.md R9, operationalized for the `charly` toolchain:
 
 - **Syncing source does not rebuild the binary.** Syncthing / git / rsync move
-  *source* between hosts. After pushing code, rebuild on the target
-  (`task build:charly`) and verify `charly version` matches what you built — if the
-  version is old, the fix under test isn't really under test. The freshness
-  guard (above) catches a stale `/usr/bin/charly` against newer `charly/*.go`, but the
-  version check is still the explicit proof.
+  *source* between hosts. After pushing code, rebuild on the target — `task
+  build:binary` in that checkout — and verify `./bin/charly version` matches what
+  you built — if the version is old, the fix under test isn't really under test.
+  The freshness guard (above) catches a stale invoked binary against newer
+  `charly/*.go` in the same tree, but the version check is still the explicit
+  proof. See `/charly-internals:agents` "The charly binary in a multi-teammate /
+  multi-worktree setup" for the per-worktree-vs-host-package split.
 - **Every runtime OS dependency goes into `pkg/arch/PKGBUILD` `depends=`** —
   the single source of truth (`nc`, `socat`, `xorriso`, `qemu-guest-agent`, …);
   the `pkg/fedora` / `pkg/debian` packaging mirrors it. A manual install on one

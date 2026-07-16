@@ -355,7 +355,7 @@ requires):
 **Prove a fix is in the BUILT BINARY by a content marker, NOT by the version stamp.**
 `pkg/arch/calver.sh` derives the CalVer from the HEAD commit's UTC time (`git log -1
 --format=%cd`), so the stamp identifies the SOURCE COMMIT, never the build moment — a
-`task build:charly` on a DIRTY working tree reports the IDENTICAL version as the clean
+`task build:binary` on a DIRTY working tree reports the IDENTICAL version as the clean
 commit under it. So `charly version` matching the expected CalVer does NOT prove your
 uncommitted fix compiled in. Prove fix-presence by a content marker instead: `strings
 bin/charly | grep '<a string unique to the fix>'` (a new error message, flag name, or
@@ -391,11 +391,15 @@ working tree on ONE `feat/<slug>` branch:
   slow VM/desktop beds first and overlap the cheap pod beds, so wall-clock ≈ the
   slowest single bed, not the sum.
 - **Freeze `charly/*.go` during the bed phase.** `charly`'s stale-binary freshness
-  guard gates every heavy verb the instant any `charly/*.go` is newer than
-  `/usr/bin/charly`, so a teammate editing Go mid-bed-run aborts every other agent's
+  guard gates every heavy verb the instant any `charly/*.go` is newer than the
+  INVOKED binary, so a teammate editing Go mid-bed-run aborts every other agent's
   next build/deploy/check. For a SHARED-CORE (Go) cutover the lead lands the core
-  first, runs ONE `task build:charly`, then fans out beds with Go frozen; a
-  BED-LOCAL (YAML/candy/skills) cutover has no shared binary and needs no barrier.
+  first, runs ONE `task build:binary` in the shared checkout, then fans out beds
+  with Go frozen — the bed set must actually invoke `./bin/charly` (explicitly, or
+  with the shared tree's `bin/` prepended onto `$PATH`), since a bed shelling to
+  bare `charly` otherwise resolves whatever the HOST has installed, never the
+  freshly-rebuilt shared binary; a BED-LOCAL (YAML/candy/skills) cutover has no
+  shared binary and needs no barrier.
   **This freeze applies ONLY to the SHARED-TREE model** (one checkout, one shared
   binary) — a MULTI-WORKTREE team needs no such barrier, since each worktree carries
   its own `bin/charly` and its own freshness-guard scope; see
@@ -642,9 +646,7 @@ main worktree silently serves STALE SKILLS to sessions, so refreshing it is
 mandatory. (A ` M <sub>` in a worktree used only for the ff-merge is this drift, not
 lost work.)
 
-**Landing gotchas (each cost real time):** `task build:charly` dirties
-`pkg/arch/PKGBUILD` (makepkg `pkgver()`) → `git -C <pkg/arch>
-restore PKGBUILD`. `git merge-base --is-ancestor A B` ERRORS if B's object isn't
+**Landing gotchas (each cost real time):** `git merge-base --is-ancestor A B` ERRORS if B's object isn't
 fetched (common for a sibling-worktree submodule) → `git fetch` first; cross-check
 `git ls-tree origin/main <sub>` before concluding "DIVERGED". A `git grep --
 <submodule-path>` from the superproject is a FALSE ZERO (git grep does not cross a
