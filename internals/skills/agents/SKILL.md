@@ -695,6 +695,14 @@ real validation-round finding, not a hypothetical.**
   parallel sdk-repo validator round hitting the identical mistake) —
   evidence a reader can't verify because it was never actually re-executed
   is a fabrication, however unintentional.
+- **A `git fetch`/`git push` error naming a MISSING remote ref on a branch
+  you believe EXISTS is a STOP-and-investigate signal, not a
+  nothing-to-reconcile signal.** The branch's state changed out from under
+  you — a squash-merge-then-delete is the common cause — and pushing anyway
+  silently recreates an orphan branch of the same name, detached from
+  whatever PR it used to belong to. Re-derive the real state (`gh pr view
+  <n> --json state,mergedAt`) BEFORE pushing again. Proven live this
+  session: exactly this sequence recreated a deleted post-merge branch.
 
 ## The charly binary in a multi-teammate / multi-worktree setup
 
