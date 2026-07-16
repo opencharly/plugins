@@ -56,19 +56,19 @@ The `charly` candy's `copy: bin/charly` run step is resolved **relative to the c
 | `bin/charly` (repo root) | Host-side `charly` invocations; users running `/tmp/charly` style tests |
 | `candy/charly/bin/charly` | The `charly` candy's COPY into boxes during `charly box build` |
 
-**Canonical workflow** — `task build:charly` compiles to repo-root AND syncs to the layer:
+**Canonical workflow** — `task build:binary` compiles to repo-root AND syncs to the layer:
 
 ```bash
-task build:charly                              # Builds + syncs both paths; rebuild images after.
-charly box build <image>                     # Rebuild affected images.
+task build:binary                              # Builds + syncs both paths; rebuild images after.
+./bin/charly box build <image>               # Rebuild affected images.
 ```
 
-**Manual workflow** — if you skip `task build:charly` and build with `go build` directly, you MUST sync the candy path, or boxes will bake the previous binary:
+**Manual workflow** — if you skip `task build:binary` and build with `go build` directly, you MUST sync the candy path, or boxes will bake the previous binary:
 
 ```bash
 cd charly && go build -o ../bin/charly .           # Only updates repo-root bin/charly.
 cp bin/charly candy/charly/bin/charly                 # REQUIRED — sync to layer path.
-charly box build <image>                     # Rebuild affected images.
+./bin/charly box build <image>               # Rebuild affected images.
 ```
 
 **Why this bites**: `charly box build` uses auto-generated intermediate images (e.g., `ghcr.io/opencharly/charly-fedora-2-dbus-nodejs`) that cache the `charly` candy. If you update `bin/charly` in repo-root but forget the candy copy, the intermediate's cache hit serves stale content. After cleaning up a stale dual-path situation, `charly clean --invalidate 'charly-fedora-2*'` forces a clean intermediate rebuild.

@@ -310,7 +310,7 @@ Concretely: the cache is keyed by `(parent-image-SHA, instruction-text, COPY-sou
 
 Three kinds of source changes are real cache invalidators — if you see a long rebuild, one of these is the cause:
 
-1. **Layer source file content changed.** Editing a file under `candy/<name>/` — the canonical case is `candy/charly/bin/charly` being rewritten by `task build:charly` after a Go source edit — changes the scratch stage's content hash, which invalidates `COPY --from=<layer>` and everything downstream that depends on it.
+1. **Layer source file content changed.** Editing a file under `candy/<name>/` — the canonical case is `candy/charly/bin/charly` being rewritten by `task build:binary` after a Go source edit — changes the scratch stage's content hash, which invalidates `COPY --from=<layer>` and everything downstream that depends on it.
 2. **Package list / task text changed.** Adding/removing an rpm/deb/pac entry or editing a `command:` body changes the RUN instruction text emitted for that layer, invalidating cache from that RUN onward.
 3. **Upstream image content changed.** If a base image (external like `fedora` or internal like `fedora-supervisord`) has different content from the last cached build, the FROM step resolves to a new SHA and downstream RUN/COPY steps all cache-miss. This cascades through the dependency graph — rebuilding `fedora-supervisord` forces its children to re-run from the `FROM fedora-supervisord` step.
 
@@ -335,7 +335,7 @@ Three kinds of source changes are real cache invalidators — if you see a long 
 | A `copy:` source file's content | Rebuild from that layer's COPY onward + downstream |
 | A `command:` / `download:` run step body | Rebuild from that RUN onward + downstream |
 | A package added/removed in `rpm:`/`deb:`/`pac:` | Rebuild from the install RUN onward + downstream |
-| `task build:charly` → new `candy/charly/bin/charly` | Rebuild the `charly` layer + every image that includes it |
+| `task build:binary` → new `candy/charly/bin/charly` | Rebuild the `charly` layer + every image that includes it |
 | An upstream image got content-changed and rebuilt | Rebuild from the FROM step onward in every descendant |
 
 ## Build Flow Details
@@ -402,13 +402,16 @@ charly settings set engine.run docker     # or podman
 
 ## Host Bootstrap (First Time)
 
-Requires: `go-task`, `go`, `docker` (or `podman`). On Arch the recommended install is `cd pkg/arch && makepkg -si` — the bundled `opencharly-git` PKGBUILD is LOCAL-ONLY (it is NOT published to the AUR, so there is no `yay -S opencharly-git`); it pulls every dep, and the bundled pacman post-install hook enables docker/tailscaled/virtqemud automatically. (`makepkg -si` resolves the AUR-only mandatory deps via an AUR helper, or pre-install them — see the PKGBUILD's `makedepends`/AUR notes.) On other distros, run `task build:charly` from the checkout to compile and install `charly` to `~/.local/bin/charly`.
+Requires: `go-task`, `go`, `docker` (or `podman`). There is no host-installing build task — `task build:binary` produces ONLY a per-checkout `bin/charly` (no install step); getting `charly` onto `$PATH` is always an explicit follow-up step you choose.
 
 ```bash
-task build:charly        # Build + install charly; on Arch delegates to makepkg -si, elsewhere installs portable to ~/.local/bin
-task setup:builder   # Create multi-platform buildx builder
-charly box build       # Generate + build + merge all images
+task build:binary        # Build ./bin/charly (CalVer-stamped; no install)
+task install-portable    # Optional: copy it to $HOME/.local/bin/charly, onto $PATH
+task setup:builder       # Create multi-platform buildx builder
+./bin/charly box build   # Generate + build + merge all images (drop `./bin/` once installed)
 ```
+
+For a distro-native package instead (system-wide, via your OWN package manager — never via a Taskfile install step): `task pkg:arch`/`pkg:fedora`/`pkg:debian` builds a `.pkg.tar.zst`/`.rpm`/`.deb` into `dist/`, which you install yourself (`pacman -U dist/*.pkg.tar.zst` / `dnf install dist/*.rpm` / `apt install dist/*.deb`).
 
 ## Common Workflows
 
@@ -439,7 +442,7 @@ charly box build --push
 
 ### "charly not found"
 
-On Arch run `cd pkg/arch && makepkg -si` to install the bundled `opencharly-git` package system-wide (it is LOCAL-ONLY — NOT on the AUR — so `yay -S opencharly-git` will not find it). Elsewhere run `task build:charly` from the checkout — `task` itself is required (install via your distro package manager or download from go-task/task releases).
+Build a distro-native package (`task pkg:arch`/`pkg:fedora`/`pkg:debian` into `dist/`) and install it with your OWN package manager (`pacman -U`/`dnf install`/`apt install`), or run `task install-portable` for a `$HOME/.local/bin/charly` copy — `task` itself is required (install via your distro package manager or download from go-task/task releases).
 
 ### Build Fails with Missing Base
 
@@ -455,17 +458,18 @@ If a build fails with `conflicting requests` involving `libavcodec-free` vs `lib
 
 ### YAML Unmarshal Error on charly.yml
 
-If you see `cannot unmarshal !!str ... into int` or similar YAML parsing errors on layer fields, the installed `charly` binary is likely stale. Rebuild with `task build:install` or `cp bin/charly ~/.local/bin/charly`. Verify with `charly box validate`.
+If you see `cannot unmarshal !!str ... into int` or similar YAML parsing errors on layer fields, the installed `charly` binary is likely stale. Rebuild with `task build:binary` and `cp bin/charly ~/.local/bin/charly` (or re-run `task install-portable`). Verify with `charly box validate`.
 
 ### Stale `charly` binary produces stale Containerfiles
 
 Beyond the YAML-unmarshal symptom above, a stale `charly` binary can produce *syntactically valid but outdated* Containerfile output — e.g. emitting an old broken form of a template that HEAD's source has already fixed. Symptom: build fails on a step whose generated shell clearly doesn't match the source you see in `git grep`. Quick diagnostic: `ls -la $(which charly)` vs. `git log -1 charly/generate.go` — if the binary predates the fix, rebuild:
 
 ```bash
-task build:charly        # rebuild + pacman-reinstall on Arch (opencharly-git package)
+task build:binary && task install-portable   # rebuild + refresh the $HOME/.local/bin copy
+# or: task pkg:arch && pacman -U dist/*.pkg.tar.zst   # rebuild + reinstall the native package
 ```
 
-Common on Arch where `opencharly-git` is pacman-installed and HEAD moves faster than rebuilds. If you find yourself rebuilding `charly` to chase a bug and the symptom persists, the binary path on $PATH may not be the one `task build:charly` updated — confirm with `which charly`.
+If you find yourself rebuilding `charly` to chase a bug and the symptom persists, the binary path on $PATH may not be the one you just refreshed — confirm with `which charly`, and remember a worktree's own `./bin/charly` is a THIRD candidate the freshness guard tracks separately (see `/charly-internals:agents` "The charly binary in a multi-teammate / multi-worktree setup").
 
 ### Buildah cache-mount corruption (pixi tzdata et al.)
 
