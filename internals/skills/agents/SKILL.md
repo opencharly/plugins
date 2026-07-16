@@ -669,6 +669,33 @@ terminal state is authoritative ONLY from its COMPLETION signal (the `<task-noti
 half-written log is indistinguishable from a reaped one). Respawn only after the
 completion signal confirms the child actually ended.
 
+**7. Validator evidence discipline — four lessons proven this session, each a
+real validation-round finding, not a hypothetical.**
+- **Cross-repo PR/issue citations in ANY CHANGELOG entry or PR body MUST carry
+  the owner/repo qualifier** — a bare `#N` is ambiguous the moment it's read
+  from a different repo than the one it names (proven: a plugins CHANGELOG's
+  unqualified "PR #126" was flagged as a fabricated citation in PR #70's
+  round-1 validation, because the validator checked the wrong repo first;
+  qualify every cross-repo reference as `owner/repo#N`, e.g.
+  `opencharly/charly#126`).
+- **The repo set a citation check must search is `opencharly/{charly,
+  plugins, sdk, distro-*, pkg-*, .github}`** — checking only the repo the
+  CHANGELOG lives in (or guessing a plausible-sounding repo name) is how a
+  real citation gets misdiagnosed as fabricated.
+- **A validator (or any agent) verifying a claim against a LOCAL checkout
+  (e.g. `/home/atrawog/Atrapub/o/charly`) must treat that checkout as
+  POTENTIALLY STALE and check `origin/main` directly** — three independent
+  validators this session hit exactly this trap, verifying a claim against a
+  local tree that had already fallen behind the remote.
+- **Every evidence attestation (a grep count, a checklist line, a balance
+  check) pasted into a PR body or CHANGELOG MUST be RE-RUN at the FINAL head
+  immediately before pasting — never transcribed from memory or an earlier
+  run.** This is the SAME failure class in two independently-hit incidents
+  (PR #70's Finding B — a fabricated grep count that didn't reproduce; a
+  parallel sdk-repo validator round hitting the identical mistake) —
+  evidence a reader can't verify because it was never actually re-executed
+  is a fabrication, however unintentional.
+
 ## The charly binary in a multi-teammate / multi-worktree setup
 
 Every teammate/worktree in a multi-agent run needs its OWN charly binary — conflating
