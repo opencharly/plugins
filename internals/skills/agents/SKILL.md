@@ -1293,31 +1293,20 @@ genuinely orphaned resource must be cleared, target it by its specific identity
 
 ### Worktree lifecycle + validator identity — orchestrator-owned, never assumed
 
-**Motivating incident (PR #133):** a validator worktree (`charly-wt-v133`) was cleanly
-`git worktree remove`d by the merge/cleanup flow WHILE an agent's self-model still
-believed it was mid-validation ("nothing merged yet") — the merge had actually
-completed 79s earlier (confirmed on live GitHub: `state MERGED`, merge commit `59bb902`,
-tag `v2026.197.1631`). Earlier symptoms in the SAME tree ("uncommitted drift not
-matching HEAD", "a revert with zero reflog ops") were the SAME collision under a
-different name: two actors sharing one worktree PATH, one's `git checkout --` /
-`git clean` silently clobbering the other's in-flight edits. Three rules:
-
-- **Worktree lifecycle is ORCHESTRATOR-OWNED.** A validator or teammate NEVER removes
-  a worktree it does not exclusively own — post-merge cleanup removes only trees no
-  other agent is active in. Give each validator a UNIQUE worktree path (never a
-  shared per-PR path a sibling could remove out from under it); this is the worktree
-  analogue of "stop only your own children, by task id" above — never act on a
-  resource by a shared name/path when another agent might still hold it.
-- **One validator identity per PR.** Never re-brief or re-spawn a validator to
-  re-validate a PR that has already merged; a stale self-model plus a shared path is
-  exactly how an in-use worktree gets destroyed out from under its still-running
-  occupant.
-- **The orchestrator confirms merge state from LIVE GitHub, never from a teammate's
-  self-report.** Before treating any "still validating / not merged yet" message as
-  actionable, run `gh pr view <n> --json state,mergeCommit,mergedAt` — a desynced
-  self-model (an agent that hasn't yet observed its own merge) is not ground truth,
-  and acting on it (respawning, re-branching, force-syncing a worktree) risks exactly
-  the collision above.
+- **The author worktree is the validator target.** A fresh validator receives a new
+  context and role, not a second checkout: it runs in the clean author worktree at
+  the bound PR head. It never creates or uses a validator worktree, clone, alternate
+  Git directory, cache, home, or `/tmp` workspace.
+- **Worktree lifecycle is ORCHESTRATOR-OWNED.** A validator or teammate never removes
+  a worktree it does not exclusively own. Post-merge cleanup begins only after the
+  validator has finished and live GitHub state confirms the merge; it removes only
+  the merged author worktree and branch after clean-status and ownership checks.
+- **One validator identity per PR.** Never re-brief or re-spawn a validator for an
+  already-merged PR. A changed candidate requires a newly spawned validator before
+  landing; a merged candidate requires cleanup, not another validation thread.
+- **Live repository state wins.** Before any cleanup or response to a claimed merge,
+  the orchestrator checks `gh pr view <n> --json state,mergeCommit,mergedAt`. A
+  teammate's self-report is not authority to remove, recreate, or repurpose a path.
 
 ### Speed levers (grounded in the real bed cycle)
 

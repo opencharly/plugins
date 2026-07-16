@@ -282,7 +282,13 @@ match proof that now exists.
   branch without operator confirmation — it may hold unlanded work.
 - **Worktree hygiene.** `git worktree list` to inventory; `git worktree prune` to
   clear stale admin entries. Remove an agent `isolation: worktree` after its change
-  lands. Before reusing a long-lived worktree, ff its base to `origin/main`.
+  lands. Before reusing a long-lived worktree, ff its base to `origin/main`. A linked
+  superproject worktree shares superproject objects but not submodule objects:
+  initialize only the submodules the cutover needs, and initialize each from the
+  common Git directory's matching `modules/<path>` reference so its clone records a
+  Git alternate instead of duplicating object packs. Verify the alternate and the
+  exact gitlink before use; never compensate with `/tmp`, a user cache, or an
+  unrelated recursive submodule checkout.
 
 ## B2 — multi-repo / multi-worktree coordination
 
