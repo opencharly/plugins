@@ -531,6 +531,24 @@ those — dispatches through `providerRegistry.ResolveVerb`, composes a live exe
 config — is a CAPABILITY that USES the mechanism, not the mechanism itself: an R-item, it moves. **A
 capability that uses M1–M4 is not thereby M1–M4.**
 
+**Alias-is-always-residue — an alias is NEVER permanent, regardless of what it aliases.** A `type X =
+spec.X` / `var y = spec.Y` re-export in `charly/` is ALWAYS an R-item under the ZERO-ALIASES v2 target,
+REGARDLESS of what it aliases — even a genuine E-envelope type. The alias is not "permanent because it's
+an E-type"; the alias IS the mislocated call site, the whole point of ZERO-ALIASES. Classify every
+`charly/*_aliases.go` (and stray `_alias.go`) entry as residue: delete it and repoint its callers to
+`spec.*` (or the owning kit) directly. Motivating incident: an auditor counted `labels.go`'s `BoxMetadata =
+spec.BoxMetadata` alias and `install_plan.go`'s `Scope`/`Venue`/`Phase` aliases (all grep-verified genuine
+`spec.*` E-types) as "permanent E," then self-corrected — an alias's TARGET being E doesn't make the alias
+itself permanent.
+
+**A concrete kind's typed shape is R, not E.** The (E) envelope bucket is ONLY kind-AGNOSTIC carriers —
+`InstallPlan`, `VenueDescriptor`, `#Node`/`#Step`/`#Op`, the wire replies. A struct NAMED after a concrete
+kind, with kind-specific fields and accessors — `Candy`, `VmSpec`, `ResolvedBox` — is that kind's TYPED
+SHAPE: an R-item, moving to its owning kit/plugin (`Candy` → `sdk/buildkit`, alongside the
+already-relocated `ResolvedBox`). "Carries data" is not the E test; kind-AGNOSTIC is. Motivating incident:
+an auditor counted `layers.go`'s `Candy` struct (grep-verified: 60+ accessor methods, every one
+kind-specific) as E because it "carries data," then self-corrected.
+
 **The practical audit framing — invert the default.** Every file is an R-item (it moves to a plugin)
 UNLESS it is LITERALLY one of the tiny kernel whitelist: the four in-core M-mechanisms (plugin loading /
 prescan-dispatch / kind-decode materialize / the wire broker), the B bootstrap root, D kind-recognition
