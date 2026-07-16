@@ -277,7 +277,8 @@ read-only registry cache the project default without per-invocation flags.
 `charly box build` tags every image with exactly one tag — its CalVer
 (e.g. `ghcr.io/opencharly/fedora-supervisord:2026.114.1022`). charly does
 **not** emit a `:latest` tag, ever. Short-name resolution (in
-`charly/local_image.go`) picks the newest CalVer for a given short name
+`sdk/kit/local_image.go`, `kit.ResolveLocalImageRef` — moved from
+`charly/local_image.go` in P12a) picks the newest CalVer for a given short name
 via the `ai.opencharly.box=<short>` + `ai.opencharly.version=<calver>`
 OCI labels. The CLI accepts an explicit `--tag <calver>` for pinning;
 an empty `--tag` resolves to newest-local automatically.

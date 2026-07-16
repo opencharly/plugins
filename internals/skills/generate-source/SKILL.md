@@ -430,7 +430,7 @@ Built images embed runtime metadata as labels (prefix: `ai.opencharly.`), making
 
 | Label | Type | Example |
 |-------|------|---------|
-| `ai.opencharly.version` | string | content-derived `EffectiveVersion` (the image's dedicated `version:`, else the highest layer `version:` across the chain — NOT the per-build tag), e.g. `"2026.144.1443"`. Resolution prefers this label over the tag (`local_image.go`); also the "is this an charly box?" presence sentinel read by `ExtractMetadata` |
+| `ai.opencharly.version` | string | content-derived `EffectiveVersion` (the image's dedicated `version:`, else the highest layer `version:` across the chain — NOT the per-build tag), e.g. `"2026.144.1443"`. Resolution prefers this label over the tag (`sdk/kit/local_image.go`, moved from `charly/local_image.go` in P12a); also the "is this an charly box?" presence sentinel read by `ExtractMetadata` |
 | `ai.opencharly.box` | string | `"openclaw"` |
 | `ai.opencharly.registry` | string | `"ghcr.io/opencharly"` (omitted if empty) |
 | `ai.opencharly.bootc` | string | `"true"` (omitted if false) |
