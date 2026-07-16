@@ -515,6 +515,50 @@ fields, a `switch` on a kind word, or a per-kind Go map is BY DEFINITION an R-it
 **incomplete seam: a bug fixed immediately (one R10-gated cutover each), never a kept exception, never
 parked as a "remaining candidate."** Those three tells are what you grep for.
 
+**The named trap — "host-boundary object" is never a permanence reason.** Calling a construct a
+"host-boundary object" — it "can't cross the process boundary," "drives podman/ssh/flock/systemd itself,"
+or fits "the P8/P10 pattern" — is NEVER grounds to keep it in core. A plugin runs on the SAME host and
+drives that object itself (exactly as `candy/plugin-vm` and `candy/plugin-kube` already do), or reaches a
+live venue through the reverse-channel broker (M4, the `substrateLifecycle`/`ExecutorService` legs) —
+needing the broker or the host IS the whole point of that seam, never a reason the construct must stay
+core.
+
+**The defines-vs-calls test — the concrete grep that makes E/M/B/D un-mis-applicable.** To decide whether
+a file is a genuine M-mechanism (kernel) or an R-item (moves), grep for where the mechanism is DEFINED —
+the registry in `provider_registry.go`, the kind-decode fold in `materialize.go`, the reverse-channel
+broker/`InvokeProvider` in `plugin_inproc*.go`/`plugin_dispatch_reverse.go`. A file that only CALLS one of
+those — dispatches through `providerRegistry.ResolveVerb`, composes a live executor, reads resolved
+config — is a CAPABILITY that USES the mechanism, not the mechanism itself: an R-item, it moves. **A
+capability that uses M1–M4 is not thereby M1–M4.**
+
+**Alias-is-always-residue — an alias is NEVER permanent, regardless of what it aliases.** A `type X =
+spec.X` / `var y = spec.Y` re-export in `charly/` is ALWAYS an R-item under the ZERO-ALIASES v2 target,
+REGARDLESS of what it aliases — even a genuine E-envelope type. The alias is not "permanent because it's
+an E-type"; the alias IS the mislocated call site, the whole point of ZERO-ALIASES. Classify every
+`charly/*_aliases.go` (and stray `_alias.go`) entry as residue: delete it and repoint its callers to
+`spec.*` (or the owning kit) directly. Motivating incident: an auditor counted `labels.go`'s `BoxMetadata =
+spec.BoxMetadata` alias and `install_plan.go`'s `Scope`/`Venue`/`Phase` aliases (all grep-verified genuine
+`spec.*` E-types) as "permanent E," then self-corrected — an alias's TARGET being E doesn't make the alias
+itself permanent.
+
+**A concrete kind's typed shape is R, not E.** The (E) envelope bucket is ONLY kind-AGNOSTIC carriers —
+`InstallPlan`, `VenueDescriptor`, `#Node`/`#Step`/`#Op`, the wire replies. A struct NAMED after a concrete
+kind, with kind-specific fields and accessors — `Candy`, `VmSpec`, `ResolvedBox` — is that kind's TYPED
+SHAPE: an R-item, moving to its owning kit/plugin (`Candy` → `sdk/buildkit`, alongside the
+already-relocated `ResolvedBox`). "Carries data" is not the E test; kind-AGNOSTIC is. Motivating incident:
+an auditor counted `layers.go`'s `Candy` struct (grep-verified: 60+ accessor methods, every one
+kind-specific) as E because it "carries data," then self-corrected.
+
+**The practical audit framing — invert the default.** Every file is an R-item (it moves to a plugin)
+UNLESS it is LITERALLY one of the tiny kernel whitelist: the four in-core M-mechanisms (plugin loading /
+prescan-dispatch / kind-decode materialize / the wire broker), the B bootstrap root, D kind-recognition
+data, or an E generic envelope. Auditing a cone by asking "is this hard to move" instead of "is this one
+of E/M/B/D" is the exact failure this framing forecloses: the bed runner, the check/ADE harness, the build
+engine, the deploy walk, and the VM engine are ALL R-items (the v2 ledger already names them plugins) —
+none of them earns kernel status by being awkward to relocate. Motivating incident: two auditors
+independently mis-classified the deploy + check cones as ~90% permanent using exactly the
+"host-boundary/gather-engine" excuse; the true kernel in those cones is ~0.3%.
+
 **The canonical shape every kind copies — resolve-to-envelope.** `builder` is the reference: its plugin
 serves its own `#BuilderInput` schema, decodes into its own params, validates its own input, and RESOLVES
 via `Invoke(OpResolve)` → `spec.BuilderResolveReply` (`Stage`/`CopyArtifacts`/`InlineFragment`); the build
@@ -525,6 +569,17 @@ The kernel consumes the generic envelope; the plugin owns the schema, the valida
 the resolution. The build-time `OpEmit` (step/verb fragment), the F6 `grpcSubstrateLifecycle`
 (`VenueDescriptor`), and the `HostArbiter`/`HostBuild`/`InvokeProvider`/`RunHostStep` reverse legs are the
 existing seams a de-typing rides — no new seam is usually needed, only the consumer stops re-typing.
+
+**Every K-wave move is a generalization, not a mechanical relocation.** Moving a capability's call site
+into its owning plugin is R3 ("no duplication; generic, reusable solutions over ad-hoc patches") and
+Prioritize Clean Architecture applied to the migration itself (see CLAUDE.md — not restated here). In
+practice: reach for an EXISTING generic seam first (`HostBuild`, `InvokeProvider`, `OpResolve`/`OpEmit`,
+the `substrateLifecycle` legs) or build ONE generic, F11-reviewed, class-generic action noun — never a
+per-word or per-case one; COLLAPSE per-case branches into a single word-keyed data-driven mechanism as
+part of the move (per-substrate status collectors + a `switch node.Target` incomplete-seam become ONE
+generic `OpStatusCollect`; per-kind `cue_kind` branches become one family); and DELETE every duplicate and
+transitional alias the move obsoletes — never re-export it. Rule of thumb: reuse an existing generic seam
+or delete the duplicate — rarely invent a new one; most seams the boundary law needs already exist.
 
 **Realized architecture (present state).** The SDK boundary (`github.com/opencharly/sdk`) is extracted;
 every verb / kind / step / builder / command, all five deploy substrates (local/pod/vm/k8s/android) with
