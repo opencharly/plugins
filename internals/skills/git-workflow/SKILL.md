@@ -129,7 +129,7 @@ git switch -c feat/<slug>            # slug = kebab summary of the change
 # write the cutover narrative to CHANGELOG/<placeholder>.md — a PLACEHOLDER CalVer
 #   (any valid YYYY.DDD.HHMM; the evaluator OVERWRITES it with the merge-time VER).
 git add <only the cutover's files> CHANGELOG/<placeholder>.md
-git commit -m "<conventional commit> ...  Assisted-by: <Harness> (<Provider Full Model Name>; <confidence>)"
+git commit -m "<conventional commit> ...  Assisted-by: <Harness> <Full Model Name> (<confidence>)"
 git push origin feat/<slug>                       # feat push — allowed by the gate
 gh pr create --base main --head feat/<slug> \     # fill the PR template completely (single org source: opencharly/.github/.github/PULL_REQUEST_TEMPLATE.md — no per-repo copy)
   --title "<subject>" \
@@ -765,11 +765,11 @@ Fix: Add fuse-overlayfs for container startup
 
 Tested via overlay session on LOCAL system.
 
-Assisted-by: Codex (OpenAI GPT-5.6 Sol; fully tested and validated)
+Assisted-by: Codex OpenAI GPT-5.6 Sol (fully tested and validated)
 ```
 
 For every harness, the enforced trailer form is exactly
-`Assisted-by: <Harness> (<Provider Full Model Name>; <confidence>)`. A validator
+`Assisted-by: <Harness> <Full Model Name> (<confidence>)`. A validator
 composing a squash-merge trailer preserves the authoring harness, full provider
 model name, and proof-supported confidence. Commit-time checks are an advisory
 mechanical backstop only; the fresh PR validator independently verifies the

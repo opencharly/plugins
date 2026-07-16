@@ -1249,6 +1249,34 @@ genuinely orphaned resource must be cleared, target it by its specific identity
 (`charly vm destroy <entity> --domain <bed>`, `charly remove <name>`, `podman rmi -f
 <id>`), never a broad `pkill`.
 
+### Worktree lifecycle + validator identity — orchestrator-owned, never assumed
+
+**Motivating incident (PR #133):** a validator worktree (`charly-wt-v133`) was cleanly
+`git worktree remove`d by the merge/cleanup flow WHILE an agent's self-model still
+believed it was mid-validation ("nothing merged yet") — the merge had actually
+completed 79s earlier (confirmed on live GitHub: `state MERGED`, merge commit `59bb902`,
+tag `v2026.197.1631`). Earlier symptoms in the SAME tree ("uncommitted drift not
+matching HEAD", "a revert with zero reflog ops") were the SAME collision under a
+different name: two actors sharing one worktree PATH, one's `git checkout --` /
+`git clean` silently clobbering the other's in-flight edits. Three rules:
+
+- **Worktree lifecycle is ORCHESTRATOR-OWNED.** A validator or teammate NEVER removes
+  a worktree it does not exclusively own — post-merge cleanup removes only trees no
+  other agent is active in. Give each validator a UNIQUE worktree path (never a
+  shared per-PR path a sibling could remove out from under it); this is the worktree
+  analogue of "stop only your own children, by task id" above — never act on a
+  resource by a shared name/path when another agent might still hold it.
+- **One validator identity per PR.** Never re-brief or re-spawn a validator to
+  re-validate a PR that has already merged; a stale self-model plus a shared path is
+  exactly how an in-use worktree gets destroyed out from under its still-running
+  occupant.
+- **The orchestrator confirms merge state from LIVE GitHub, never from a teammate's
+  self-report.** Before treating any "still validating / not merged yet" message as
+  actionable, run `gh pr view <n> --json state,mergeCommit,mergedAt` — a desynced
+  self-model (an agent that hasn't yet observed its own merge) is not ground truth,
+  and acting on it (respawning, re-branching, force-syncing a worktree) risks exactly
+  the collision above.
+
 ### Speed levers (grounded in the real bed cycle)
 
 One-agent-per-bed is the headline speedup; these compound it, each grounded in
