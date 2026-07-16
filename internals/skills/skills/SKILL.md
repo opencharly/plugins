@@ -257,6 +257,15 @@ skill's grep self-test caught). Audit and fix them as follows:
    the one finalized CalVer names both its changelog file and its tag). See
    `/charly-internals:git-workflow`.
 
+**Alias residue is a special case — never assert its exact location.** A `charly/*_aliases.go` line is
+transitional K-wave residue that ZERO-ALIASES/K5 deletes, so a skill asserting its EXACT per-symbol
+file:line desyncs on every alias relocation AND documents a path already scheduled for deletion. State the
+STABLE spec-source (the owning plugin/sdk package) and the K5-dissolution destination instead of a
+concrete alias location, and `grep -rn` every concrete alias-attribution claim (a file:line or symbol
+name) against the live tree before asserting it. Motivating incident: a go-skill row produced 5
+alias-attribution errors across 5 validation rounds by naming exact residue locations that had already
+moved.
+
 The code-side companion (golangci-lint, the `.go` compliance checklist) is
 `/charly-internals:go-quality`.
 
