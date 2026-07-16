@@ -730,6 +730,18 @@ rather than restate it.
   workstation safety — applying candies to the operator's own machine — see "The
   shipped workflows" above; this bare-`$PATH` resolution is the SAME caveat the
   shared-tree barrier below has to account for.)
+- **Invoking `./bin/charly` directly is NOT sufficient for beds whose plan steps
+  shell out to bare `charly`.** The OUTER invocation's binary does NOT propagate to
+  an INNER bare-`charly` subprocess a bed's own `command:` plan step launches —
+  only a `$PATH` prefix does. Always run a bed as `PATH=$PWD/bin:$PATH ./bin/charly
+  check run <bed>` (the form "Per-worktree binaries" (4e) below already
+  recommends), so every internal subprocess resolves the worktree binary
+  consistently, not just the command you typed. **The failure signature:** a
+  SINGLE stale-binary step failure deep inside an otherwise-green run — often on a
+  step testing a surface UNRELATED to your actual change, after minutes of
+  progress — is the tell that an inner bare-`charly` call resolved the host
+  binary instead of yours; the guard is reporting a REAL staleness, just for a
+  hidden invocation you didn't prefix.
 - **Multi-worktree concurrency corollary.** Because each worktree carries its OWN
   binary and its OWN freshness-guard scope, teammates working in DISTINCT worktrees
   need NO freeze barrier between them — each rebuilds its own `./bin/charly` via
