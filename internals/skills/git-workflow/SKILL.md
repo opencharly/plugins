@@ -79,6 +79,16 @@ evaluator's own spec.
   to commit" / "working tree clean" right after you edited a file is the signature
   of this mistake — STOP and re-verify `--show-toplevel` before retrying (blind
   retry is an R1 violation).
+- **Post-commit staging verification — a multi-path `git add` with one bad
+  pathspec can stage LESS than you intended, silently.** After EVERY commit,
+  re-run `git status --short` (expect it empty, or only unrelated untracked
+  paths) AND `git show --stat` (confirm every intended file is actually
+  listed) — a `git add` invocation naming several paths where one is
+  mistyped or stale can commit only the files that DID resolve while
+  `git commit` still succeeds, producing a commit that would not even
+  compile. Proven this session: an 8-file commit was caught missing files
+  only by habitually re-checking `git show --stat`, not by any tooling
+  that would have failed loudly on its own.
 - **Check-coverage.** R10 does not pass unless the change ships the test coverage
   that PROVES its functionality (`check:` checks for new/changed layers & images,
   Go tests for `charly` code) AND the live run exercised it. A change whose new
@@ -716,6 +726,16 @@ Tested via overlay session on LOCAL system.
 
 Assisted-by: Codex OpenAI GPT-5.6 Sol (fully tested and validated)
 ```
+
+For THIS harness (Claude Code), the enforced trailer form is exactly
+`Assisted-by: Claude (<tier>)` — no model-name text between `Claude` and the
+opening paren (the pre-commit-gate's attribution check matches on
+`Claude\s*\(`); a validator composing a squash-merge trailer for a
+Claude-authored commit uses this exact form too. The gate itself is a
+Claude-Code PreToolUse mechanism scoped to SUPER-REPO-ROOTED sessions — the
+`sdk` repo carries no commit gate of its own, so a commit made from a
+submodule checkout or a standalone clone is NOT gated at commit time; it is
+caught, if at all, at PR-REVIEW time by the fresh validator instead.
 
 ## If validation FAILS or R10 fails
 
