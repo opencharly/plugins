@@ -56,11 +56,16 @@ candy tree; without this it would build the STALE pinned remote candy and serve 
 purpose. An explicit operator `CHARLY_REPO_OVERRIDE` entry for the same repo still
 wins (it is placed first). A bed whose project is its own root needs no override —
 its candies already resolve from the local tree. Source:
-`selfSuperprojectOverridePair` + `mergeRepoOverrides` (`charly/refs.go`, kept
-core), applied by the check-bed setup op in `candy/plugin-check/bed_run.go` —
-which drives the host `check-bed` session seam (`charly/host_build_check_bed.go`);
-the underlying `CHARLY_REPO_OVERRIDE` is the Go-`replace`-style "verify before you
-push" mechanism.
+`selfSuperprojectOverridePair` (`charly/refs.go`, kept core — the ONE stateless
+git-identity query the plugin's own session cannot self-serve) reached via the
+narrow `repo-override-pair` op on the `check-bed` host-helper seam
+(`charly/host_build_check_bed.go`); the plugin's OWN session
+(`candy/plugin-check/bed_session.go`, K5-U1) holds the lock/lease/env lifecycle
+directly and does the actual `CHARLY_REPO_OVERRIDE` set/restore itself (a
+compiled-in plugin shares the host's OS process, so its own `os.Setenv` is
+visible to the SAME process's later `HostBuild("cli")` forks) — the underlying
+`CHARLY_REPO_OVERRIDE` is the Go-`replace`-style "verify before you push"
+mechanism.
 
 **Exclusive-resource preemption wraps the sequence.** When a bed declares
 `requires_exclusive: [token...]` (e.g. a GPU-passthrough bed needing the one
