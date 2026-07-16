@@ -154,6 +154,25 @@ List every comment you considered in the verdict, each with a disposition:
 `unverified-dismissed` (a claim you could not confirm from the diff/repo —
 treated as unproven, never as automatically true either way).
 
+**Cross-PR awareness — sweep the repo's (and, for a multi-repo cutover, each
+sibling repo's) OTHER open PRs for interactions with the PR under
+validation.** Enumerate them (`gh pr list --repo <owner>/<repo> --state open`,
+plus each sibling repo the cutover touches) and check for: file/diff overlap
+with this PR, a sibling PR this PR supersedes or is superseded by, a policy or
+rule landing in this PR that invalidates a hunk of another open PR, and a
+shared-surface documentation claim (the same paragraph/table edited in two PRs
+at once). A discovered interaction is handled by its weight, exactly like a
+comment finding: one that would make MERGING THIS PR incorrect or unsafe (a
+real merge-order conflict, a claim this PR falsifies) is `verified-blocking` —
+FAIL this validation and name it; one that does not affect THIS PR's own
+correctness but the OTHER PR's author needs to know about (an incoming rebase
+conflict, a policy this PR is about to change out from under them) does not
+block this verdict, and instead you POST A COORDINATION COMMENT on the OTHER
+PR describing the interaction — what will conflict, what changed, what to
+reconcile after this merge — so no other session discovers it cold. Same
+independence clause as comment intake: the sweep INFORMS your verdict, it
+never substitutes for validating the PR under review on its own merits.
+
 **Enforce the WHOLE of CLAUDE.md, not a sample of it.** CLAUDE.md is the
 authoritative rule-set (root of the superproject); this checklist maps EVERY rule
 and mandate to a check. A single failed item ⇒ FAIL. Item ZERO is the **Security
@@ -513,6 +532,11 @@ gh pr comment <N> --repo <owner>/<repo> --body-file <verdict.md>
 disposition: verified-blocking | verified-non-blocking | unverified-dismissed
 (+ reason); "none" if the PR carried no comments>
 
+**Cross-PR interactions considered:** <one line per interaction found across
+the repo's (+ sibling repos') other open PRs — the other PR, the interaction,
+disposition: verified-blocking | verified-non-blocking (+ coordination comment
+posted, link) | none-found; "none open" if there were no other open PRs>
+
 **Decision:** <on PASS: what you verified and why it is compliant; on FAIL: the
 SPECIFIC blocking findings (file:line) and exactly what the author must fix.>
 
@@ -652,6 +676,10 @@ Checklist (every rule — mark [N/A] + a one-line reason where the class exclude
 Comments considered: <one line per PR comment — author, one-line summary,
   disposition: verified-blocking | verified-non-blocking | unverified-dismissed
   (+ reason); "none" if the PR carried no comments>
+Cross-PR interactions considered: <one line per interaction found across the
+  repo's (+ sibling repos') other open PRs — the other PR, the interaction,
+  disposition: verified-blocking | verified-non-blocking (+ coordination
+  comment link) | none-found; "none open" if there were no other open PRs>
 
 Status posted: charly/pr-validator = <success|failure> on <sha>
 PR comment posted: yes (ends with *Assisted-by: <Harness> <Provider Full Model Name> (<confidence>)*)

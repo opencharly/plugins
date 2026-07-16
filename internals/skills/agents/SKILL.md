@@ -717,6 +717,26 @@ real validation-round finding, not a hypothetical.**
   be clean anywhere else in it either. Proven live during a validator run
   this session.
 
+**8. Orchestrator PR ledger + coordination-comment duty.** The orchestrator
+maintains a PR LEDGER — every session-created PR is tracked to an explicit
+disposition (merge after validation / close with a pointer rationale / hand
+off to another owner) — no orphans. On every `main` advance, the ledger's
+still-open entries are re-checked for staleness (a merge, a superseding
+rename, a policy change that invalidates one of their hunks). **When ANY
+session's work creates a KNOWN interaction with a PR it does not own —
+including a PR explicitly OUT OF that session's scope by operator directive —
+it posts a COORDINATION COMMENT on that PR rather than staying silent:
+commenting is ALWAYS in scope even when evaluating or merging is not.** Worked
+precedent (this session): coordination comments landed on three
+sibling-session PRs while their evaluation and merge stayed with their own
+owners — `opencharly/charly#130` (a loader-file conflict warning ahead of a
+wave merge), `opencharly/plugins#73` (a same-file docs-batch rebase warning),
+and `opencharly/charly#112` (a rescue-history + coming-staleness note). See
+`plugins/internals/agents/pr-validator.md` "Cross-PR awareness" for the
+matching per-PR-validation-run duty — that spec owns the PR-VALIDATOR's own
+sweep-and-comment mechanics; this item owns the ORCHESTRATOR's standing
+ledger discipline across the whole session, never restated here.
+
 ## The charly binary in a multi-teammate / multi-worktree setup
 
 Every teammate/worktree in a multi-agent run needs its OWN charly binary — conflating
