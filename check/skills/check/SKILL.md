@@ -661,11 +661,13 @@ charly check feature run web                # agent-check steps agent-graded aga
 charly check feature run web --no-agent     # deterministic-only (CI): agent-check steps report unbound
 ```
 
-Implementation: `charly/check_feature_run.go` (the verbs), `charly/check_feature_grader.go`
-(`AgentGrader` + `RunAIOnce` + `parseVerdict`), the `Runner.Grader` dispatch in
-`charly/description_run.go`, and `charly/description_cmd.go` (`charly feature
-list/pending/validate`). The plan engine (`RunPlan`) and target
-resolution are shared with the harness loop and `charly check box`/`live` (R3).
+Implementation: `charly/check_feature_run.go` (the verbs), `sdk/kit/grader.go`
+(`AgentGrader` + `RunAgentOnce` + `parseVerdict`, moved from `charly/check_feature_grader.go`
+in P12a — core constructs `&AgentGrader{}` directly, so it lives in `kit`, reachable from
+core code), and `charly/description_cmd.go` (`charly feature
+list/pending/validate`). The `Runner.Grader` dispatch is `kit.RunPlan` (`sdk/kit/planrun.go`)
+directly — the former 1-line `charly/description_run.go` wrapper was dissolved in P12a.
+Target resolution is shared with the harness loop and `charly check box`/`live` (R3).
 
 ## Live-container verbs — ALL served out-of-process
 
@@ -1713,7 +1715,7 @@ deliberately.
 - `/charly-build:migrate` — `charly migrate` brings legacy configs up to the
   current schema (one flat ordered `plan:` list per entity).
 - `/charly-internals:go` — implementation map. Core keeps the gathering,
-  validation, and host seams: `checkspec.go`, `checkvars.go`, `checkrun.go`,
+  validation, and host seams: `checkspec.go`, `checkrun.go`,
   `checkrun_verbs.go`, `checkrun_charly_verbs.go`, `description_collect.go`,
   `check_cmd.go` (the CLI-free live-check gather engine), `check_runner_cmd.go`
   (now only `scorePodTargetEntry`), `check_runner_live.go` (the "score" mode body),

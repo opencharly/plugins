@@ -731,6 +731,19 @@ leading-zeros-stripped>` scheme (NOT an exemption — Go modules require semver,
 forbids a leading-zero segment — `0733`→`733`). A YAML schema/format change does
 BOTH: the schema bump AND the tag. See `/charly-build:migrate`.
 
+**A MERGED `CHANGELOG/<CalVer>.md` is IMMUTABLE, exactly like the tag sharing its
+CalVer.** Once the evaluator renames a cutover's placeholder to its final
+`CHANGELOG/$VER.md` and merges it, that file is closed history — follow-up work in
+the SAME theme, branch, or session NEVER appends to it or edits its content, even to
+add a directly-related narrative. It writes its OWN new placeholder
+`CHANGELOG/<placeholder>.md` entry instead, which its OWN evaluator stamps with its
+OWN merge-time CalVer at its OWN merge. Editing an already-merged entry re-dates
+history out from under its own filename↔tag pairing — a permanent divergence the
+instant it lands, not a convenience. (Incident: a follow-up PR folded new narrative
+into an already-tagged `CHANGELOG/<CalVer>.md` after a mid-flight `main` merge — an
+understandable reconciliation instinct, but the wrong direction — caught by a fresh
+`pr-validator` FAIL before it could land.)
+
 ## After landing — cleanliness + report
 
 - **Working-tree cleanliness.** After the merge, `git status` is clean in every
