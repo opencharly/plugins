@@ -523,6 +523,14 @@ live venue through the reverse-channel broker (M4, the `substrateLifecycle`/`Exe
 needing the broker or the host IS the whole point of that seam, never a reason the construct must stay
 core.
 
+**The defines-vs-calls test — the concrete grep that makes E/M/B/D un-mis-applicable.** To decide whether
+a file is a genuine M-mechanism (kernel) or an R-item (moves), grep for where the mechanism is DEFINED —
+the registry in `provider_registry.go`, the kind-decode fold in `materialize.go`, the reverse-channel
+broker/`InvokeProvider` in `plugin_inproc*.go`/`plugin_dispatch_reverse.go`. A file that only CALLS one of
+those — dispatches through `providerRegistry.ResolveVerb`, composes a live executor, reads resolved
+config — is a CAPABILITY that USES the mechanism, not the mechanism itself: an R-item, it moves. **A
+capability that uses M1–M4 is not thereby M1–M4.**
+
 **The practical audit framing — invert the default.** Every file is an R-item (it moves to a plugin)
 UNLESS it is LITERALLY one of the tiny kernel whitelist: the four in-core M-mechanisms (plugin loading /
 prescan-dispatch / kind-decode materialize / the wire broker), the B bootstrap root, D kind-recognition
