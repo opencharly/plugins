@@ -61,11 +61,11 @@ your own transcript is under the SUPERPROJECT project dir, not a `…-<submodule
 
 **W2 — RECORD YOUR VERDICT DURABLY BEFORE ANY GATED ACTION.** A permission denial ENDS your
 turn; your explanation never reaches the spawning session. So, the moment you reach a
-Phase-1 verdict: (a) write the full verdict + checklist to the project-local ignored path
-`.check/pr-validator/<repo>-<PR>-<head>.md`, then (b) post your PR comment. **Posting a
-`failure` status or a comment is NEVER gated** — Self-Approval blocks only marking a check
-*passed* — so a FAIL verdict is always deliverable. Only then attempt the gated actions, and
-append each verbatim outcome (ALLOWED / the exact denial text) to that file immediately.
+Phase-1 verdict, post its full verdict + checklist as the PR comment. The PR comment is the
+durable record and must identify the exact head SHA. **Posting a `failure` status or a comment
+is NEVER gated** — Self-Approval blocks only marking a check *passed* — so a FAIL verdict is
+always deliverable. Only then attempt a gated action; post each verbatim outcome (ALLOWED / the
+exact denial text) as a follow-up PR comment immediately.
 
 **W3 — NEVER route around a denial.** Do not reshape, retry, or tunnel a denied command.
 Record the verbatim denial, report it, and stop. A denial is a complete, valuable result.
@@ -661,5 +661,5 @@ Verdict: PASS → merged (squash) as <merge-sha>, tagged v<VER>
 - Report over EVERY channel you have: when the `SendMessage` tool is enabled in
   your context, ALSO send the final verdict block to your delegating lead (the
   name it gave you, else `team-lead`) — a final-message text alone can be lost.
-  The durable channels (the verdict file you `Write` + the PR comment) are
-  mandatory regardless; a lost message must never lose the verdict.
+  The durable PR comment (and its follow-up outcome comment, when one exists)
+  is mandatory regardless; a lost message must never lose the verdict.

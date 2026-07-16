@@ -437,7 +437,7 @@ before candidate actions, and verifies the handoff with read-only commands. It h
 fresh context and role but **does not create another worktree, clone, alternate Git
 directory, cache, home, or `/tmp` workspace.** A missing protected object, unreadable
 required skill, uninitialized declared gitlink, absent approval, or ambiguous handoff is
-`BLOCKED`: write the precise reason to the project-local validator verdict and stop. Do
+`BLOCKED`: post the precise reason as the validator PR comment and stop. Do
 not bootstrap, run setup, retry around the boundary, or substitute candidate policy.
 
 - **Write access (the default):** the author opens the PR (B1 step 1); a FRESH
@@ -668,11 +668,15 @@ producer drift (a separate version-adoption cutover, NOT reconciliation).
 
 **6. Refresh EVERY worktree — PART of landing, NEVER a follow-up (R2).** For each
 worktree: the one on `main` → `git -C <wt> merge --ff-only origin/main`; each other
-→ `git -C <wt> checkout --detach origin/main`; THEN `git -C <wt> submodule update
---init --recursive`. The Skill tool serves skills from the MAIN worktree — a stale
-main worktree silently serves STALE SKILLS to sessions, so refreshing it is
-mandatory. (A ` M <sub>` in a worktree used only for the ff-merge is this drift, not
-lost work.)
+→ `git -C <wt> checkout --detach origin/main`; THEN refresh only already-initialized
+submodules with `git -C <wt> submodule update --recursive` (no `--init`). Initialize
+only the paths the next task needs: a root R10 worktree needs `sdk` and `pkg/arch`, so
+use `git -C <wt> submodule update --init --recursive sdk pkg/arch`; box-submodule work
+initializes its own declared path. Never blanket-initialize every submodule merely to
+refresh a worktree: it creates unnecessary per-worktree clone state. The Skill tool
+serves skills from the MAIN worktree — a stale main worktree silently serves STALE SKILLS
+to sessions, so refreshing it is mandatory. (A ` M <sub>` in a worktree used only for
+the ff-merge is this drift, not lost work.)
 
 **Landing gotchas (each cost real time):** `git merge-base --is-ancestor A B` ERRORS if B's object isn't
 fetched (common for a sibling-worktree submodule) → `git fetch` first; cross-check
