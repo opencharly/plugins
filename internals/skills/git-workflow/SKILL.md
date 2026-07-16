@@ -142,10 +142,15 @@ with NEW context): it independently re-validates the PR vs R0–R10 + the releva
 skills, posts `charly/pr-validator` on the head SHA, and ONLY on PASS
 generates the merge-time CalVer, rewrites the version surfaces on `feat/` (the
 `CHANGELOG` rename + any schema bump), re-posts the status on the new head,
-`gh pr merge --squash --delete-branch`, and tags. The author pastes the evaluator's
-verbatim verdict + what it merged/tagged (paste-proof survives delegation). On
-FAIL the PR stays OPEN and is **UPDATED IN PLACE** → the author R1-RCAs, fixes in the
-same tree, APPENDS a fix commit, and pushes it fast-forward (status resets) → the
+`gh pr merge --squash --delete-branch`, and tags. Its inputs include the PR's
+FULL comment thread, per the pr-validator spec's comment-intake rule — every
+comment is investigated independently and considered in the verdict, never
+granted or denied authority merely by existing (see
+`plugins/internals/agents/pr-validator.md` "Comment intake", never restated
+here). The author pastes the evaluator's verbatim verdict + what it
+merged/tagged (paste-proof survives delegation). On FAIL the PR stays OPEN
+and is **UPDATED IN PLACE** → the author R1-RCAs, fixes in the same tree,
+APPENDS a fix commit, and pushes it fast-forward (status resets) → the
 evaluator re-runs. **Never close a PR and open a replacement to carry a fix.**
 
 Because the merge is a SQUASH and `main` is protected linear, `main` gains exactly

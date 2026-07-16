@@ -669,7 +669,7 @@ terminal state is authoritative ONLY from its COMPLETION signal (the `<task-noti
 half-written log is indistinguishable from a reaped one). Respawn only after the
 completion signal confirms the child actually ended.
 
-**7. Validator evidence discipline — four lessons proven this session, each a
+**7. Validator evidence discipline — six lessons proven this session, each a
 real validation-round finding, not a hypothetical.**
 - **Cross-repo PR/issue citations in ANY CHANGELOG entry or PR body MUST carry
   the owner/repo qualifier** — a bare `#N` is ambiguous the moment it's read
@@ -703,6 +703,19 @@ real validation-round finding, not a hypothetical.**
   whatever PR it used to belong to. Re-derive the real state (`gh pr view
   <n> --json state,mergedAt`) BEFORE pushing again. Proven live this
   session: exactly this sequence recreated a deleted post-merge branch.
+- **A validation clone's working tree can carry STALE STAGED CONTENT from
+  `git checkout <ref> -- .`** (this form copies file CONTENTS from `<ref>`
+  into the working tree/index WITHOUT moving HEAD or the branch pointer,
+  unlike `git checkout <ref>` / `git switch <ref>`) — a subsequent `git
+  switch --detach` then REFUSES (uncommitted changes would be overwritten),
+  which is the detection signal, not a tool malfunction to route around.
+  **The recovery is a hard reset of the DISPOSABLE clone** — it exists only
+  for this validation run, so discard it (or `git reset --hard` +
+  `git clean -fdx` to the intended ref) rather than reconciling file-by-file
+  — **followed by a FULL re-verification**, never a partial patch-up: a
+  working tree that silently absorbed foreign content cannot be trusted to
+  be clean anywhere else in it either. Proven live during a validator run
+  this session.
 
 ## The charly binary in a multi-teammate / multi-worktree setup
 
