@@ -366,6 +366,48 @@ teammate that receives apparently-conflicting rulings STOPS AND ASKS the orchest
 rather than picking one (the north-star "when in doubt → STOP-and-ask" heuristic applied
 to rulings).
 
+### Brief verification + stop-and-respawn — correct the teammate, don't misdirect it
+
+Two more orchestrator disciplines, both proven live in the same session as the
+rulings above:
+
+**1. Verify a brief's criterion against CLAUDE.md + the owning skill BEFORE
+dispatch.** A wrong brief misdirects EVERY teammate it reaches at once —
+fan-out multiplies a bad premise instead of catching it. Motivating incident:
+an audit brief that encoded a boundary-law violation ("host-boundary objects
+stay permanent") sent all 3 auditors to an inverted verdict; the correct
+framing ("The kernel/plugin boundary law", `/charly-internals:plugin`)
+would have caught it before a single teammate ran.
+
+**2. STOP-AND-RESPAWN over repeated in-place correction — but only once the
+teammate is CONFIRMED still wrong.** If a teammate re-applies a wrong
+approach after ONE clear correction, or its context accumulates same-class
+errors across rounds, STOP it (`TaskStop`) and spawn a FRESH teammate with a
+clean brief from the start — a context polluted by the wrong approach fights
+the fix, and fresh + clear converges faster. This is the approach-correction
+twin of "delegation is how you get fresh context" above. **Before stopping,
+confirm the teammate is STILL wrong: check whether it has already
+self-corrected, or a correction is crossing in transit** — an async
+teammate message can cross an orchestrator's correction, exactly as
+"Crossed-ruling reconciliation" above describes for rulings. Stop-and-respawn
+is for a teammate that INSISTS after a clear correction, NEVER one
+mid-self-correction; if a respawn was already issued and the teammate then
+shows a valid self-correction, ACCEPT the self-correction and treat the
+respawn as an INDEPENDENT CROSS-CHECK, not a replacement — especially
+valuable on the subtlest work. Motivating incident: an auditor
+self-corrected a check-cone mis-classification structurally, its message
+crossing the orchestrator's respawn; the respawn became a useful second pass
+rather than wasted effort.
+
+**3. A recurring same-error-CLASS across validation rounds (whack-a-mole) escalates
+to a root-cause / comprehensive fix, or a fresh clean-pass agent — never
+another single-item patch.** `/charly-internals:skills` "Alias residue is a
+special case" (source-map-audit) is the worked precedent this rule
+generalizes from: 5 validation rounds each fixing one alias-attribution
+instance before a root-cause de-fragilization (state the stable spec-source,
+never an exact per-symbol location) converged it in one pass — link there
+rather than re-narrating it.
+
 ### The responsibility matrix — who owns what (no ambiguity)
 
 **ORCHESTRATOR** (the persistent main session, ×1, most-capable model):
