@@ -54,7 +54,7 @@ check-bed runner instead passes `--dev-local-pkg` for EVERY bed image build, so 
 package is BUILT from the LOCAL working tree (`pkg/<fmt>` + `charly/`) — a
 disposable check bed always tests the in-development charly, never a stale release.
 Generic across all kinds + all localpkg candies, one decision point
-(`renderLocalPkgImageInstall`); a production box build omits the flag. A dev build
+(`deploykit.RenderLocalPkgImageInstall`); a production box build omits the flag. A dev build
 that cannot find its local source HARD-errors (no silent release fallback, R4).
 Full mechanics: `/charly-internals:install-plan` "Check-vs-production charly
 toolchain"; the candy view: `/charly-tools:charly`.

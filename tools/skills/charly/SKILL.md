@@ -39,7 +39,7 @@ The BINARY SOURCE depends on the box type — a hard distinction, NEVER mixed:
   `charly box build` DOWNLOADS the published release package
   (`releases/latest/download/opencharly-<arch>.<fmt>`).
 
-ONE decision point (`renderLocalPkgImageInstall`), generic across all kinds and
+ONE decision point (`deploykit.RenderLocalPkgImageInstall`), generic across all kinds and
 all localpkg candies; the check-bed runner sets `--dev-local-pkg` automatically, a
 production build never does. A dev build that cannot find its local source HARD
 errors (R4 — no silent fallback to the release). Full mechanics:

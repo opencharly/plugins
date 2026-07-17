@@ -284,8 +284,9 @@ no-op-emit reboot, C1.6 — `apk-install`/`reboot` declare `Emits=false` and are
 their fragment directly from the view; the HOST-COUPLED `system-packages` (C1.2) + `builder` (C1.3) +
 `local-pkg-install` (C1.4) + `op` (C1.5) kinds instead call back `HostBuild("step-emit", …)` (echoing the returned
 `EmitReply`) because their render needs the host build engine (`system-packages`: DistroDef format templates;
-`builder`: the multi-stage `buildStageContext` + `RenderTemplate` engine; `local-pkg-install`:
-`renderLocalPkgImageInstall` — the host localpkg build + staging; `op`: the RICHEST — `Generator.emitTasks`, the
+`builder`: the multi-stage `buildStageContext` + `RenderTemplate` engine; `local-pkg-install` is DIFFERENT
+(W3) — its render `deploykit.RenderLocalPkgImageInstall` is a PURE sdk/deploykit function needing no host
+callback, routed through this seam only for `buildEngineContext` threading uniformity; `op`: the RICHEST — `Generator.emitTasks`, the
 full per-verb render pipeline with COPY staging + op coalescing). Authoring + IR mechanism: `/charly-internals:install-plan` (the
 `externalStep` row + the build-emit externalization note); reference: `candy/plugin-example-stepkind`,
 `candy/plugin-installstep`.
