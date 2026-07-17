@@ -302,6 +302,14 @@ you skipped without deciding it inapplicable is an incomplete review (re-open it
    returns ONLY `CHANGELOG/`/migration-help context. NO transitional / legacy /
    deprecated / dual-mode / backcompat path survives in the FINAL code (its
    presence means the R10 gate tested a state that will not ship — FAIL).
+   **A producer-repo symbol REMOVAL ("dead, no consumer references it") checks
+   liveness against the CONSUMER's real `main` — never a sibling unmerged
+   branch.** A symbol unreferenced on a consumer's in-flight `feat/` branch can
+   still be live on that consumer's `main`; removing it as "dead" from the
+   producer breaks every consumer that hasn't rebased onto the branch yet
+   (the sdk#66 over-removal incident: 4 wire types removed as dead were live
+   on charly `main`). Re-run the liveness grep yourself against the consumer's
+   `origin/main`, not the PR author's claim.
 10. **R6/R8/R9 — artifact + binary integrity (where the class applies).** R6: a
     destructive git action was preceded by a status/stash check. R8 (generation
     changes): the emitted `.build/<img>/Containerfile` critical sections + every
@@ -500,7 +508,13 @@ you skipped without deciding it inapplicable is an incomplete review (re-open it
     vet error the PR introduces FAILS. Repo invariants where touched:
     lowercase-hyphenated names; a single document's top-level node names globally
     unique; mode purity (`LoadConfig` never reads the deploy overlay);
-    YAML-tag ↔ Go-identifier plural/singular symmetry.
+    YAML-tag ↔ Go-identifier plural/singular symmetry. **Isolate
+    `GOLANGCI_LINT_CACHE` per validator worktree.** Two validators running
+    `golangci-lint run` concurrently against a SHARED default cache
+    cross-contaminate: a finding cached against one worktree's file layout can
+    surface (or wrongly vanish) against another's, producing a stale/incorrect
+    result attributed to the wrong PR. Set `GOLANGCI_LINT_CACHE` to a
+    per-worktree path before every lint invocation you run.
 18. **CHANGELOG present.** A runtime-tier change stages a `CHANGELOG/<CalVer>.md`
     entry (a placeholder CalVer is fine — you finalize it in Phase 3); a
     docs-only change carrying history also stages one. Absent where required FAILS.
