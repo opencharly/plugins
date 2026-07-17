@@ -54,7 +54,7 @@ check-bed runner instead passes `--dev-local-pkg` for EVERY bed image build, so 
 package is BUILT from the LOCAL working tree (`pkg/<fmt>` + `charly/`) — a
 disposable check bed always tests the in-development charly, never a stale release.
 Generic across all kinds + all localpkg candies, one decision point
-(`renderLocalPkgImageInstall`); a production box build omits the flag. A dev build
+(`deploykit.RenderLocalPkgImageInstall`); a production box build omits the flag. A dev build
 that cannot find its local source HARD-errors (no silent release fallback, R4).
 Full mechanics: `/charly-internals:install-plan` "Check-vs-production charly
 toolchain"; the candy view: `/charly-tools:charly`.
@@ -386,11 +386,11 @@ CLI flags `--max-mb` and `--max-total-mb` override `charly.yml`. `auto` is only 
 6. Reconstruct image with `mutate.Append()`, preserving OCI history alignment (empty-layer entries for ENV/USER/EXPOSE kept in correct positions)
 7. Save via `tarball.WriteToFile()` -> `<engine> load`
 
-Merge is idempotent -- running again after merging shows all layers as `[keep]`. Source: `charly/merge.go`.
+Merge is idempotent -- running again after merging shows all layers as `[keep]`. The engine itself lives out-of-process in `candy/plugin-oci/merge.go` (`runMerge`/`mergeImageRef`, the P14a cutover); `charly box merge`'s CLI surface is `candy/plugin-box/merge_cmd.go` (P14 — relocated OUT of charly core, which now carries zero merge-specific code).
 
 ### Inline Merge
 
-Images are merged immediately after building, before their children are built. Child images inherit a merged (fewer-layer) base, producing smaller final images. Both local and push builds merge inline. The `mergeAfterBuild()` function handles this -- it checks `merge.auto` on the image config and runs merge if enabled.
+Images are merged immediately after building, before their children are built. Child images inherit a merged (fewer-layer) base, producing smaller final images. Both local and push builds merge inline. `candy/plugin-build/drive.go`'s `mergeBox` handles this -- it checks `MergeAuto` on the build-resolve model and asks `verb:oci` to run the merge via `InvokeProvider` if enabled.
 
 For filtered builds (`charly box build <image>`), only the built images are merged. For full builds (`charly box build`), merge runs after each dependency level completes.
 

@@ -284,8 +284,9 @@ no-op-emit reboot, C1.6 — `apk-install`/`reboot` declare `Emits=false` and are
 their fragment directly from the view; the HOST-COUPLED `system-packages` (C1.2) + `builder` (C1.3) +
 `local-pkg-install` (C1.4) + `op` (C1.5) kinds instead call back `HostBuild("step-emit", …)` (echoing the returned
 `EmitReply`) because their render needs the host build engine (`system-packages`: DistroDef format templates;
-`builder`: the multi-stage `buildStageContext` + `RenderTemplate` engine; `local-pkg-install`:
-`renderLocalPkgImageInstall` — the host localpkg build + staging; `op`: the RICHEST — `Generator.emitTasks`, the
+`builder`: the multi-stage `buildStageContext` + `RenderTemplate` engine; `local-pkg-install` is DIFFERENT
+(W3) — its render `deploykit.RenderLocalPkgImageInstall` is a PURE sdk/deploykit function needing no host
+callback, routed through this seam only for `buildEngineContext` threading uniformity; `op`: the RICHEST — `Generator.emitTasks`, the
 full per-verb render pipeline with COPY staging + op coalescing). Authoring + IR mechanism: `/charly-internals:install-plan` (the
 `externalStep` row + the build-emit externalization note); reference: `candy/plugin-example-stepkind`,
 `candy/plugin-installstep`.
@@ -522,6 +523,18 @@ drives that object itself (exactly as `candy/plugin-vm` and `candy/plugin-kube` 
 live venue through the reverse-channel broker (M4, the `substrateLifecycle`/`ExecutorService` legs) —
 needing the broker or the host IS the whole point of that seam, never a reason the construct must stay
 core.
+
+**Enforcement — the trap is checked, not just named.** A `// … STAYS CORE` / "cannot cross the process
+boundary" header comment is a CLAIM, never a verdict on its own: a mover reports where each externalized
+piece LANDED (never a bare "moved" claim) and gives any REMAINDER its own E/M/B/D justification, never one
+inherited from the moved majority; a validator REJECTS a remainder whose only justification is a
+stays-core header, demanding call-chain evidence first; and the orchestrator audits every stays-claim
+against this boundary law with that evidence, never rubber-stamping the header. Precedent:
+`charly/host_build_deploy_add.go`'s header states the `charly bundle add` CLI moved to `command:bundle`
+(candy/plugin-bundle, P13) while the deploy KERNEL it drives "STAYS CORE" on exactly this "cannot cross
+the process boundary" claim — overruled as a boundary-law violation (the deploy-dispatch kernel is
+tracked K-wave residue, not permanent core). Full three-role breakdown: `/charly-internals:agents`
+"Enforcement — 'host-coupled' is never a permanence reason".
 
 **The defines-vs-calls test — the concrete grep that makes E/M/B/D un-mis-applicable.** To decide whether
 a file is a genuine M-mechanism (kernel) or an R-item (moves), grep for where the mechanism is DEFINED —

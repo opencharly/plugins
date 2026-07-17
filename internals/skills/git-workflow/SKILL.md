@@ -65,7 +65,14 @@ evaluator's own spec.
   `git stash list` before any destructive working-tree action — `git stash`
   discards in-progress work; `rm` on a tracked file is destructive. When the
   sandbox blocks an action, read the reason and find a non-destructive
-  alternative — never work around it with a cleverer command.
+  alternative — never work around it with a cleverer command. **The
+  stash/pop cycle can itself silently un-stage a `git rm`:** a stash taken
+  while a deletion is staged restores the deletion as UNSTAGED on `pop`, so a
+  `git status` right after the cycle that shows the deleted file back as a
+  plain unstaged change (rather than the staged deletion you left) has quietly
+  lost the staging — re-stage it (`git rm <path>` again, or `git add -u`)
+  before committing; never assume a stash/pop round-trip is a no-op on a
+  mixed add+rm working tree.
 - **Right worktree — pin ONE absolute path for the whole edit→commit→push
   sequence.** Before branching, staging, or committing, confirm the worktree you
   are driving is the SAME one your edits landed in: `git -C <path> rev-parse
@@ -79,6 +86,15 @@ evaluator's own spec.
   to commit" / "working tree clean" right after you edited a file is the signature
   of this mistake — STOP and re-verify `--show-toplevel` before retrying (blind
   retry is an R1 violation).
+- **The universal PR-gate — audit before ANY PR action, unconditionally.**
+  Before opening, updating, or merging any pull request, run the aggregate
+  audit: `gh pr list` across every touched repo + `git worktree list` + the
+  live teammate/agent roster. This is a standing preflight, run first every
+  time — never reached for only once something already looks off — because
+  skipping it risks a duplicate PR for scope already covered in flight, a
+  branch update from a stale worktree, or a merge over a still-running
+  validator's verdict. Full operational detail: `/charly-internals:agents`
+  "The universal PR-gate".
 - **Post-commit staging verification — a multi-path `git add` with one bad
   pathspec can stage LESS than you intended, silently.** After EVERY commit,
   re-run `git status --short` (expect it empty, or only unrelated untracked
@@ -696,7 +712,18 @@ fetched (common for a sibling-worktree submodule) → `git fetch` first; cross-c
 <submodule-path>` from the superproject is a FALSE ZERO (git grep does not cross a
 gitlink) → `git -C <sub> grep` for the R5 sweep. The authoritative feat-branch head
 SHA comes from `git ls-remote origin refs/heads/<branch>` — `gh pr view --json
-headRefOid` LAGS a fresh push and will post the status on a stale SHA.
+headRefOid` LAGS a fresh push and will post the status on a stale SHA. Deriving the
+merge-time CalVer from a COMMIT's recorded date (`git show --date=format:'<fmt>'
+<sha>`, `git log -1 --format=%cd`) uses that commit's own author/committer TZ
+offset, not UTC, and can mis-stamp the tag/changelog by hours — `$VER` always comes
+from the LIVE clock at the moment of merge (`date -u +%Y.%j.%H%M`, per "CalVer"
+below), never from a commit's stored timestamp. A metric or grep verification
+command (a LOC count, a `git grep` sweep, a file-count claim) run from an
+ambient, `cd`-inherited working directory silently measures the WRONG tree the
+moment more than one worktree is in play — anchor every such command to an
+explicit repo root (`git -C /abs/path grep …`, or a `git rev-parse
+--show-toplevel` cross-check first), never a bare relative command trusting
+the shell's current directory.
 
 ## CalVer — generated AND rewritten at MERGE, by the evaluator
 
