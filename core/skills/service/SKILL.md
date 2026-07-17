@@ -339,9 +339,11 @@ single object. `ports` is a structured array (not `[]string`):
 Use the top-level `charly reap-orphans` command. It walks charly.yml
 ephemeral entries marked `active`, probes the underlying engine
 (libvirt for VM, podman for pod, kubectl for k8s) and runs `charly bundle
-del <name> --force` for orphans.
+del <name> --assume-yes` for orphans (NOT `--force` — that flag does not
+exist on `bundle del`; `deployDelArgv` is the single source of the correct
+flag, guarded by a regression test).
 
-Source: `charly/status_collector.go` (the collection engine — substrate fan-out + deploy enrichment; the pod/local live collectors moved to `candy/plugin-substrate` in P14a, the vm/k8s/android collectors + the pod deploy-enrichment stay here until K5), `charly/status_reap.go` (orphan reaping). The status CLI + render moved to `candy/plugin-status`; the live tool probes to `candy/plugin-substrate/status_probes.go` (P14a).
+Source: `charly/status_collector.go` (the collection engine — substrate fan-out + deploy enrichment; ALL FIVE live collectors, incl. vm/k8s/android, moved to `candy/plugin-substrate`; only the deploy-cone-coupled enrichment stays here, genuinely core-private — see its header comment), `candy/plugin-substrate/command_reap_orphans.go` (orphan reaping, K5, relocated from charly/status_reap.go — its vm-liveness probe reaches verb:libvirt over `Executor.InvokeProvider`, F10). The status CLI + render moved to `candy/plugin-status`; the live tool probes to `candy/plugin-substrate/status_probes.go` (P14a).
 
 ## Cross-References
 

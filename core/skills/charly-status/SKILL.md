@@ -16,76 +16,83 @@ across all five substrates — **pod, vm, k8s, local, android** — side by side
 A leading **KIND** column / `"kind"` JSON field discriminates which substrate
 each row came from.
 
-The architecture is a **substrate-collector registry**. `Collector.All` builds
-one read-only `CollectOpts`, fans the available collectors out across a
-`runtime.NumCPU()*2`-bounded goroutine pool, merges their rows, applies the
-nested overlay, and sorts by `(Kind, image)`. Each substrate is one
-`SubstrateCollector` living in its OWN file and self-registering via an
-`init()` → `registerSubstrate` — there is NO central registry slice to edit
-when a substrate is added. The pod collector still does the batched `podman
-ps` + `podman inspect` + worker-pool probe fan-out (host probes — CDP/VNC — in
+The architecture is a **generic word-dispatched fan-out**, not a registry: ALL
+FIVE substrates (pod/vm/k8s/local/android) are collected by ONE compiled-in
+provider (`candy/plugin-substrate`), served on its kind-provider `Invoke` as
+`sdk.OpStatusCollect`, dispatched by word — there is no `SubstrateCollector`
+interface or `init()`-time registry left in core (both were deleted once the
+last substrate, android, moved out). `Collector.collectFlat` (core) calls each
+word over the registry + reaches the reverse-channel executor so the plugin can
+call back (`HostBuild("resolved-project")` for vm/k8s, `InvokeProvider`
+for vm→libvirt), merges the rows, applies the DEPLOY-CONE enrichment core alone
+can still do (pod tunnel/volume/port fallback, vm SSH-port/network), and sorts
+by `(Kind, image)`. The pod collector still does the batched `podman ps` +
+`podman inspect` + worker-pool probe fan-out (host probes — CDP/VNC — in
 parallel goroutines; guest probes — supervisord/dbus/charly/wl/sway — batched into
 one `podman exec sh -c`); the other collectors read their own backends
 (libvirt for vm, client-go for live k8s, the install ledger for local, adb for
-android).
+android) — ALL inside the plugin now.
 
-**Graceful degradation is the contract.** A collector whose backend is
-unreachable on this host (`Available(opts) == false` — e.g. the libvirt vm
-collector with no libvirt session) is skipped SILENTLY — no rows, no error. A
-collector that errors mid-collect logs a single `WARNING:` to stderr and
-contributes zero rows, but NEVER aborts the whole command. So `charly status` on a
-host with only podman shows the pod rows and silently omits vm/k8s/android;
-the surface always renders what it can.
+**Graceful degradation is the contract.** A word resolve miss or an
+`Invoke`/collect error logs a single `WARNING:` to stderr and contributes zero
+rows, but NEVER aborts the whole command. So `charly status` on a host with
+only podman shows the pod rows and silently omits vm/k8s/android; the surface
+always renders what it can.
 
 Source layout:
 
 The `charly status` surface is split across THREE homes: the **command:status
-plugin** owns the CLI + render + the PURE nested overlay; the **substrate plugin**
-(candy/plugin-substrate) owns the cleanly-movable COLLECTORS (pod live + local +
-the probes); **core** keeps only the kind-blind fan-out orchestration + the
-deploy-cone-coupled collectors (vm/k8s/android + the pod deploy-enrichment),
-which stay host-side until K5.
+plugin** owns the CLI + render + the PURE nested overlay + the declared-nested-tree
+pre-resolution; the **substrate plugin** (candy/plugin-substrate) owns ALL FIVE
+per-substrate COLLECTORS (pod/vm/k8s/local/android) + the probes + the externalized
+`charly reap-orphans` command; **core** keeps only the kind-blind fan-out
+orchestration + the deploy-cone-coupled ENRICHMENT (pod tunnel/volume/port
+fallback + vm SSH-port/network), which stays host-side (genuinely core-private:
+the registry itself, T-55's K4 shared-resolver set, and several unverified
+core-private helpers — see `charly/status_collector.go`'s header comment).
 
 - `candy/plugin-status/command.go` — the `charly status` Kong grammar + dispatch
   (the `--nested` and `--json` flags live here); drives the `status-substrate`
-  HostBuild seam + applies the PURE nested overlay + renders.
+  HostBuild seam for the flat rows, calls the plugin's own `buildStatusRootsTree`
+  for the declared tree, applies the PURE nested overlay + renders.
 - `candy/plugin-status/render.go` — the unified `DeploymentStatus` rendered
   shape + `RenderTable` / `RenderDetail` / `RenderJSON` / `RenderJSONOne` +
   cell formatters.
 - `candy/plugin-status/overlay.go` — the PURE nested-overlay fold.
+- `candy/plugin-status/nested_tree.go` — the declared-nested-tree pre-resolution
+  (K5, relocated from charly/status_nested.go's buildStatusRootsTree): resolves
+  the merged project + per-machine deploy tree directly (`HostBuild("resolved-
+  project")` + `deploykit.LoadBundleConfig`) into the wire-safe
+  `[]spec.StatusNestedNode` shape the overlay folds, including the `--nested`
+  live-probe leg (`ResolveDeployChain` + `NestedExecutor`, the SAME primitive
+  `charly bundle add` / `charly check live parent.child` use).
 - `charly/status_substrate_host.go` — the generic `status-substrate` F10
-  host-builder the command:status plugin drives (the host collection engine).
+  host-builder the command:status plugin drives for the FLAT rows only (no
+  longer carries the declared tree — see nested_tree.go above).
 - `charly/status_collector.go` — `Collector.collectFlat` (the substrate fan-out +
   merge + sort) / `Collector.Single`; `collectSubstrate` (reaches the substrate
-  plugin's OpStatusCollect for pod/local); `enrichOne` (the DEPLOY-ENRICHMENT
+  plugin's OpStatusCollect for ALL FIVE words); `enrichOne` (the DEPLOY-ENRICHMENT
   half — charly.yml tunnel + image-label fallback, applied to the plugin's LIVE
-  pod rows); `lookupDeploy`; `resolveSystemdState`; `parsePortStrings`;
-  `formatTunnelSummary`. Holds NO enginekit client (the live pod collection
-  moved to the substrate plugin, P14a).
+  pod rows); `enrichVmRow` (SSH-port/network from the matching target:vm deploy
+  entry); `lookupDeploy`; `resolveSystemdState`; `parsePortStrings`;
+  `formatTunnelSummary`. Holds NO enginekit client (the live collection moved
+  entirely to the substrate plugin).
 - `charly/status_substrate.go` — the `SubstrateKind` discriminator
-  (`pod`/`vm`/`k8s`/`local`/`android`), the `CollectOpts` read-only input (NO
-  engine — the pod/local collectors moved to the plugin), the
-  `SubstrateCollector` interface, and the `init()`-time `registerSubstrate`
-  registry (vm/k8s/android only now).
-- `charly/status_collect_vm.go` — the `VMCollector` (libvirt domains → vm rows,
-  `Source="libvirt"`). STAYS host-side until K5 (deploy-cone-coupled).
-- `charly/status_collect_k8s.go` — the `K8sCollector` (cluster workloads; live
-  client-go probing under `--nested`). STAYS host-side until K5.
-- `charly/status_collect_adb.go` — the `AndroidCollector` (declared
-  `android` devices → rows via adb `host:devices`, `Source="adb"`). STAYS
-  host-side until K5.
-- `charly/status_nested.go` — the nested overlay (`applyNestedOverlay`): folds the
-  DECLARED nested tree onto parent rows and, under `--nested`, probes each
-  child's live multi-hop venue via the same `ResolveDeployChain` +
-  `NestedExecutor` primitive `charly bundle add` / `charly check live parent.child` use.
-- `charly/status_reap.go` — `ReapOrphansCmd` (the top-level `charly reap-orphans`
-  command).
+  (`pod`/`vm`/`k8s`/`local`/`android`) and the `CollectOpts` read-only input
+  (`IncludeAll`/`Deploy`/`RunMode` — NO engine, NO Nested/Unified, both dead
+  once the declared-tree resolution left core).
 - `candy/plugin-substrate/status_collect.go` — the COLLECTOR OpStatusCollect
-  dispatch (by word pod/vm/k8s/local/android; vm/k8s/android defer to K5).
+  dispatch (by word pod/vm/k8s/local/android — ALL FIVE now).
 - `candy/plugin-substrate/status_pod.go` — the pod LIVE collection (SnapshotAll +
   the worker-pool fan-out + `collectPodLive` row builder + `runPodProbes` +
   `applyQuadletDescription` + `enabledQuadlets` + `parseQuadletDescription` +
   `formatLiveMounts`).
+- `candy/plugin-substrate/status_vm.go` — the vm collector (libvirt domains →
+  vm rows, `Source="libvirt"`).
+- `candy/plugin-substrate/status_k8s.go` — the k8s collector (cluster
+  workloads; live client-go probing under `--nested`).
+- `candy/plugin-substrate/status_android_collect.go` — the android collector
+  (declared `android` devices → rows via adb `host:devices`, `Source="adb"`).
 - `candy/plugin-substrate/status_local.go` — the local install-ledger collector
   (`Source="ledger"`).
 - `candy/plugin-substrate/status_probes.go` — `Probe` / `HostProbe` /
@@ -93,12 +100,17 @@ which stay host-side until K5.
   `DbusProbe`, `CharlyProbe`, `WlProbe`, `SwayProbe` are guest; `CdpProbe`,
   `VncProbe` are host). `runGuestProbes` builds a single concatenated shell
   script with per-probe markers and splits the stdout chunks back out.
+- `candy/plugin-substrate/command_reap_orphans.go` — `ReapOrphansCmd` (the
+  externalized `charly reap-orphans` command, K5, relocated from
+  charly/status_reap.go), a new `command:reap-orphans` capability on the SAME
+  provider; its vm-liveness probe reaches the verb:libvirt peer provider via
+  `Executor.InvokeProvider` (F10) instead of a core-private accessor.
 - `sdk/enginekit` — `EngineClient` (the only place that touches podman/docker),
   `ContainerSnapshot`, structured `PortMapping` — the sdk kit the substrate
   plugin's pod-live collection imports.
 - `sdk/spec/status_types.go` — `SubstrateKind` + `StatusFromState` (the shared
-  state-vocab mapper, single-sourced for the plugin's pod-live + the host's vm
-  collector).
+  state-vocab mapper, single-sourced for every plugin collector + the host's
+  enrichment).
 
 ## Quick Reference
 
