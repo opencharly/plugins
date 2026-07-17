@@ -86,6 +86,15 @@ evaluator's own spec.
   to commit" / "working tree clean" right after you edited a file is the signature
   of this mistake — STOP and re-verify `--show-toplevel` before retrying (blind
   retry is an R1 violation).
+- **The universal PR-gate — audit before ANY PR action, unconditionally.**
+  Before opening, updating, or merging any pull request, run the aggregate
+  audit: `gh pr list` across every touched repo + `git worktree list` + the
+  live teammate/agent roster. This is a standing preflight, run first every
+  time — never reached for only once something already looks off — because
+  skipping it risks a duplicate PR for scope already covered in flight, a
+  branch update from a stale worktree, or a merge over a still-running
+  validator's verdict. Full operational detail: `/charly-internals:agents`
+  "The universal PR-gate".
 - **Post-commit staging verification — a multi-path `git add` with one bad
   pathspec can stage LESS than you intended, silently.** After EVERY commit,
   re-run `git status --short` (expect it empty, or only unrelated untracked

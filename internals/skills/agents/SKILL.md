@@ -1291,6 +1291,23 @@ genuinely orphaned resource must be cleared, target it by its specific identity
 (`charly vm destroy <entity> --domain <bed>`, `charly remove <name>`, `podman rmi -f
 <id>`), never a broad `pkill`.
 
+### The universal PR-gate — audit before ANY PR action, always
+
+**Before opening, updating, or merging any pull request, run the aggregate
+audit — unconditionally, as a standing preflight, never situational advice
+reached for only when something already looks off:** `gh pr list` across
+every repo touched by the cutover (superproject, `sdk`, `plugins`, each
+`box/<distro>`) + `git worktree list` + the live teammate/agent roster. This
+is an invert-the-default step: run it FIRST, every time, not as a response
+to a suspected conflict. Skipping it risks opening a duplicate PR for scope
+another teammate's in-flight PR already covers, updating the wrong branch
+from a stale worktree, or merging over a still-running validator's verdict —
+each cheaper to prevent with three read-only commands than to unwind after
+the fact. The orchestrator runs this audit before dispatching a PR action to
+any teammate or validator, and a teammate/validator about to take a PR
+action runs it itself first when acting without the orchestrator's direct
+supervision.
+
 ### Worktree lifecycle + validator identity — orchestrator-owned, never assumed
 
 - **The author worktree is the validator target.** A fresh validator receives a new
