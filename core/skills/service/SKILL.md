@@ -343,7 +343,7 @@ del <name> --assume-yes` for orphans (NOT `--force` — that flag does not
 exist on `bundle del`; `deployDelArgv` is the single source of the correct
 flag, guarded by a regression test).
 
-Source: `charly/status_collector.go` (the collection engine — substrate fan-out + deploy enrichment; ALL FIVE live collectors, incl. vm/k8s/android, moved to `candy/plugin-substrate`; only the deploy-cone-coupled enrichment stays here, genuinely core-private — see its header comment), `candy/plugin-substrate/command_reap_orphans.go` (orphan reaping, K5, relocated from charly/status_reap.go — its vm-liveness probe reaches verb:libvirt over `Executor.InvokeProvider`, F10). The status CLI + render moved to `candy/plugin-status`; the live tool probes to `candy/plugin-substrate/status_probes.go` (P14a).
+Source: `candy/plugin-substrate/status_flat.go` (the collection engine — substrate fan-out + deploy enrichment; K6 relocated the LAST core-side status logic, incl. the deploy-cone enrichment, out of `charly/status_collector.go`, which is now deleted — core keeps only a thin generic HostBuild forward), `candy/plugin-substrate/command_reap_orphans.go` (orphan reaping, K5, relocated from charly/status_reap.go — its vm-liveness probe reaches verb:libvirt over `Executor.InvokeProvider`, F10). The status CLI + render live in `candy/plugin-status`; the live tool probes in `candy/plugin-substrate/status_probes.go` (P14a).
 
 ## Cross-References
 
