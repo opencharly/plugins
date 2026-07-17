@@ -107,7 +107,7 @@ The trigger appears to be a podman-side overlay-unpack quirk under specific laye
 
 ### Operational impact
 
-**The failure is non-fatal.** `mergeAfterBuild` (`charly/build.go:178-186`) treats merge failure as a non-fatal warning. The build itself returns 0, the image is tagged at its CalVer, every individual layer digest is valid, and `charly start` runs the unmerged image with no functional difference — only the layer count is higher than ideal (~39 layers instead of the ~12 a successful merge would produce).
+**The failure is non-fatal.** `mergeBox` (`candy/plugin-build/drive.go`) treats merge failure as a non-fatal warning — it never fails the build. The build itself returns 0, the image is tagged at its CalVer, every individual layer digest is valid, and `charly start` runs the unmerged image with no functional difference — only the layer count is higher than ideal (~39 layers instead of the ~12 a successful merge would produce).
 
 ### Diagnostic hook: `CHARLY_MERGE_KEEP_TMP=1`
 
