@@ -65,7 +65,7 @@ The candy's single cmd task:
    isn't running (image build, masked unit, etc.).
 3. Resolves the human deploy user via `getent passwd 1000 | cut -d: -f1`.
    This matches the `wheel-nopasswd` candy and the
-   `renderBuilderScript` helper in `charly/deploy_host_helpers.go` — uid 1000
+   `deploykit.RenderBuilderScript` helper in `sdk/deploykit/localpkg.go` (relocated from `charly/deploy_host_helpers.go` in the W3 build-engine wave) — uid 1000
    is the canonical "first human user" in this repo across CachyOS,
    Arch, Fedora, Debian, and Ubuntu base images. `SUDO_USER` is
    intentionally NOT used: `runSudoShell` calls `sudo -n bash -s`
