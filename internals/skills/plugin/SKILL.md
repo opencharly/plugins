@@ -524,6 +524,18 @@ live venue through the reverse-channel broker (M4, the `substrateLifecycle`/`Exe
 needing the broker or the host IS the whole point of that seam, never a reason the construct must stay
 core.
 
+**Enforcement — the trap is checked, not just named.** A `// … STAYS CORE` / "cannot cross the process
+boundary" header comment is a CLAIM, never a verdict on its own: a mover reports where each externalized
+piece LANDED (never a bare "moved" claim) and gives any REMAINDER its own E/M/B/D justification, never one
+inherited from the moved majority; a validator REJECTS a remainder whose only justification is a
+stays-core header, demanding call-chain evidence first; and the orchestrator audits every stays-claim
+against this boundary law with that evidence, never rubber-stamping the header. Precedent:
+`charly/host_build_deploy_add.go`'s header states the `charly bundle add` CLI moved to `command:bundle`
+(candy/plugin-bundle, P13) while the deploy KERNEL it drives "STAYS CORE" on exactly this "cannot cross
+the process boundary" claim — overruled as a boundary-law violation (the deploy-dispatch kernel is
+tracked K-wave residue, not permanent core). Full three-role breakdown: `/charly-internals:agents`
+"Enforcement — 'host-coupled' is never a permanence reason".
+
 **The defines-vs-calls test — the concrete grep that makes E/M/B/D un-mis-applicable.** To decide whether
 a file is a genuine M-mechanism (kernel) or an R-item (moves), grep for where the mechanism is DEFINED —
 the registry in `provider_registry.go`, the kind-decode fold in `materialize.go`, the reverse-channel

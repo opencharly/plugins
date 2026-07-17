@@ -256,6 +256,41 @@ the explicit `placement:` verdict) → the P16 triple gate (the end-state floor:
 allowlist + import-purity + zero-alias) → the orchestrator's every-decision
 judgment (this duty).**
 
+### Enforcement — "host-coupled" is never a permanence reason
+
+CLAUDE.md's kernel/plugin boundary law names the trap explicitly: calling a
+construct a "host-boundary object" — it "can't cross the process boundary,"
+or "drives podman/ssh/flock/systemd itself" — is NEVER a permanence reason;
+a plugin drives that same host object itself, or reaches a live venue over
+the reverse-channel broker, exactly as the seam is FOR. Three roles enforce
+this so the trap never survives a landing unchallenged:
+
+- **The mover reports where each piece LANDED.** A cutover that externalizes
+  a subsystem states, per file/function, its new plugin/kit home — never a
+  bare "moved" claim. A remainder left in core carries its OWN justification
+  (an E/M/B/D clause), never inherited from the moved majority.
+- **A validator REJECTS a remainder whose only justification is a
+  stays-core header.** A `// … STAYS CORE` / "cannot cross the process
+  boundary" comment is a CLAIM, not a verdict — the fresh `pr-validator`'s
+  architecture gate treats it as suspect by default and requires the mover
+  to show call-chain evidence (who calls it, over what seam, why THIS
+  specific piece cannot resolve into an envelope) before accepting the
+  remainder.
+- **The orchestrator audits stays-claims against the boundary law with
+  call-chain evidence** — never rubber-stamping a header. Precedent:
+  `charly/host_build_deploy_add.go`'s header states the `charly bundle add`
+  CLI moved to `command:bundle` (candy/plugin-bundle, P13) but the deploy
+  KERNEL it drives "STAYS CORE" because it holds "host objects that cannot
+  cross the process boundary" — the OPERATOR OVERRULED this exact claim as
+  a boundary-law violation (the deploy-dispatch kernel is K4 residue, not
+  permanent core); a plugin can drive that same host object itself, or
+  reach a live venue over the reverse-channel broker the seam already
+  provides for every other externalized substrate.
+
+See CLAUDE.md "The kernel/plugin boundary law" (the canonical definition +
+the named host-boundary-object trap) and `/charly-internals:plugin` (the
+placement table + the incomplete-seam catalog).
+
 ### The north-star protocol — align a multi-teammate program BY CONSTRUCTION
 
 Before fanning a multi-teammate program out, the orchestrator AUTHORS a
