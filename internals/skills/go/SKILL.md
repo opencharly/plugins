@@ -333,7 +333,7 @@ Provider/registry/SDK internals are owned by **`/charly-internals:plugin`**; the
 | `shell.go` | `shell` command (execs engine run) |
 | `start.go` | `start`/`stop` commands |
 | `candy/plugin-status/command.go` | `status` command (the Kong grammar + dispatch; structured table/detail view, live tool probing, `--json`) — relocated from core, reached via the `status-substrate` HostBuild seam |
-| `charly/status_collector.go` | the `charly status` collection ENGINE that stays core: `Collector.collectFlat` (substrate fan-out) / `Collector.Single` / `enrichOne` (deploy enrichment) — the pod/local live collectors moved to `candy/plugin-substrate` (P14a), the vm/k8s/android collectors + the pod deploy-enrichment stay here until K5 |
+| `candy/plugin-substrate/status_flat.go` | the `charly status` collection ENGINE (K6, whole-file relocated from charly/status_collector.go — the "stays core, registry-boundary blocker" verdict was reopened and reversed): `flatCollector.collectFlat` (substrate fan-out, a direct in-package call to `statusCollect`) / `flatCollector.collectSingle` / `enrichOne` (deploy enrichment). `charly/status_substrate_host.go` is now a thin generic HostBuild forward with zero status-specific logic |
 | `commands.go` | `enable`/`disable`/`logs`/`update`/`remove` |
 | `service.go` | `service` command (init system service management inside containers) |
 | `data.go` | Volume data seeding (`provisionData`, `seedKind`, `SeederHelperImage`) for bind-backed + named-volume targets, driven by `charly config --seed`/`--force-seed` |

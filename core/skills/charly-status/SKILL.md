@@ -41,15 +41,19 @@ always renders what it can.
 
 Source layout:
 
-The `charly status` surface is split across THREE homes: the **command:status
-plugin** owns the CLI + render + the PURE nested overlay + the declared-nested-tree
-pre-resolution; the **substrate plugin** (candy/plugin-substrate) owns ALL FIVE
-per-substrate COLLECTORS (pod/vm/k8s/local/android) + the probes + the externalized
-`charly reap-orphans` command; **core** keeps only the kind-blind fan-out
-orchestration + the deploy-cone-coupled ENRICHMENT (pod tunnel/volume/port
-fallback + vm SSH-port/network), which stays host-side (genuinely core-private:
-the registry itself, T-55's K4 shared-resolver set, and several unverified
-core-private helpers — see `charly/status_collector.go`'s header comment).
+The `charly status` surface is split across TWO homes now (K6 retired the
+third): the **command:status plugin** owns the CLI + render + the PURE nested
+overlay + the declared-nested-tree pre-resolution; the **substrate plugin**
+(candy/plugin-substrate) owns EVERYTHING ELSE — ALL FIVE per-substrate
+COLLECTORS (pod/vm/k8s/local/android), the FLAT fan-out + deploy-cone
+ENRICHMENT (formerly charly/status_collector.go's Collector — the "stays core,
+registry-boundary blocker" verdict was reopened and reversed: the registry
+fan-out dissolves into a direct in-package call once the orchestration moves
+into the plugin that already owns the per-word collectors, and every other
+dependency was already sdk-portable via K4 #64), the probes, and the
+externalized `charly reap-orphans` command. **Core keeps NO status business
+logic at all** — only the generic `status-substrate` HostBuild seam, a thin
+forward with zero status-specific code.
 
 - `candy/plugin-status/command.go` — the `charly status` Kong grammar + dispatch
   (the `--nested` and `--json` flags live here); drives the `status-substrate`
@@ -67,20 +71,20 @@ core-private helpers — see `charly/status_collector.go`'s header comment).
   live-probe leg (`ResolveDeployChain` + `NestedExecutor`, the SAME primitive
   `charly bundle add` / `charly check live parent.child` use).
 - `charly/status_substrate_host.go` — the generic `status-substrate` F10
-  host-builder the command:status plugin drives for the FLAT rows only (no
-  longer carries the declared tree — see nested_tree.go above).
-- `charly/status_collector.go` — `Collector.collectFlat` (the substrate fan-out +
-  merge + sort) / `Collector.Single`; `collectSubstrate` (reaches the substrate
-  plugin's OpStatusCollect for ALL FIVE words); `enrichOne` (the DEPLOY-ENRICHMENT
-  half — charly.yml tunnel + image-label fallback, applied to the plugin's LIVE
-  pod rows); `enrichVmRow` (SSH-port/network from the matching target:vm deploy
-  entry); `lookupDeploy`; `resolveSystemdState`; `parsePortStrings`;
-  `formatTunnelSummary`. Holds NO enginekit client (the live collection moved
-  entirely to the substrate plugin).
-- `charly/status_substrate.go` — the `SubstrateKind` discriminator
-  (`pod`/`vm`/`k8s`/`local`/`android`) and the `CollectOpts` read-only input
-  (`IncludeAll`/`Deploy`/`RunMode` — NO engine, NO Nested/Unified, both dead
-  once the declared-tree resolution left core).
+  host-builder, now a THIN forward (K6): resolve `verb:status-fanout`, thread
+  the reverse-channel executor, invoke, return the reply verbatim. No
+  status-specific logic remains in core.
+- `candy/plugin-substrate/status_flat.go` — `flatCollector.collectFlat` (the
+  substrate fan-out + merge + sort) / `flatCollector.collectSingle`;
+  `collectWord` (a DIRECT in-package call to `statusCollect` for ALL FIVE
+  words — no registry, no wire round-trip); `enrichOne` (the DEPLOY-ENRICHMENT
+  half — charly.yml tunnel + image-label fallback, applied to the pod
+  collector's LIVE rows); `enrichVmRow` (SSH-port/network from the matching
+  target:vm deploy entry); `lookupDeploy`; `resolveSystemdState`;
+  `listProvisionedSecretNames`; `parsePortStrings`; `formatTunnelSummary`.
+  Served by `verb:status-fanout`'s `Invoke(sdk.OpStatusCollectAll)`
+  (plugin.go) — an INTERNAL-ONLY verb, never a CLI subcommand, mirroring the
+  `verb:libvirt`/`verb:credential`/`verb:arbiter` internal-dispatch precedent.
 - `candy/plugin-substrate/status_collect.go` — the COLLECTOR OpStatusCollect
   dispatch (by word pod/vm/k8s/local/android — ALL FIVE now).
 - `candy/plugin-substrate/status_pod.go` — the pod LIVE collection (SnapshotAll +
