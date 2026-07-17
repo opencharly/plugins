@@ -337,7 +337,8 @@ build cache-hits. A CalVer bump on an unchanged upstream is free.
 The `ai.opencharly.version` LABEL baked into each image is likewise NOT a
 per-build timestamp — it's the content-derived `EffectiveVersion` (the image's
 dedicated `version:`, else the highest layer `version:` across the chain; computed
-by `computeEffectiveVersions` in `charly/effective_version.go`). It is STABLE across
+by `deploykit.ComputeEffectiveVersions`, called inline from `charly/generate.go`'s
+`NewGenerator` — K3 retired the former charly/effective_version.go wrapper). It is STABLE across
 builds when no layer changed, so it does not shift the image's config → SHA and
 therefore does not cascade cache-misses to children via `FROM`. Only a real
 content change (a bumped layer `version:`) moves it.

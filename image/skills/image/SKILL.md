@@ -206,7 +206,7 @@ Every setting resolves through: **image -> defaults -> hardcoded fallback** (fir
 | Field | Default | Description |
 |-------|---------|-------------|
 | `enabled` | `true` | Set `false` to disable (skipped by generate, validate, list) |
-| `version` | `""` | OPTIONAL dedicated CalVer (`YYYY.DDD.HHMM`). When set it IS the image's `ai.opencharly.version` label; when unset the label is derived as the highest layer version across the chain (`EffectiveVersion`, `charly/effective_version.go`). Layered images leave it unset (they derive — keeps the label content-stable); a layerless bare base on an EXTERNAL registry base needs it (else the label can't be derived) — `charly migrate` backfills those |
+| `version` | `""` | OPTIONAL dedicated CalVer (`YYYY.DDD.HHMM`). When set it IS the image's `ai.opencharly.version` label; when unset the label is derived as the highest layer version across the chain (`EffectiveVersion`, `deploykit.ComputeEffectiveVersions`). Layered images leave it unset (they derive — keeps the label content-stable); a layerless bare base on an EXTERNAL registry base needs it (else the label can't be derived) — `charly migrate` backfills those |
 | `base` | `quay.io/fedora/fedora:43` | External OCI image or name of another box |
 | `bootc` | `false` | Adds `bootc container lint`, enables disk image builds |
 | `platform` | `["linux/amd64", "linux/arm64"]` | Target architectures |
