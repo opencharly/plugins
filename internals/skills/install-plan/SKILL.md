@@ -356,7 +356,8 @@ token; `compileShellSnippetSteps` emits it for deploy targets (`hostCtx.Target`
 `ShellSnippetStep` (Snippet + Destination + PathAppend), and `FileStep.Dest`;
 it deliberately skips `OpStep` command/content bodies (`~`/`$HOME` there
 shell-expand at runtime on the destination as the deploy user) and
-`BuilderStep` (home resolved separately by `renderBuilderScript`). It is
+`BuilderStep` (home resolved separately by `deploykit.RenderBuilderScript`,
+`sdk/deploykit/localpkg.go`). It is
 idempotent. Baking `img.Home` at compile time was the VM `$HOME` bug: the
 synthetic plan's Home was the host operator's, so a guest deploy wrote env.d
 pointing at `/home/<operator>` and user-scope installs (npm -g, cargo) landed

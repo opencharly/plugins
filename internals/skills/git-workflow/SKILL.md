@@ -723,7 +723,19 @@ ambient, `cd`-inherited working directory silently measures the WRONG tree the
 moment more than one worktree is in play — anchor every such command to an
 explicit repo root (`git -C /abs/path grep …`, or a `git rev-parse
 --show-toplevel` cross-check first), never a bare relative command trusting
-the shell's current directory.
+the shell's current directory. A stronger, WRITE-side form of the same
+footgun: a MUTATING command (anything that writes files or runs `git
+submodule update` as a side effect — `task cue:gen` is the canonical
+offender) run against a stale, ambient cwd doesn't just misreport, it
+MUTATES the wrong tree. Live incident: a fresh evaluator ran `task cue:gen`
+with a persisted shell cwd that had drifted to the main session worktree —
+the task's own `git submodule update` chain rewound 5 submodule checkouts +
+the `pkg/arch` gitlink there before the mistake was caught (fully restored,
+disclosed). So every mutating task/command invocation in an isolated-worktree
+workflow (a validator run, a teammate's branch work, a spike) carries an
+explicit `cd <worktree> &&` anchor IN THE SAME compound command — never a
+bare `task cue:gen` (or any command with submodule/file-write side effects)
+trusting a cwd set by an earlier, unrelated step.
 
 ## CalVer — generated AND rewritten at MERGE, by the evaluator
 
