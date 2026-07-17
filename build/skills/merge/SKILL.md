@@ -131,7 +131,7 @@ for f in *.tar.gz; do
 done | awk -F'\t' '{cnt[$2]++} END {for (p in cnt) if (cnt[p]>1) print cnt[p], p}' | sort -rn | head
 ```
 
-Source: `charly/merge.go:saveImageToDaemon` (the keep-on-fail logic; `loaded` flag gates the cleanup defer).
+Source: `candy/plugin-oci/merge.go:saveImageToDaemon` (the keep-on-fail logic; `loaded` flag gates the cleanup defer) — the go-containerregistry merge engine has lived out-of-process here since the P14a cutover; it was never in `charly/merge.go` (the former core CLI shell, itself relocated to `candy/plugin-box/merge_cmd.go` at P14).
 
 ## Project directory override
 
