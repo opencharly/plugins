@@ -115,7 +115,7 @@ Emits all active recording sessions with name, mode, and file path.
     text: echo 'Hello World'
 ```
 
-Sends a command into the recording's tmux session. For terminal recordings, the command and its output become part of the `.cast` file. Uses the shared `sendTmuxCommand()` helper (also used by `charly tmux cmd`).
+Sends a command into the recording plugin's private tmux session. For terminal recordings, the command and its output become part of the `.cast` file. This is the typed `record: cmd` operation, not a general terminal-control surface.
 
 ## Recording Tools
 
@@ -165,9 +165,8 @@ charly check live openclaw --filter record    # runs the ordered record: steps a
 asciinema play /tmp/demo.cast                  # play back the copied-out artifact
 ```
 
-To interact by hand instead, attach to the recording's tmux session (a separate
-`charly tmux` surface, unaffected by the verb): `charly tmux attach openclaw -s record-demo`
-(Ctrl-b d to detach).
+Recording sessions are intentionally controlled through `record:` steps so the
+resulting cast and artifact checks remain correlated with the check run.
 
 ## Use Case: Desktop Walkthrough Video
 
@@ -217,13 +216,13 @@ charly check live selkies-desktop --filter record --filter cdp --filter wl
 ## Implementation Notes
 
 - `record` is served out-of-process by `candy/plugin-record`; there is NO host `charly check` subcommand for it. The host dispatches the `record:` verb through the provider registry (`ResolveVerb("record")`) and the EXEC-based plugin drives the venue over the live `DeployExecutor` reverse channel.
-- `record: cmd` uses the shared `sendTmuxCommand()` helper (also used by `charly tmux cmd`). The cosmetic desktop notification the former in-tree `record cmd` sent is no longer emitted — it had no bearing on the check verdict.
+- `record: cmd` owns the recording session's input path. The cosmetic desktop notification is not part of the check verdict.
 
 ## Cross-References
 
 - `/charly-check:check` — the parent check router (the `record:` verb catalog entry, the artifact-validation modifiers, and `charly check live --filter record`)
 - `/charly-internals:plugin` — the out-of-process provider model that serves `record` (the EXEC-based reverse channel)
-- `/charly-automation:tmux` — Underlying tmux session management (recording sessions use the `record-` prefix; `charly tmux cmd` shares the `sendTmuxCommand` helper)
+- `/charly-automation:tmux` — Separate typed terminal provider for operator and agent terminal sessions
 - `/charly-coder:asciinema` — Terminal recording layer
 - `/charly-selkies:wl-record-pixelflux` — Pixelflux video recording layer
 - `/charly-selkies:wf-recorder` — wf-recorder video recording layer

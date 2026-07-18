@@ -167,17 +167,17 @@ agents: {
 
 ### OAuth Auth (OpenAI Codex)
 
-**Critical:** The `openclaw models auth login` TUI requires a real terminal to complete the post-callback token exchange. Do NOT pipe through `tee` or redirect stdout — it breaks the TUI event loop. **Use `charly tmux`** (see `/charly-automation:tmux`):
+**Critical:** The `openclaw models auth login` TUI requires a real terminal to complete the post-callback token exchange. Do not pipe or redirect it. Use the typed persistent terminal provider (see `/charly-automation:tmux`):
 
 ```bash
-IMG=<image>
+RUN=0198f140-6b7a-7b90-8a10-aabbccddee01
+TARGET='{"deployment":"openclaw"}'
+PROFILE='{"name":"openclaw-oauth","entrypoint":["openclaw","models","auth","login","--provider","openai-codex","--set-default"],"cols":120,"rows":40,"persistence":"required","transcript":"both"}'
 
-# 1. Start OAuth in a tmux session (real terminal)
-charly tmux run $IMG -s oauth "openclaw models auth login --provider openai-codex --set-default"
-
-# 2. Read the OAuth URL from tmux output
-sleep 5
-charly tmux capture $IMG -s oauth | grep -o 'https://auth.openai.com/[^ ]*'
+# Start with a real PTY, then read normalized screen/evidence without redirecting the TUI.
+charly agent terminal launch "$PROFILE" --target "$TARGET" --run-id "$RUN"
+charly agent terminal snapshot "$PROFILE" --target "$TARGET" --run-id "$RUN"
+charly agent terminal transcript "$RUN"
 
 # 3. Drive the browser via cdp:/vnc: plan steps (the cdp: verb is served
 #    out-of-process by candy/plugin-cdp): cdp: open the OAuth URL, then locate
@@ -187,9 +187,8 @@ charly tmux capture $IMG -s oauth | grep -o 'https://auth.openai.com/[^ ]*'
 #    pointer). Run the leg with:  charly check live $IMG --filter cdp --filter vnc
 #    Full recipe: /charly-check:cdp.
 
-# 4. Verify completion
-sleep 10
-charly tmux capture $IMG -s oauth
+# 4. Verify completion from a structured snapshot or durable transcript.
+charly agent terminal snapshot "$PROFILE" --target "$TARGET" --run-id "$RUN"
 # Should show: "OpenAI OAuth complete", "Default model set to openai-codex/gpt-5.4"
 ```
 
@@ -197,7 +196,7 @@ charly tmux capture $IMG -s oauth
 
 **Callback architecture:** The OAuth callback hits `http://127.0.0.1:1455/auth/callback` inside the container. Chrome and `openclaw-models` share the same network namespace — no port mapping needed for 1455. The `BROWSER=browser-open` env var (set by the chrome candy) auto-opens URLs via CDP, but may not trigger in all TTY contexts — author a `cdp: open` step (the `cdp:` verb, served out-of-process by candy/plugin-cdp) as a fallback.
 
-**Stale port 1455:** If a previous attempt left port 1455 occupied: `charly shell $IMG -c 'kill -9 $(ss -tlnp sport = :1455 | grep -oP "pid=\K\d+")'`
+**Occupied port 1455:** Treat an unexplained surviving owner as an incident. Preserve its terminal/process evidence, complete RCA, then apply the recorded recovery decision (normally close/abort the exact run); never kill a discovered PID ad hoc.
 
 Tokens persist in `~/.openclaw/agents/main/agent/auth-profiles.json` in the `data` volume. Survive `charly stop`/`charly start` and image rebuilds. Only destroyed by `charly remove --purge`.
 

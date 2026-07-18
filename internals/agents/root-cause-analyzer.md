@@ -57,6 +57,12 @@ IMPACT: [Why this matters / what it blocks]
 
 ### Step 4: INVESTIGATE SYSTEMATICALLY
 
+Use Charly's command surface first. Do not replace `charly status`, `charly logs`,
+`charly cmd`, `charly cp`, or `charly check` with ad-hoc container-engine commands.
+If Charly-native evidence proves a process is blocked and no stack endpoint exists,
+attach a debugger to that exact PID (read-only when possible); preserve the stack
+before a controlled single-process interruption. Never broad-kill processes.
+
 ```bash
 # Check validation
 charly box validate
@@ -98,6 +104,7 @@ Fix ROOT CAUSE, not symptoms:
 - Do NOT hide error messages
 - Do NOT change expected behavior to match error
 - Do NOT add workarounds
+- Do NOT add sleeps, polling loops, backoff, or arbitrary timed retries
 - DO fix the actual broken code/config
 - DO sweep documentation divergence TRANSITIVELY — when the root cause is (or surfaces) a stale/false/misleading doc, skill, or comment, fix EVERY other doc/skill/comment carrying the same claim, not only the file where it was spotted; the changed surface + its sibling-set land in the CURRENT cutover (blocking — the project rulebook R1/R2/R5). A documentation-only remediation ships at the `documentation reviewed` tier (the project rulebook "AI Attribution"), the honest tier for prose — never a runtime tier
 
