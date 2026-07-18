@@ -64,7 +64,7 @@ manager UI.
 | Plugin | Skill count | MCP server | Purpose |
 |---|--:|---|---|
 | **charly-jupyter** | 15 | jupyter @ 8888 | Jupyter image family (jupyter, jupyter-ml, jupyter-ml-notebook, unsloth-studio) + notebook templates + jupyter-mcp server. |
-| **charly-coder** | 31 | charly @ 18765 | charly coder/dev images (fedora-coder in the `opencharly/distro-fedora` submodule; arch-coder/charly-arch in `opencharly/distro-arch`; debian-coder in `opencharly/distro-debian`; ubuntu-coder in `opencharly/distro-ubuntu`) + language runtimes (golang/rust/nodejs/docker-ce). |
+| **charly-coder** | 32 | charly @ 18765 | charly coder/dev images (fedora-coder in the `opencharly/distro-fedora` submodule; arch-coder/charly-arch in `opencharly/distro-arch`; debian-coder in `opencharly/distro-debian`; ubuntu-coder in `opencharly/distro-ubuntu`) + language runtimes (golang/rust/nodejs/docker-ce). |
 | **charly-selkies** | 43 | chrome-devtools @ 9224 | Selkies-desktop family — labwc and full-KDE-Plasma flavors of the browser-streamed Wayland desktop, always a headless pod, per-GPU encode (VAAPI / NVENC / x264 auto-selected at runtime). |
 | **charly-openclaw** | 7 | — | OpenClaw AI gateway family (CachyOS base): the `openclaw` layer + headless `openclaw` / `openclaw-full` images + the all-in-one `openclaw-desktop` (streaming desktop + gateway + CPU ollama + nested charly toolchain) + composition layers (`openclaw-full`, `openclaw-full-ml`). |
 | **charly-versa** | 9 | marimo @ 22718, airflow @ 29999 | Versa image — marimo notebook + Airflow + OSM/GTFS analytics + martin vector tiles. |
