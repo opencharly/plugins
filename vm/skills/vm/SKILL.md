@@ -12,7 +12,7 @@ description: |
 
 - **Disposability is a deployment property, never a VM-entity field.** A `kind: vm` entity carries no `disposable:` / `lifecycle:` field. Put `disposable: true` on the deploy that deploys it. The `vm:` entity only describes VM shape (disk, RAM, SSH, cloud-init, libvirt), never authorization.
 - **VM cross-ref**: a `vm:` deploy names its VM entity via the `from:` field (`<bed>: {vm: {from: <entity-name>, disposable: true}}`).
-- **`charly update <vm-entity-name>`** does NOT gate on `disposable:` — an explicit invocation rebuilds ANY target (destroy→create the domain, reuse the qcow2 disk unless `--build`, then re-apply the deploy's layers via the shared `bundle add` path). For a non-disposable, non-ephemeral target it prints a one-line transparency note (`noteUpdateDisposability`) and proceeds. The `disposable: true` flag stays load-bearing as the authorization for UNATTENDED autonomous destroy + rebuild (CLAUDE.md R10) and the check-runner's unattended fresh rebuild, NOT as an `charly update` capability check. See `/charly-internals:disposable` and `/charly-core:charly-update`.
+- **`charly update <vm-entity-name>`** does NOT gate on `disposable:` — an explicit invocation rebuilds ANY target (destroy→create the domain, reuse the qcow2 disk unless `--build`, then re-apply the deploy's layers via the shared `bundle add` path). For a non-disposable, non-ephemeral target it prints a one-line transparency note (`noteUpdateDisposability`) and proceeds. The `disposable: true` flag stays load-bearing as the authorization for UNATTENDED autonomous destroy + rebuild (the project rulebook R10 (`AGENTS.md` / `CLAUDE.md`)) and the check-runner's unattended fresh rebuild, NOT as an `charly update` capability check. See `/charly-internals:disposable` and `/charly-core:charly-update`.
 
 ## Overview
 
@@ -581,4 +581,4 @@ Changes that touch this verb's output must reach a healthy deployment on a targe
 
 **After committing the source-level fix, `charly update` the disposable target ONCE MORE from clean and re-run the full verification.** A fix that passes only on a hand-patched target is not a real fix — it's a regression waiting for the next unrelated rebuild. Paste BOTH the exploratory-pass output and the fresh-rebuild-pass output into the conversation.
 
-Unit tests + a clean compile are necessary but not sufficient. See CLAUDE.md R1–R10.
+Unit tests + a clean compile are necessary but not sufficient. See the project rulebook R1–R10.

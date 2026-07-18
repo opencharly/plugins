@@ -24,7 +24,7 @@ all matching skills before acting. Full index: `plugins/README.md`.
 |---------|--------|
 | Deployment step fails or needs undocumented workaround | Update the relevant `/charly-core:*`, `/charly-build:*`, `/charly-check:*`, `/charly-automation:*`, kind plugin (`/charly-image:*`, `/charly-vm:*`, `/charly-kubernetes:*`, `/charly-local:*`, `/charly-pod:*`), per-pod plugin (`/charly-jupyter:*`, `/charly-coder:*`, …), or split-foundation plugin (`/charly-distros:*`, `/charly-languages:*`, `/charly-infrastructure:*`, `/charly-tools:*`) |
 | Verification check missing from image skill | Add to the image skill's Verification section |
-| Skill's recommended defaults are wrong | Fix in the skill, not CLAUDE.md |
+| Skill's recommended defaults are wrong | Fix in the skill, not the project rulebook (`AGENTS.md` / `CLAUDE.md`) |
 | New feature added to charly CLI | Update `/charly-core:<cmd>` or `/charly-build:<cmd>` skill + `/charly-internals:go` source map |
 | New candy or box added | Create skill via `charly box new candy` scaffold or manual SKILL.md |
 | Bug fix changes behavior | Document the fix in affected skills |
@@ -32,8 +32,8 @@ all matching skills before acting. Full index: `plugins/README.md`.
 | A doc / skill / comment diverges from observed reality (discovered by ANY means — not only a bed or a deleted identifier) | Treat as an incident (R1): RCA it, then sweep EVERY sibling doc/skill/comment carrying the same false/outdated/misleading claim and fix them all in the CURRENT cutover (blocking, R2). The two rows below are special cases of this |
 | A live bed contradicts a skill's claim (Risk Driven Development found it stale) | Fix the stale skill in the SAME change — RDD keeps the living docs honest; for a high-risk claim the running system is ground truth, not the doc |
 | Removed identifier still referenced in skill paragraph (R5 self-test failed) | Update / delete the paragraph in the SAME commit as the removal (R5) |
-| CLAUDE.md heading / R-number / clause name changes (they are a public API) | Sweep every mirroring surface in the SAME commit — see "Mirroring surfaces" below (R5) |
-| Rule DETAIL accretes inside CLAUDE.md (matrix, catalog, worked example growing in place) | Move the detail to its owning skill (see the Authoritative-copy registry); CLAUDE.md keeps the mandate + a `*Detail:*` pointer |
+| Project-rulebook heading / R-number / clause name changes (they are a public API) | Sweep every mirroring surface in the SAME commit — see "Mirroring surfaces" below (R5) |
+| Rule DETAIL accretes inside the project rulebook (matrix, catalog, worked example growing in place) | Move the detail to its owning skill (see the Authoritative-copy registry); the project rulebook keeps the mandate + a `*Detail:*` pointer |
 
 ## When NOT to Update Skills
 
@@ -41,12 +41,12 @@ all matching skills before acting. Full index: `plugins/README.md`.
 - **User-specific config** — use Claude Code memory system
 - **Bug fixes in charly code** — the fix is in git; document behavioral changes in skills only
 - **Anything derivable from code** — skills document *usage*, not implementation details
-- **Historical / version-history content** — dated change notes, "renamed from", "previously / formerly / was", completed cutovers, retired / relocated identifiers → the repo's `CHANGELOG/` (one file per CalVer release version, `<YYYY.DDD.HHMM>.md`), NEVER a skill or CLAUDE.md. Skills describe current behavior in present tense only. When a cutover lands, write its narrative to the release's `CHANGELOG/<YYYY.DDD.HHMM>.md` (the version shared by the changelog filename and the release tag) and state the new standing rule forward-looking in the skill, with no history.
+- **Historical / version-history content** — dated change notes, "renamed from", "previously / formerly / was", completed cutovers, retired / relocated identifiers → the repo's `CHANGELOG/` (one file per CalVer release version, `<YYYY.DDD.HHMM>.md`), NEVER a skill or the project rulebook. Skills describe current behavior in present tense only. When a cutover lands, write its narrative to the release's `CHANGELOG/<YYYY.DDD.HHMM>.md` (the version shared by the changelog filename and the release tag) and state the new standing rule forward-looking in the skill, with no history.
 
 ## How to Update
 
 1. Edit the skill file at `plugins/<plugin>/skills/<skill-name>/SKILL.md`
-2. If the insight affects cross-skill behavior, update CLAUDE.md too
+2. If the insight affects cross-skill behavior, update the project rulebook (`AGENTS.md` / `CLAUDE.md`) too
 3. After any non-trivial deployment session, ask: "Did we learn anything that future sessions should know?"
 
 ## Skill File Structure
@@ -80,7 +80,7 @@ description: |
 | Detailed operational patterns | Relevant `/charly-core:*` / `/charly-build:*` / `/charly-check:*` / `/charly-automation:*` / kind-plugin skill |
 | Hard rule / gate / mandate (the WHAT and the MUST) | each harness root rulebook, with equivalent policy and an owning-skill pointer |
 | Operationalization / matrix / catalog / worked example (the HOW) | The ONE owning skill (see the Authoritative-copy registry below) |
-| Version history / past changes / renames / cutover narration | the repo's `CHANGELOG/` (per-CalVer `<YYYY.DDD.HHMM>.md`) — never CLAUDE.md or a skill |
+| Version history / past changes / renames / cutover narration | the repo's `CHANGELOG/` (per-CalVer `<YYYY.DDD.HHMM>.md`) — never the project rulebook or a skill |
 | Long-term thesis / vision / aspiration ("why & where it's going") | `VISION.md` (repo root) — never restating command usage, architecture, or history |
 
 ## Mandate in the harness rulebook, detail in the skill
@@ -112,7 +112,7 @@ their policy equivalent while preserving harness-specific tool language.
 
 ## Mirroring surfaces — sweep when rulebook wording changes
 
-**CLAUDE.md's section headings, R-numbers, and named clauses ("flag-override
+**The project rulebook's section headings, R-numbers, and named clauses ("flag-override
 clause", "gate by change class", "Documentation-only change class",
 "documentation reviewed" tier, "Acceptance checklist", "Post-Execution
 Policies", …) are a public API.** These surfaces reference them and MUST be
@@ -193,7 +193,7 @@ boundary:
 
 | What | Synced by | Visibility |
 |------|-----------|------------|
-| Code, CLAUDE.md, skills, layers, images | Git | Public (committed) |
+| Code, `AGENTS.md` / `CLAUDE.md`, skills, layers, images | Git | Public (committed) |
 | `.claude/memory/` (auto-memory) | Syncthing | Private (gitignored) |
 | `.claude/settings.local.json` (personal overrides) | Syncthing | Private (gitignored) |
 | `.claude/settings.json` (project policy) | Git | Public (committed) |
@@ -204,7 +204,7 @@ propagate via Syncthing so your working state follows you across machines
 without polluting the public repo.
 
 Rule of thumb: **if it's useful to every contributor, it lives in git**
-(skills, CLAUDE.md, code). **If it's useful only to you, it lives in the
+(skills, `AGENTS.md` / `CLAUDE.md`, code). **If it's useful only to you, it lives in the
 Syncthing-synced half** (memory, personal settings).
 
 **A generalizable PROVEN insight saved only to memory is a knowledge LEAK — every
@@ -279,4 +279,4 @@ The code-side companion (golangci-lint, the `.go` compliance checklist) is
 
 ## When to Use This Skill
 
-Invoke when updating documentation, creating new skills, auditing skill coverage, or deciding where new information belongs (CLAUDE.md vs skill vs memory).
+Invoke when updating documentation, creating new skills, auditing skill coverage, or deciding where new information belongs (the project rulebook vs skill vs memory).

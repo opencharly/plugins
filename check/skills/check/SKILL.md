@@ -28,7 +28,7 @@ ships is an operator profile, not a test bed (the cachyos submodule's
 per-host `~/.config/charly/charly.yml`. `disposable: true` is the sole
 authorization for the unattended destroy + rebuild on any of them.
 
-A bed is a **candybox** (CLAUDE.md "Candyboxing"): a disposable, secured
+A bed is a **candybox** (the project rulebook "Candyboxing"): a disposable, secured
 container / VM stocked with the FULL toolset — the entire `charly check` probe surface
 (cdp/wl/dbus/vnc/mcp/adb/appium/kube), nested podman, real package managers, the
 whole layer/image library — so the AI can build, deploy, and prove the *real*
@@ -132,7 +132,7 @@ The `iterate:` block / the deploy config in the project's `charly.yml` IS the
 test spec; the operator authorizes overrides, not Claude. Passing ANY
 scope-shrinking flag to `charly check run` (or `charly check live`) without the user
 explicitly naming that flag in the SAME conversation turn is the same fraud
-class as dry-run-as-R10 (CLAUDE.md R10 flag-override clause). The catalog:
+class as dry-run-as-R10 (the project rulebook R10 flag-override clause). The catalog:
 `--plateau-iteration`, `--max-scenario`, `--tag`, `--skip-rebuild`,
 `--on-pod` / `--on-vm` / `--on-host`, `--keep-repo`, `--dry-run`, and the bed
 flags `--no-rebuild` (skips the R10 fresh-rebuild gate) and `--keep`.
@@ -313,13 +313,13 @@ uses, with no hardcoded bed table to keep in sync.
 
 The R10 principle is EXERCISE, not ceremony: a gate that cannot fail on the
 change proves nothing (wasted verification), and a change whose gate never
-executed is unproven (the fraud class CLAUDE.md R10 bans). Pick the SMALLEST
+executed is unproven (the fraud class the project rulebook R10 bans). Pick the SMALLEST
 gate that genuinely exercises every changed code path — and run it in full.
-CLAUDE.md R10 carries the mandate; this matrix is the authoritative detail.
+The project rulebook R10 carries the mandate; this matrix is the authoritative detail.
 
 | Change class | Pre-flight | The R10 gate | Tier on a clean pass | Explicitly NOT required |
 |---|---|---|---|---|
-| **Documentation-only change class** — `*.md` (CLAUDE.md, `plugins/**/SKILL.md`, READMEs, CHANGELOG), comment-only code edits, or a submodule pointer bump to an all-documentation submodule commit; zero behavior change | markdown integrity, link checks | The non-runtime standards: adversarial consistency review, the R5 grep self-test, cross-reference validation, and command-safety gates | `documentation reviewed` | ANY bed run or image build — beds cannot fail on prose |
+| **Documentation-only change class** — `*.md` (`AGENTS.md` / `CLAUDE.md`, `plugins/**/SKILL.md`, READMEs, CHANGELOG), comment-only code edits, or a submodule pointer bump to an all-documentation submodule commit; zero behavior change | markdown integrity, link checks | The non-runtime standards: adversarial consistency review, the R5 grep self-test, cross-reference validation, and command-safety gates | `documentation reviewed` | ANY bed run or image build — beds cannot fail on prose |
 | **Hook / workflow scripts** — `.claude/hooks/*.sh`, `.claude/workflows/*.js` | `bash -n` / async-body parse | Execute the changed script live: run the hook directly (paste its output); a workflow whose CONTROL FLOW changed runs against ONE bed matching the change. Prompt-string-only workflow edits: parse + the non-runtime standards | `fully tested and validated` | The full bed fan-out |
 | **Harness project configuration** — `AGENTS.md`, `.codex/**`, repo-native `.agents/**`, or an executable that provisions or validates those surfaces | Parse the changed configuration; run the project profile and static-validator checks; verify exact gitlink and linked-worktree provenance | Run the final-tree repository harness gate: execute each changed validator/provisioner directly, verify only the gitlinks dispatched by the change class at their recorded revisions, and run the committed developer-profile checks. A Git-provisioning change also proves its canonical-object reference and exact-gitlink behavior in a dedicated linked worktree. Record the exact approved commands and active managed sandbox available for this run. This proves repository-controlled behavior; never claim that it proves settings loaded by a newly launched harness process. The fresh validator independently decides whether the final-tree delta additionally requires a Charly R10 bed and runs it when required. | `fully tested and validated` | A forced restart/new session, alternate home/cache/workspace, or unrelated VM/container roster that cannot exercise repository configuration |
 | **`charly` Go code** | `go test ./...` + `go vet` + `task build:binary` (R9 freshness + `charly version` check against `./bin/charly`) | `charly check run <bed>` for EACH bed whose kind matches a touched code path: box/candy/pod/DeployTarget mechanism → `check-pod`; `target: local` → `check-local`; VM / k8s → `check-k3s-vm`; a feature surface → its feature bed. Cross-cutting loader / resolver / IR / unified-schema changes → fan EVERY matching bed out CONCURRENTLY, by owner: SHORT beds via `/verify-beds` (one `charly check run <bed>` per agent), every LONG bed (`vm`/`android`, or last run ≥600s) as a persistent-session `run_in_background` task — in-spec for that class, not a scope override; a `/verify-beds` result with `gateComplete: false` is a PARTIAL roster, never a green gate | `fully tested and validated` | Beds whose substrate the change cannot reach |
@@ -346,11 +346,11 @@ submodule pointer bump is documentation only when the bumped submodule commit is
 itself all-documentation (the fresh validator inspects its `old..new` diff);
 a bump integrating submodule code is a code class, at a runtime tier.
 
-## The 10 Testing Standards (READ FIRST — referenced by CLAUDE.md R1–R10)
+## The 10 Testing Standards (READ FIRST — referenced by the project rulebook R1–R10)
 
 An earlier agent claimed "cutover complete, all tests pass" after green `go test ./...` runs, then built an image that crash-looped at startup because a Containerfile stage was silently dropped. The unit tests didn't notice — they only exercised YAML loaders. **Unit tests are NOT a substitute for running the service.**
 
-These are the 10 standards referenced in CLAUDE.md's AI attribution tier ("fully tested and validated"). Each is keyed to a CLAUDE.md R-rule. Apply them whenever a change could affect Containerfile generation, OCI labels, init systems, service startup, or deploy code.
+These are the 10 standards referenced in the project rulebook's AI attribution tier ("fully tested and validated"). Each is keyed to a project-rulebook R-rule. Apply them whenever a change could affect Containerfile generation, OCI labels, init systems, service startup, or deploy code.
 
 0. **Prove every HIGH-RISK assumption BEFORE you edit (RDD — Risk Driven Development)** — the proactive bookend to Standard 10's fresh-rebuild gate. Low-risk orientation ("what does layer X do") is a skill lookup (R0, zero risk); every high-risk assumption — including any a skill or the code merely *asserts*, and above all whether this layer composition at its latest available versions builds / deploys / runs TOGETHER — is proven on a `disposable: true` bed FIRST (`charly check` it). Never accept docs or code as ground truth for a high-risk decision; if the bed disagrees with a skill, the skill is stale — fix it. Standard 0 (validate forward, riskiest-first) and Standard 10 (re-verify on a fresh rebuild) are the two ends of the same loop.
 
@@ -414,7 +414,7 @@ authoring surface in a bed's plan (venue-from-position members).
 
 If the container needs state that's only available in deploy (volumes, env, tunnel), author the step at `context: [deploy]`. If it needs something at build only (binary path, package presence), author at `context: [build]`. Both contexts must pass for the cutover to be real.
 
-**Confidence tier mapping:** The "fully tested and validated" confidence level in CLAUDE.md's AI-attribution table requires ALL 10 standards met — including Standard 10, the fresh-rebuild re-verification. Anything short of that ships at a lower confidence tier.
+**Confidence tier mapping:** The "fully tested and validated" confidence level in the project rulebook's AI-attribution table requires ALL 10 standards met — including Standard 10, the fresh-rebuild re-verification. Anything short of that ships at a lower confidence tier.
 
 ## Overview
 
@@ -500,7 +500,7 @@ This is the **only** image-fetch surface in the system: deploys (any
 target — `local`, `pod`, `vm`, `k8s`) emit zero image-pull steps. A
 `kind: local` template has no `image:` field; image preflight lives on this
 verb. Operators with legacy YAML run `charly migrate`. See
-`/charly-local:local-spec` "What the deploy does NOT do" and CLAUDE.md
+`/charly-local:local-spec` "What the deploy does NOT do" and the project rulebook
 "Deploy fetches NOTHING speculative".
 
 Lives in `charly/check_image_preflight.go`
@@ -541,7 +541,7 @@ The surface is three orthogonal verbs, each named for what it evaluates:
 The mode is **explicit in the verb**; there is no autodetect or
 implicit fallback. Choose the mode by picking the right verb.
 
-**Which verb/bed proves what (CLAUDE.md R7):** `charly check box` passes on
+**Which verb/bed proves what (the project rulebook R7):** `charly check box` passes on
 zero-content stages too — it is NOT a substitute for the generated-artifact
 checks (R8). For the R10 gate, pick the disposable bed whose kind matches
 what you changed (`check-pod` for the combined box/candy/pod/DeployTarget

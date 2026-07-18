@@ -21,14 +21,14 @@ later wins when both set it).
 
 ## Why this exists
 
-Live-deploy verification (CLAUDE.md R1, R10, and Risk Driven Development) is
+Live-deploy verification (the project rulebook R1, R10, and Risk Driven Development (`AGENTS.md` / `CLAUDE.md`)) is
 mandatory — and it's much easier to carry out aggressively when you can freely `destroy →
 rebuild → retest` a target without asking the user for permission
 every time. But autonomous destroy is only safe on resources whose
 owner explicitly authorized it. The `disposable: true` flag is that
 authorization. Nothing else is.
 
-`disposable: true` is the **lifecycle boundary of the candybox** (CLAUDE.md
+`disposable: true` is the **lifecycle boundary of the candybox** (the project rulebook
 "Candyboxing"): OpenCharly secures the box as a whole and stocks it with the full
 toolset, and this flag is what makes that fully-stocked box safe to tear down and
 rebuild unattended. The candy inside can be generous *because* the wall — and its
@@ -153,7 +153,7 @@ thereby gracefully stop a running `preemptible` holder — WITHOUT per-run opera
 confirmation. This is safe because preemption is **reversible by design**: the
 holder is gracefully stopped (disk + definition preserved) and GUARANTEED to be
 restarted (crash-safe `restore: always`), the OPPOSITE of an irreversible
-`disposable` destroy. The confirm-before-destroy rule (CLAUDE.md "Disposable-Only
+`disposable` destroy. The confirm-before-destroy rule (the project rulebook "Disposable-Only
 Autonomy") governs irreversible teardown of a NON-preemptible, non-disposable
 resource; it does NOT gate preemption of a declared holder.
 
@@ -264,7 +264,7 @@ proceeds. Sequence: destroy → rebuild → restart, ending in the shared
 `charly bundle add <node>` layer re-apply for every live substrate (so a
 config change — a newly-added layer or nested pod — takes effect on the
 rebuilt target). `disposable: true` stays load-bearing as the
-authorization for the **UNATTENDED autonomous** destroy + rebuild (CLAUDE.md
+authorization for the **UNATTENDED autonomous** destroy + rebuild (the project rulebook
 R10) and the check-runner's unattended fresh rebuild — NOT as an
 `charly update` capability check. You may `charly update` a non-disposable
 target directly — that is an attended action you authorize explicitly, never
@@ -294,7 +294,7 @@ Flags (authoritative list: `charly update --help`):
 
 ## What counts as an R10 run (and what does not)
 
-R10 (CLAUDE.md, Ground Truth Rules) means the cutover's NEW or CHANGED code
+R10 (the project rulebook, Ground Truth Rules) means the cutover's NEW or CHANGED code
 path actually executed LIVE against a fresh rebuild of a `disposable: true`
 target — real subprocess invocation, real container build, real deploy probes,
 real verb evaluation — with pasteable runtime output for each changed piece
@@ -433,7 +433,7 @@ on shared hosts.
 
 ## Cross-references
 
-- `CLAUDE.md` — R10 "Verify on a `disposable: true` target; prove
+- the project rulebook — R10 "Verify on a `disposable: true` target; prove
   it on a fresh rebuild", plus the "Candyboxing", "Disposable-Only
   Autonomy", and "Risk Driven Development (RDD)" sections. `disposable: true`
   is the lifecycle boundary of the candybox — the wall that makes a
@@ -457,7 +457,7 @@ on shared hosts.
   unattended).
 - Authoring / editing `disposable:` or `lifecycle:` fields in
   vm.yml or charly.yml.
-- Running live verification on a rebuildable target (CLAUDE.md R10).
+- Running live verification on a rebuildable target (the project rulebook R10).
 - Adding a feature that checks disposability (must use
   `IsDisposable()` / `IsDisposableFields()`, never derive from
   lifecycle).

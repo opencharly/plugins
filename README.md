@@ -1,6 +1,6 @@
 # OpenCharly Plugins
 
-Claude Code and Codex plugins for OpenCharly — the candy factory for you and your agents.
+Claude Code, Codex, and Kimi plugins for OpenCharly — the candy factory for you and your agents.
 
 ## How this marketplace is organized
 
@@ -111,14 +111,16 @@ only the current structure.
 
 ## Installation
 
-Use the same marketplace and skill tree in either harness:
+Use the same marketplace and skill tree in any of the three harnesses:
 
 ```bash
 ./setup claude                         # full developer mode (default)
 ./setup codex developer
+./setup kimi developer
 ./setup claude user                    # use/author Charly, do not develop it
 ./setup codex container jupyter        # operate one generated container family
 ./setup codex --check developer        # non-mutating drift check
+./setup kimi --check developer
 ```
 
 `developer` installs all 25 plugins. `user` installs the runtime, authoring,
@@ -129,7 +131,13 @@ self-contained family plugin. The Charly repository always uses `developer`.
 The setup command writes only target-repository files: Claude writes
 `.claude/settings.json`; Codex writes `.agents/plugins/marketplace.json` and
 repo-native `.agents/skills/` symlinks to the selected canonical
-`plugins/<plugin>/skills/` directories. It never copies skill bodies, invokes a
+`plugins/<plugin>/skills/` directories. Kimi reads that same
+`.agents/skills/` tree natively as project-scope skills (on-demand `Skill`
+invocation), so setup syncs the identical links and additionally prints the
+`kimi-user-config.toml` snippet — permission rules and repo-guarded hooks for
+the user-level `~/.kimi-code/config.toml` (Kimi has no project-level config
+file) — which the operator merges by hand; setup never installs it. It never
+copies skill bodies, invokes a
 plugin CLI, or changes user configuration. Existing unrelated project settings,
 marketplace metadata, plugin entries, and skill paths are preserved; setup owns
 only the Charly entries it generates. Managed project roots must not be symlinks;

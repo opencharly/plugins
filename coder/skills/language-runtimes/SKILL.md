@@ -106,7 +106,7 @@ Python env). It installs `python3-devel` + `python3-ramalama` via RPM —
 Consequence for `/charly-coder:fedora-coder` (the biggest consumer): the whole
 `python` / `pixi` charly-layer chain stays out of the resolved candy set (because
 `/charly-coder:uv` and `/charly-infrastructure:supervisord` likewise carry no python
-dep). See CLAUDE.md "Key Rules" → *"Don't declare defensive deps"* for the
+dep). See the project rulebook "Key Rules" (`AGENTS.md` / `CLAUDE.md`) → *"Don't declare defensive deps"* for the
 general rule.
 
 If you genuinely need the pixi-python env (e.g. a candy that

@@ -126,7 +126,7 @@ The Go-internal builtin vocabulary is the `allStepKinds` slice in `provider_step
 The IR carries no image-fetch step kind. Deploys (any target) emit
 zero image-pull / image-build steps; test-bed image preflight is a
 separate, check-time concern handled by `charly/check_image_preflight.go`
-(CLAUDE.md "Deploy fetches NOTHING speculative").
+(the project rulebook "Deploy fetches NOTHING speculative" (`AGENTS.md` / `CLAUDE.md`)).
 
 ## The step kinds (thirteen builtin + the open `external:<word>` family)
 
