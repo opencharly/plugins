@@ -18,7 +18,7 @@ push to `main` is FORBIDDEN and mechanically disabled** — GitHub branch protec
 (`enforce_admins`) + the `pre-push-gate` block it in every repo. The **R10 pass
 authorizes OPENING the PR, never a self-merge**: the two-step landing separates the
 author (who opens the PR) from the fresh evaluator (who validates, merges, tags).
-This skill is the mechanics; CLAUDE.md "Post-Execution Policies" carries the
+This skill is the mechanics; the project rulebook "Post-Execution Policies" (`AGENTS.md` / `CLAUDE.md`) carries the
 mandate, `/charly-internals:cutover-policy` the one-phase rule, `/charly-build:migrate`
 the schema-version/tag coupling, and `plugins/internals/agents/pr-validator.md` the
 evaluator's own spec.
@@ -262,7 +262,7 @@ the final code is proven — never by shipping anything pre-bed:
   the change).
 - **(b) Commit LOCALLY at the then-honest tier — do NOT push.** With the live
   runner having actually run and its output pasted, the honest tier is
-  `analysed on a live system` (CLAUDE.md "AI Attribution"). Commit at that tier to
+  `analysed on a live system` (the project rulebook "AI Attribution"). Commit at that tier to
   create the rebase-able base. The commit stays LOCAL.
 - **(c) Rebase onto the current mains.** Bring the branch onto the just-advanced
   `origin/main` of every repo, and REGENERATE every generated file from the merged
@@ -799,7 +799,7 @@ understandable reconciliation instinct, but the wrong direction — caught by a 
   hash, per repo), the confidence tier with the proof that supports it, the PR + the
   `pr-validator` verbatim verdict + the merge SHA + the finalized `v<CalVer>` tag,
   and the pasted R10 outputs (exploratory + fresh-rebuild). The tier must match
-  CLAUDE.md "AI Attribution", keyed to the change class (`/charly-check:check` "R10
+  the project rulebook "AI Attribution", keyed to the change class (`/charly-check:check` "R10
   gate by change class") — a Documentation-only change class commit lands at
   `documentation reviewed`, runtime classes at a runtime tier. A worked commit
   message:
@@ -834,7 +834,7 @@ A FAIL is a return-to-implementation signal, not a stopping point:
 
 ## Cross-References
 
-- CLAUDE.md "Post-Execution Policies" — the mandate this skill operationalizes.
+- the project rulebook "Post-Execution Policies" — the mandate this skill operationalizes.
 - `plugins/internals/agents/pr-validator.md` — the fresh evaluator's full spec.
 - `opencharly/.github/scripts/branch-protection.sh` — the sole organization-wide
   branch-protection apply/verify owner.

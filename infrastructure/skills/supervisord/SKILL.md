@@ -30,8 +30,8 @@ description: |
 This layer declares no `require: python`. supervisord's runtime is
 pure system-Python (the `supervisor` RPM brings `/usr/bin/python3`
 as its own dependency), so it needs no `python` charly-layer → `pixi`
-charly-layer → conda-forge Python env (~500 MB). See CLAUDE.md
-"Key Rules" → *"Don't declare defensive deps"* for the general rule.
+charly-layer → conda-forge Python env (~500 MB). See the project rulebook
+"Key Rules" (`AGENTS.md` / `CLAUDE.md`) → *"Don't declare defensive deps"* for the general rule.
 
 **Arch note:** the `pac: [supervisor]` section is required so that
 Arch-based images with `build: [pac]` actually install supervisord.
@@ -105,7 +105,7 @@ See `/charly-selkies:selkies-core` for the canonical consumer (the supervised `[
 
 ## Polymorphism: a candy that runs on BOTH supervisord and systemd
 
-A candy that needs the SAME service to run under supervisord (container/pod targets) AND systemd (host installs / bootc / VMs) must NOT spin up a `<name>-host` sibling candy. The supported pattern is **mixed entries in one `service:` list**: same `name:`, two entries — one with `use_packaged: <unit>.service` (or `.socket`) for the systemd render, the other with custom `exec:` for the supervisord render. Init system at deploy time picks the matching form; the other entry is silently skipped. See `/charly-image:layer` "Service Declaration" → "Mixed entries in one candy" for the schema, CLAUDE.md "Init-system polymorphism via mixed `service:` entries" for the project-wide rule, and `/charly-infrastructure:virtualization` for the canonical worked example.
+A candy that needs the SAME service to run under supervisord (container/pod targets) AND systemd (host installs / bootc / VMs) must NOT spin up a `<name>-host` sibling candy. The supported pattern is **mixed entries in one `service:` list**: same `name:`, two entries — one with `use_packaged: <unit>.service` (or `.socket`) for the systemd render, the other with custom `exec:` for the supervisord render. Init system at deploy time picks the matching form; the other entry is silently skipped. See `/charly-image:layer` "Service Declaration" → "Mixed entries in one candy" for the schema, the project rulebook "Init-system polymorphism via mixed `service:` entries" for the project-wide rule, and `/charly-infrastructure:virtualization` for the canonical worked example.
 
 It is tempting to copy-paste-and-rename a candy with a `-host` suffix when the schema already supports polymorphism via mixed entries. If you find yourself reaching for `-host`, reach for a second `service:` entry instead.
 

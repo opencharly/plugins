@@ -24,7 +24,7 @@ versioned YAML, it rewrites EVERY pin of that repo to ONE target tag, so every
 reference fetches one commit per repo and the next `charly box generate` emits
 **zero** version warnings. Edits are comment-preserving (yaml.v3 node API) and idempotent.
 
-The **zero-warnings R10 gate** (CLAUDE.md R1) makes this load-bearing: a change
+The **zero-warnings R10 gate** (the project rulebook R1 (`AGENTS.md` / `CLAUDE.md`)) makes this load-bearing: a change
 that introduces a version mismatch is not landable until `charly box reconcile`
 clears the warning.
 

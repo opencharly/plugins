@@ -126,4 +126,4 @@ Changes that touch this verb's output must reach a healthy deployment on a targe
 
 **After committing the source-level fix, `charly update` the disposable target ONCE MORE from clean and re-run the full verification.** A fix that passes only on a hand-patched target is not a real fix — it's a regression waiting for the next unrelated rebuild. Paste BOTH the exploratory-pass output and the fresh-rebuild-pass output into the conversation.
 
-Unit tests + a clean compile are necessary but not sufficient. See CLAUDE.md R1–R10.
+Unit tests + a clean compile are necessary but not sufficient. See the project rulebook R1–R10 (`AGENTS.md` / `CLAUDE.md`).
