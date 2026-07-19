@@ -33,7 +33,7 @@ my-dev:
 ## Related Skills
 
 - `/charly-coder:nodejs` -- required dependency (provides npm)
-- `/charly-coder:claude-code`, `/charly-coder:codex`, `/charly-coder:gemini` — sibling AI CLIs (all share the npm-global install pattern)
+- `/charly-coder:claude-code`, `/charly-coder:codex`, `/charly-coder:gemini` — sibling AI CLIs (codex and gemini share the npm-global install pattern; claude-code uses the official native installer)
 - `/charly-image:layer` — candy authoring reference
 - `/charly-check:check` — declarative testing framework (this candy's tests verify `${HOME}/.npm-global/bin/kimi`, the unpacked `@moonshot-ai/kimi-code` package, and `kimi --version`)
 

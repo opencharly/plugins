@@ -55,7 +55,7 @@ hermes:
 - `/charly-coder:dev-tools` — Developer CLI utilities
 - `/charly-coder:devops-tools` — Cloud and infrastructure tools
 - `/charly-tools:charly` — OpenCharly CLI binary
-- `/charly-infrastructure:tmux-layer` — Terminal multiplexer for persistent sessions (`charly tmux` commands)
+- `/charly-infrastructure:tmux-layer` — Terminal multiplexer used by typed persistent terminal providers
 - `/charly-selkies:chrome` — Provides `BROWSER_CDP_URL` (cross-container, from selkies-desktop)
 - `/charly-selkies:chrome-devtools-mcp` — Chrome DevTools MCP server (auto-discovered via `mcp_provide`, 29 tools)
 - `/charly-jupyter:jupyter-mcp` — JupyterLab CRDT MCP server (auto-discovered via `mcp_provide`, 11 tools: notebook_*/cell_* + notebook_list_users + room_list; auto-attach single-room invariant)

@@ -1,10 +1,10 @@
 {
   "name": "charly-automation",
-  "description": "Automation and customization knobs for running deployments — tmux verb, host-side wrappers (alias, udev), and topic flags (encryption, sidecars, openclaw deployment).",
-  "version": "1.1.0",
+  "description": "Automation and agent control for running deployments — generic agent/Pi/tmux/TUI/federation routes, endpoint replication, incidents/RCA/recovery, plus host-side wrappers and deployment topics. Ships the agent-control-operator agent.",
+  "version": "1.2.0",
   "author": { "name": "opencharly" },
   "homepage": "https://github.com/opencharly/charly",
   "repository": "https://github.com/opencharly/charly-plugins",
   "license": "MIT",
-  "keywords": ["charly", "tmux", "alias", "udev", "encryption", "sidecar"]
+  "keywords": ["charly", "agent", "pi", "tmux", "grpc", "ssh", "alias", "udev", "encryption", "sidecar"]
 }
