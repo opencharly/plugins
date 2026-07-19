@@ -212,7 +212,7 @@ dispatches it through the provider registry —
 `invokeVerbProvider`, which hands the plugin the full `#Op` as params.
 
 The deploy/status seams (`target: android` install + `charly status`) drive the
-SAME plugin out-of-process via `charly/android_plugin.go` (`invokeAdbPlugin` +
+SAME plugin out-of-process via `charly/android_deploy_cmd.go` (`invokeAdbPlugin` +
 `AdbDeviceEnv`), so the device probe, the committed-APK install, and the status
 read never drift on adb behaviour.
 
@@ -227,7 +227,7 @@ port AS the host port.
   same emulator (W3C WebDriver).
 - `/charly-check:android` — the `kind: android` device + `apk:` package format +
   `target: android` deploy. The `adb: install` / `adb: install-app` verbs are thin
-  wrappers over the SAME shared installer (`charly/android_install.go`) the apk
+  wrappers over the SAME shared installer (`charly/android_deploy_preresolve.go`) the apk
   format drives — so the verb, the format, and the deploy target never drift.
 - `/charly-check:check` — the unified check system and the Op (a plan step) that
   holds every verb discriminator + modifier.

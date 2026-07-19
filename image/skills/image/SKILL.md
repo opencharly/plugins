@@ -402,7 +402,7 @@ Auto-intermediates are marked with `Auto: true` and appear in `charly box list t
 3. The trie is walked to detect branch points (where sibling layer sequences diverge). At each branch, an auto-intermediate image is created.
 4. Original images are rebased to the nearest intermediate, so shared layers are built once.
 
-Source: `charly/intermediates.go` (`ComputeIntermediates`, `GlobalCandyOrder`, `walkTrieScoped`).
+Source: `sdk/deploykit/intermediates.go` (moved from `charly/intermediates.go`; `charly/intermediates_shim.go` delegates to it) (`ComputeIntermediates`, `GlobalCandyOrder`, `walkTrieScoped`).
 
 ## Versioning
 

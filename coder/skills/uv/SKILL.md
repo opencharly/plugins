@@ -33,7 +33,7 @@ doesn't warrant:
 - HOME-dependency — the binary path would vary per-image's `$HOME`, and
   HOME-relative PATH entries in child images go subtly wrong when the
   `charly` auto-intermediate machinery bakes uid=1000 paths into boxes
-  deployed at uid=0 (handled in `charly/intermediates.go` — see
+  deployed at uid=0 (handled in `sdk/deploykit/intermediates.go` — see
   `/charly-internals:generate-source` "UID-keyed sibling grouping").
 - Confusion — "uv is installed but `which uv` says not found" for
   anyone who isn't in a pixi shell.
