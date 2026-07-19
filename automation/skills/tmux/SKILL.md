@@ -53,7 +53,7 @@ TARGET='{"hops":[{"transport":"ssh","address":"outer"},{"transport":"grpc"},{"tr
 TARGET='{"deployment":"toolbox","hops":[{"transport":"ssh","address":"inner"},{"transport":"grpc"},{"transport":"tmux"}]}'
 ```
 
-SSH identity, port, working directory, environment, and deterministic `-o key=value` options are fields on the CUE target hop. SSH is only the process carrier; Provider.Channel remains the wire protocol.
+SSH identity, port, environment, and deterministic `-o key=value` options are fields on the CUE target hop (`working_dir` sits one level up, on `#TargetSpec`). SSH is only the process carrier; Provider.Channel remains the wire protocol.
 
 The compatibility command tree uses the same controller:
 
