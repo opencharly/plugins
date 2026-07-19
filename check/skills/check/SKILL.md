@@ -372,7 +372,7 @@ These are the 10 standards referenced in the project rulebook's AI attribution t
 ### `charly check live parent.child` reaches the actual leaf
 
 `charly check live <parent>.<child>` walks the dotted deployment path through
-`ResolveDeployChain` (`charly/deploy_chain.go`) and constructs a multi-hop
+`ResolveDeployChain` (`sdk/deploykit/deploy_chain.go`) and constructs a multi-hop
 `DeployExecutor` chain that lands probes inside the leaf's actual
 venue — `command: id` for a pod-in-VM leaf returns the inner pod's user, not
 the parent VM's. Live-check and AI-iteration-scoring chain construction go
@@ -667,9 +667,9 @@ charly check feature run web --no-agent     # deterministic-only (CI): agent-che
 ```
 
 Implementation: `charly/check_feature_run.go` (the verbs), `sdk/kit/grader.go`
-(`AgentGrader` + `RunAgentOnce` + `parseVerdict`, moved from `charly/check_feature_grader.go`
+(`AgentGrader` + `RunAgentOnce` + `parseVerdict`, moved from `charly/check_feature_grader.go` (now `sdk/kit/grader.go`)
 in P12a — core constructs `&AgentGrader{}` directly, so it lives in `kit`, reachable from
-core code), and `charly/description_cmd.go` (`charly feature
+core code), and `charly/description_collect.go` (`charly feature (`charly feature
 list/pending/validate`). The `Runner.Grader` dispatch is `kit.RunPlan` (`sdk/kit/planrun.go`)
 directly — the former 1-line `charly/description_run.go` wrapper was dissolved in P12a.
 Target resolution is shared with the harness loop and `charly check box`/`live` (R3).
@@ -761,7 +761,7 @@ literal name, so a test that works on Fedora (`openssh-server`) fails on
 Arch (where the package is just `openssh`). `package_map:` is the
 authoring hook: the first key that matches any of the image's
 `distro:` tags wins; otherwise the `package:` scalar is used as the
-fallback. Source: `charly/checkrun_verbs.go:resolvePackageName` + the
+fallback. Source: `charly/checkrun_charly_verbs.go:resolvePackageName` + the
 `Runner.Distros` field wired from `meta.Distro` at both test entry
 points.
 
@@ -1404,7 +1404,7 @@ disposable container (`charly check box`) and a running service (`charly check l
 | matching | In-process matcher check | Same |
 
 The routing table lives in `charly/checkrun.go` (`runOne` switch) and
-`charly/checkrun_verbs.go`. When a check is unroutable (e.g. `port:
+`charly/checkrun_charly_verbs.go`. When a check is unroutable (e.g. `port:
 reachable` under `charly check box`), the runner reports it as **skipped**
 with a reason rather than failing the run.
 

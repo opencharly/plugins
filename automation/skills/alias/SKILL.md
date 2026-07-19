@@ -84,7 +84,7 @@ my-app:
 
 `CollectImageAliases()` gathers aliases from the box's own candies (in dependency order) plus box-level config. **No base chain traversal** -- aliases are leaf-box specific (unlike volumes).
 
-Source: `charly/alias.go`, `charly/layers.go` (`AliasYAML`, `HasAliases`, `Aliases()`).
+Source: `candy/plugin-alias/alias.go` (moved from `charly/alias.go`), `charly/layers.go` (`AliasYAML`, `HasAliases`, `Aliases()`).
 
 ## Commands
 
