@@ -170,13 +170,17 @@ memory) is ALWAYS preserved. Set `defaults.keep_check_runs` in `charly.yml`
 | `check-jupyter-ml-pod` | pod | `image: jupyter-ml` | jupyter-ml spacy/quarto + GPU MCP probes |
 | `check-versa-pod` | pod | `image: versa` | versa OSM analytics + vector-tile + marimo MCP |
 | `check-android-emulator-pod` | pod | `image: android-emulator` | Android 14 emulator (/dev/kvm) + adb/appium |
+| `check-openclaw-pod` | pod | `image: openclaw` | minimal headless gateway + dbus/service/port and exact installed CLI version |
+| `check-openclaw-full-pod` | pod | `image: openclaw-full` | maximal headless gateway + AI CLI and media/database tool stack |
+| `check-openclaw-desktop-pod` | pod | `image: openclaw-desktop` | combined streamed desktop + gateway + AI CLI + ollama + nested Charly toolchain |
 | `check-charly-vm` | vm | `from: charly-vm` | `charly` toolchain localpkg deploy witness (opencharly-git pacman install + dep auto-resolve) on the cloud VM |
 
 Bed HOMES: the main repo's `charly.yml` owns `check-k3s-vm`, `check-local`, and
 `check-charly-vm`; the pod beds above are top-level deploys in the `box/<distro>`
 submodules' `charly.yml` (`check-pod`, `check-jupyter-pod`, `check-jupyter-ml-pod`,
 `check-sway-browser-vnc-pod` in `box/fedora`; `check-versa-pod`,
-`check-android-emulator-pod` in `box/cachyos`) and run from that submodule
+`check-android-emulator-pod`, `check-openclaw-pod`, `check-openclaw-full-pod`,
+and `check-openclaw-desktop-pod` in `box/cachyos`) and run from that submodule
 (e.g. `charly -C box/fedora check run check-pod`).
 
 Naming: `check-<descriptor>-<kind>`, dropping a redundant suffix when the
