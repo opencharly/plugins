@@ -196,7 +196,7 @@ charly agent terminal snapshot "$PROFILE" --target "$TARGET" --run-id "$RUN"
 
 **Callback architecture:** The OAuth callback hits `http://127.0.0.1:1455/auth/callback` inside the container. Chrome and `openclaw-models` share the same network namespace — no port mapping needed for 1455. The `BROWSER=browser-open` env var (set by the chrome candy) auto-opens URLs via CDP, but may not trigger in all TTY contexts — author a `cdp: open` step (the `cdp:` verb, served out-of-process by candy/plugin-cdp) as a fallback.
 
-**Occupied port 1455:** Treat an unexplained surviving owner as an incident. Preserve its terminal/process evidence, complete RCA, then apply the recorded recovery decision (normally close/abort the exact run); never kill a discovered PID ad hoc.
+**Stale port 1455:** If a previous attempt left port 1455 occupied, kill the stale holder: `charly shell $IMG -c 'kill -9 $(ss -tlnp sport = :1455 | grep -oP "pid=\K\d+")'`. If the surviving owner is a live agent run, treat it as an incident instead (per R1): preserve its terminal/process evidence, complete RCA, and apply an explicit recovery decision.
 
 Tokens persist in `~/.openclaw/agents/main/agent/auth-profiles.json` in the `data` volume. Survive `charly stop`/`charly start` and image rebuilds. Only destroyed by `charly remove --purge`.
 

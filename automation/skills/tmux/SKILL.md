@@ -65,6 +65,8 @@ charly tmux send toolbox 'exit 0' --session review --enter
 charly tmux kill toolbox --session review
 ```
 
+The facade also serves `charly tmux shell` (create or reattach a persistent typed shell), `charly tmux attach` (interactive TTY), and `charly tmux list` (compatibility sessions).
+
 These commands never shell out recursively through `charly cmd`/`charly shell` and never touch an operator's tmux socket.
 
 ## Safety and evidence
@@ -75,7 +77,7 @@ These commands never shell out recursively through `charly cmd`/`charly shell` a
 - Control disconnect detaches when persistence permits. Initial reattachment and sequence recovery use a structured resynchronization snapshot.
 - Normal zero exit or explicit close verifies server cleanup. Nonzero exit, malformed stream, evidence overflow, or cleanup failure creates an incident and performs no automatic restart.
 - Recovery requires a completed RCA, except an explicit emergency abort that still records the unresolved incident.
-- Semantic readiness is driven by tmux control-output events. `waiting-for-prompt` and `prompt-ready` statuses make the boundary observable; capture polling, sleep, backoff, and timed retries are forbidden.
+- Semantic readiness is driven by tmux control-output events. `waiting-for-prompt` and `prompt-ready` statuses make the boundary observable; no capture polling, sleeps, backoff, or timed retries — per R4, pace on observable state.
 
 ## Terminal agents
 

@@ -13,7 +13,6 @@ Use Charly commands as the operational API. Do not replace them with direct cont
 charly agent runtime list
 charly agent runtime status pi --class agent-runtime
 charly agent runtime status tmux --class terminal
-charly agent profile list
 ```
 
 Runtime names select providers, never transports. The same provider receives a CUE-validated `#TargetSpec` over `Provider.Channel` for every placement.
@@ -41,7 +40,7 @@ TARGET='{"deployment":"toolbox","hops":[{"transport":"ssh","address":"inner"},{"
 charly agent terminal run codex --target "$TARGET"
 ```
 
-Every accessible deployment or SSH node works whether Charly is installed or not. The controller probes the target, keeps an equal/newer packaged Charly, or replicates its active binary through `kit.EnsureCharlyInDeployVenue` to `/tmp/charly-<calver>` and invokes that explicit path. It never changes target PATH and never downgrades a package. This bootstrap repeats recursively at every process/gRPC boundary, so exec, deployment, SSH, gRPC, and tmux compose without pair-specific code.
+Every accessible deployment or SSH node works whether Charly is installed or not. The controller probes the target, keeps an equal/newer packaged Charly, or replicates its active binary through `kit.EnsureCharlyInDeployVenue` to `/tmp/charly-<hostVer>-<digest8>` and invokes that explicit path. It never changes target PATH and never downgrades a package. This bootstrap repeats recursively at every process/gRPC boundary, so exec, deployment, SSH, gRPC, and tmux compose without pair-specific code.
 
 ## Typed terminals
 
@@ -66,8 +65,8 @@ charly agent incident list
 charly agent incident show INCIDENT_ID
 charly agent rca start INCIDENT_ID
 charly agent rca complete RCA_ID --root-cause 'specific cause' --finding 'evidence-backed finding'
-charly agent recovery decide INCIDENT_ID --rca RCA_ID --action operator
-charly agent recovery apply DECISION_ID
+charly agent recover decide INCIDENT_ID --rca RCA_ID --action operator
+charly agent recover apply @decision.json
 ```
 
 Never retry an agent failure automatically. Record the incident, collect ordered transcript/channel evidence, complete RCA, and apply an explicit recovery decision. Emergency abort is the only pre-RCA exception and must preserve the unresolved incident.
@@ -76,7 +75,7 @@ Never retry an agent failure automatically. Record the incident, collect ordered
 
 - Expect phase/status events such as endpoint bootstrap, `waiting-for-prompt`, `prompt-ready`, running/reattached, settled, and exit.
 - Treat silence, malformed frames, EOF before ACK, cleanup failure, warnings, and unexpected duration as incidents.
-- Use no sleep, polling loop, backoff, or arbitrary timed retry. Synchronize on process, tmux control, gRPC, terminal, and context events.
+- Use no sleep, polling loop, backoff, or arbitrary timed retry — per the project rulebook R4. Synchronize on process, tmux control, gRPC, terminal, and context events.
 - Preserve stdout for structured command results and use stderr for provider/operation/target progress and actionable failures.
 - For implementation acceptance, run the complete unmodified disposable R10 bed with `charly check run <bed>` and use its per-step logs and summary.
 

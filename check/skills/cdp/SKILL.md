@@ -378,7 +378,7 @@ Key enablers:
 - `shm_size: 1g` prevents Chrome from crashing due to /dev/shm exhaustion
 - Callback at `localhost:1455` is container-internal (no port mapping needed)
 
-**Occupied port 1455:** Preserve the owning run's evidence, record/complete RCA, and apply an explicit recovery decision for that run. Do not kill a discovered PID ad hoc.
+**Stale port 1455:** If a previous OAuth attempt left port 1455 occupied, kill the stale holder: `charly shell $IMG -c 'kill -9 $(ss -tlnp sport = :1455 | grep -oP "pid=\K\d+")'`. If the surviving owner is a live agent run, treat it as an incident instead (per R1): preserve its evidence, complete RCA, and apply an explicit recovery decision.
 
 Source: `candy/plugin-cdp`.
 
