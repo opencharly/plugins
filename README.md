@@ -30,7 +30,7 @@ manager UI.
 | **charly-core** | 15 | — | Lifecycle: start, stop, restart, charly-status, logs, shell, ssh, deploy, charly-update, remove, charly-config, cmd, charly-version, charly-doctor, clean. |
 | **charly-build** | 13 | — | Build/authoring: build, generate, list, inspect, merge, new, pull, validate, secrets, settings, migrate, reconcile, charly-mcp-cmd. |
 | **charly-check** | 13 | — | Live-container evaluation: `check` orchestrator + cdp, wl, wl-overlay, dbus, vnc, spice, libvirt, record, adb, appium probes + `android` (the `kind: android` device + `apk:` package format + Android-device deploy) + the `check-sway-browser-vnc-pod` R10 bed. |
-| **charly-automation** | 6 | — | tmux verb, host-side wrappers (alias, udev), topic flags (enc, sidecar, openclaw-deploy). |
+| **charly-automation** | 7 + 1 agent | — | tmux verb, agent control plane (agent skill + agent-control-operator agent), host-side wrappers (alias, udev), topic flags (enc, sidecar, openclaw-deploy). |
 
 ### kind — schema-kind authoring
 

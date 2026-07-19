@@ -36,7 +36,7 @@ Provides `notify-send` as a convenience CLI for sending desktop notifications fr
 |---|--------------|-----------------|
 | Requires | `libnotify` candy | `gdbus` (from `glib2`) in the venue |
 | Implementation | Shell command, libnotify C library | `gdbus` over the executor reverse channel (out-of-process `candy/plugin-dbus`) |
-| Use case | Shell scripts inside container | Check-plan desktop-notification steps (the `charly cmd`/`charly tmux cmd` completion popup uses the same `gdbus` path host-side) |
+| Use case | Shell scripts inside container | Check-plan desktop-notification steps (the `charly cmd` completion popup uses the same `gdbus` path host-side) |
 
 ## Related Candies
 

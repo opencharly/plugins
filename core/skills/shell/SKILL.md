@@ -196,7 +196,7 @@ Use `charly cmd` for quick operations on running services. Use `charly shell -c`
 ### Deploy-mode neighbors
 
 - `/charly-core:cmd` -- Single command execution with D-Bus notification (running containers only)
-- `/charly-automation:tmux` -- Persistent tmux sessions (survives disconnects, needed for TTY-dependent TUI programs)
+- `/charly-automation:tmux` -- Typed persistent terminal sessions (survive disconnects and support TTY-dependent TUI programs)
 - `/charly-core:service` -- Starting background services before exec
 - `/charly-core:start` -- Same `appendAutoDetectedEnv()` injection at service-start time
 - `/charly-core:charly-config` -- Deployment setup + same `appendAutoDetectedEnv()` at deploy time; `--no-autodetect` flag disables it

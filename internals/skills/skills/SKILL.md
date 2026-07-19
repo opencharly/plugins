@@ -163,8 +163,8 @@ in `plugins/README.md` — point there, never copy them (counts drift).
 ### Agents (`plugins/<plugin>/agents/<name>.md`)
 
 Sub-agents are markdown + YAML frontmatter (`name`, `description`, `tools`,
-`model`, …), discovered from a plugin's `agents/` directory (currently only
-`charly-internals/agents/`). **Plugin-loaded agents IGNORE the `hooks`,
+`model`, …), discovered from a plugin's `agents/` directory
+(`charly-internals/agents/`, `charly-automation/agents/`). **Plugin-loaded agents IGNORE the `hooks`,
 `mcpServers`, and `permissionMode` frontmatter fields** — keep those out of
 plugin agents (use `.claude/agents/` or `settings.json` if you genuinely
 need them). The charly roster splits into **enforcers** (root-cause-analyzer,

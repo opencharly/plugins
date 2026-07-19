@@ -32,7 +32,7 @@ charly check live sway-browser-vnc --filter wl    # desktop screenshot via the w
 This box includes the `dbus` candy (D-Bus session bus) plus the `charly` candy, enabling:
 - the `dbus:` check verb (`notify`/`list`/`call`/`introspect`) — D-Bus interaction served out-of-process by `candy/plugin-dbus`, driving the session bus with `gdbus`
 - `charly cmd` — single command execution with desktop notification on completion
-- `charly tmux cmd` — tmux command sending with notification
+- `charly agent terminal` — typed persistent TTY sessions, input, snapshots, and transcripts
 - `charly status` — supervisord, dbus, and charly probes
 
 ```yaml

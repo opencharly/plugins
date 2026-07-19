@@ -50,7 +50,7 @@ method catalog and YAML shape.
 
 ### Notification Delivery Chain
 
-`charly cmd`/`charly tmux cmd` → `sendVenueNotification()` → `gdbus call ... org.freedesktop.Notifications.Notify` → swaync/mako → desktop popup
+`charly cmd` → `sendVenueNotification()` → `gdbus call ... org.freedesktop.Notifications.Notify` → swaync/mako → desktop popup
 
 For notifications to work, the box needs:
 1. **`dbus` candy** — D-Bus session bus (this candy)

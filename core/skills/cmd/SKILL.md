@@ -46,7 +46,7 @@ charly cmd ollama "ollama list" -i 2
 - Agent forwarding (SSH/GPG) env vars are injected automatically if enabled
 - A D-Bus desktop notification is sent on command completion (success or failure)
 - For interactive shells, use `charly shell` instead
-- For persistent sessions or long-running commands, use `charly tmux cmd`
+- For persistent sessions or long-running commands, use the typed `charly agent terminal` provider.
 
 ## Cross-References
 
@@ -54,4 +54,4 @@ charly cmd ollama "ollama list" -i 2
 
 - `/charly-core:shell` -- Interactive shell sessions with workspace mounts
 - `/charly-check:dbus` -- D-Bus interaction inside containers
-- `/charly-automation:tmux` -- Persistent tmux sessions for long-running commands
+- `/charly-automation:tmux` -- Typed persistent terminal sessions for long-running commands
