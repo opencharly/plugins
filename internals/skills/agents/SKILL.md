@@ -785,7 +785,7 @@ real validation-round finding, not a hypothetical.**
   CHANGELOG lives in (or guessing a plausible-sounding repo name) is how a
   real citation gets misdiagnosed as fabricated.
 - **A validator (or any agent) verifying a claim against a LOCAL checkout
-  (e.g. `/home/atrawog/Atrapub/o/charly`) must treat that checkout as
+  (e.g. `/home/user/project/charly`) must treat that checkout as
   POTENTIALLY STALE and check `origin/main` directly** — three independent
   validators this session hit exactly this trap, verifying a claim against a
   local tree that had already fallen behind the remote.
