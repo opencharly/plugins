@@ -10,7 +10,7 @@ description: |
 
 `terminal:tmux` and `agent-runtime:tmux` are generic bidirectional providers. Each run owns an isolated tmux socket derived from its UUIDv7. Charly transports CUE-generated terminal inputs and ordered channel frames; the plugin alone handles tmux control mode, ANSI/alternate-screen emulation, snapshots, pane lifecycle, and safe input translation.
 
-The target must contain `/usr/bin/tmux`; Charly itself need not be installed. At every deployment or SSH boundary the controller keeps an equal/newer packaged Charly or copies the active binary through `EnsureCharlyInDeployVenue` to a versioned `/tmp` path, then starts the fixed gRPC endpoint. A named profile is resolved from project candies or the selected deployment image's `ai.opencharly.terminal_profiles` label. An inline `#TerminalProfile` JSON object is also accepted.
+The target-side Charly endpoint must be able to resolve `tmux` on its process `PATH`; Charly itself need not be preinstalled. At every deployment or SSH boundary the controller keeps an equal/newer packaged Charly or copies the active binary through `EnsureCharlyInDeployVenue` to a versioned `/tmp` path, then starts the fixed gRPC endpoint. A named profile is resolved from project candies or the selected deployment image's `ai.opencharly.terminal_profiles` label. An inline `#TerminalProfile` JSON object is also accepted.
 
 ## Lifecycle
 
