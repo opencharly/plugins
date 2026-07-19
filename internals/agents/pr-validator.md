@@ -518,6 +518,11 @@ you skipped without deciding it inapplicable is an incomplete review (re-open it
 18. **CHANGELOG present.** A runtime-tier change stages a `CHANGELOG/<CalVer>.md`
     entry (a placeholder CalVer is fine — you finalize it in Phase 3); a
     docs-only change carrying history also stages one. Absent where required FAILS.
+    **Strict CalVer checks:**
+    - Filename MUST match `^\d{4}\.\d{3}\.\d{4}\.md$` (valid CalVer format)
+    - H1 heading MUST match `# <filename-without-.md> — <title>` (byte-equal CalVer)
+    - The placeholder CalVer MUST NOT already exist as a `CHANGELOG/*.md` or `v*` tag on `main`
+    - `head -1 CHANGELOG/<file>.md` MUST byte-equal `# <CalVer> — <title>`
 
 None of these is a formality: a rule you cannot POSITIVELY confirm from the diff +
 your own re-run is not "probably fine" — it is unverified, and unverified is FAIL
