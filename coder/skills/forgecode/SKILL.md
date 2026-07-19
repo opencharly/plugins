@@ -34,7 +34,7 @@ my-dev:
 ## Related Skills
 
 - `/charly-coder:nodejs` -- required dependency (provides npm)
-- `/charly-coder:claude-code`, `/charly-coder:codex`, `/charly-coder:gemini` -- sibling AI CLIs (same npm-global install pattern)
+- `/charly-coder:claude-code`, `/charly-coder:codex`, `/charly-coder:gemini` -- sibling AI CLIs (codex and gemini share the same npm-global install pattern; claude-code uses the official native installer)
 - `/charly-hermes:hermes-full-layer` -- metalayer that bundles this CLI
 - `/charly-hermes:hermes` -- primary box that ships this CLI
 - `/charly-image:layer` -- candy authoring reference
