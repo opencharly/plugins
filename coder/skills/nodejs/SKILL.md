@@ -52,11 +52,10 @@ my-image:
 
 - `/charly-distros:fedora-builder`
 - `/charly-distros:arch-builder`
-- Transitive dependency for `openclaw`, `claude-code`, `pre-commit`, and other candies
+- Transitive dependency for `openclaw`, `pre-commit`, and other candies
 
 ## Related Candies
 
-- `/charly-coder:claude-code` -- depends on nodejs
 - `/charly-coder:pre-commit` -- depends on nodejs
 - `/charly-immich:immich-layer` -- uses the candy's pnpm to build Immich
 
