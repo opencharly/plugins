@@ -409,7 +409,7 @@ their `cmd/serve` shim. Shape:
   `LocalTransport` when the candy is NOT in `compiled_plugins`; `invokeVerbProvider` (provider_checkenv.go)
   serves BOTH reverse services on one broker id. The verdict round-trips as the same `{status,message}`
   every out-of-process verb returns.
-- `kit` imports only the stdlib + `sdk/spec`; the candy imports `kit` + `sdk` + `spec` + its `params`.
+- `kit` imports the stdlib + `sdk/spec` + `sdk/vmshared` + the pinned external helpers (`gopkg.in/yaml.v3`, `golang.org/x/sys/unix`) — never the `sdk` root module; the candy imports `kit` + `sdk` + `spec` + its `params`.
 
 A kit candy keeps the verb's logic (RunVerb on `kit.CheckContext`) OUTSIDE charly's module while preserving
 the typed fast path — runnable in-proc (compiled-in, the real `*Runner`, no envelope) OR out-of-process (the
