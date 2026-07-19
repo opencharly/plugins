@@ -372,7 +372,7 @@ These are the 10 standards referenced in the project rulebook's AI attribution t
 ### `charly check live parent.child` reaches the actual leaf
 
 `charly check live <parent>.<child>` walks the dotted deployment path through
-`ResolveDeployChain` (`charly/deploy_chain.go`) and constructs a multi-hop
+`ResolveDeployChain` (`sdk/deploykit/deploy_chain.go`) and constructs a multi-hop
 `DeployExecutor` chain that lands probes inside the leaf's actual
 venue — `command: id` for a pod-in-VM leaf returns the inner pod's user, not
 the parent VM's. Live-check and AI-iteration-scoring chain construction go
