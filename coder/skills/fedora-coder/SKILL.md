@@ -138,7 +138,7 @@ includes `rpmfusion` explicitly.
 `supervisord`, `language-runtimes`, and `uv` all use system python3 from RPM,
 not the conda-forge pixi env, so none of them declares `require: python`.
 System Python is available via `language-runtimes` (`python3-devel` +
-`python3-ramalama`). See the "Key Rules" note in `CLAUDE.md` ("don't declare
+`python3-ramalama`). See the "Key Rules" note in the project rulebook (`AGENTS.md` / `CLAUDE.md`) ("don't declare
 defensive deps").
 
 **`uv` is a direct-download binary** (no pixi involvement). Lives at

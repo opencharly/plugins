@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate or verify repository-scoped Claude Code and Codex profiles."""
+"""Generate or verify repository-scoped Claude Code, Codex, and Kimi profiles."""
 
 from __future__ import annotations
 
@@ -20,10 +20,10 @@ MARKETPLACE = "charly-plugins"
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        usage="%(prog)s <claude|codex> [--check|--dry-run] "
+        usage="%(prog)s <claude|codex|kimi> [--check|--dry-run] "
         "[developer|user|container FAMILY] [--project PATH]"
     )
-    parser.add_argument("harness", choices=("claude", "codex"))
+    parser.add_argument("harness", choices=("claude", "codex", "kimi"))
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--check", action="store_true")
     mode.add_argument("--dry-run", action="store_true")
@@ -212,7 +212,7 @@ def codex_document(path: pathlib.Path, catalog: dict, selected: list[str]) -> di
     return document
 
 
-def codex_skills(project: pathlib.Path, catalog: dict, selected: list[str]) -> dict[pathlib.Path, str]:
+def repo_skill_links(project: pathlib.Path, catalog: dict, selected: list[str]) -> dict[pathlib.Path, str]:
     """Return repo-native skill links without copying canonical skill content."""
     wanted = set(selected)
     links: dict[pathlib.Path, str] = {}
@@ -292,7 +292,7 @@ def write_skill_inventory(skills_root: pathlib.Path, expected: dict[pathlib.Path
     atomic_write(skill_inventory_path(skills_root), serialized(inventory))
 
 
-def preflight_codex_skills(
+def preflight_repo_skill_links(
     expected: dict[pathlib.Path, str], actual: dict[pathlib.Path, str]
 ) -> None:
     for path, target in expected.items():
@@ -306,7 +306,7 @@ def preflight_codex_skills(
             raise SystemExit(f"refusing to remove changed profile path: {path}")
 
 
-def sync_codex_skills(
+def sync_repo_skill_links(
     expected: dict[pathlib.Path, str],
     actual: dict[pathlib.Path, str],
     check: bool,
@@ -314,7 +314,7 @@ def sync_codex_skills(
 ) -> bool:
     skills_root = next(iter(expected)).parent if expected else None
     if skills_root is None:
-        raise SystemExit("Codex profile selected no skills")
+        raise SystemExit("profile selected no skills")
     if check:
         return actual == expected and all(path.resolve().joinpath("SKILL.md").is_file() for path in expected)
     if dry_run:
@@ -334,6 +334,14 @@ def sync_codex_skills(
 
 def serialized(document: dict) -> str:
     return json.dumps(document, indent=2, ensure_ascii=False) + "\n"
+
+
+def kimi_snippet_path() -> pathlib.Path:
+    """The committed Kimi user-config snippet shipped next to this script."""
+    path = SOURCE_ROOT / "kimi-user-config.toml"
+    if not path.is_file():
+        raise SystemExit(f"kimi user-config snippet is missing: {path}")
+    return path
 
 
 def atomic_write(path: pathlib.Path, contents: str) -> None:
@@ -367,40 +375,65 @@ def main() -> int:
     )
     if args.harness == "codex":
         validate_codex_plugins(project, catalog)
+    document: dict | None = None
+    path: pathlib.Path | None = None
+    skill_links: dict[pathlib.Path, str] = {}
+    skills_actual: dict[pathlib.Path, str] = {}
     if args.harness == "claude":
         path = managed_project_path(
             project, pathlib.Path(".claude/settings.json"), "file"
         )
         document = claude_document(path, all_plugins, selected)
     else:
-        path = managed_project_path(
-            project, pathlib.Path(".agents/plugins/marketplace.json"), "file"
-        )
+        if args.harness == "codex":
+            path = managed_project_path(
+                project, pathlib.Path(".agents/plugins/marketplace.json"), "file"
+            )
+            document = codex_document(path, catalog, selected)
+        else:
+            # Kimi consumes the repo-native skill links directly and writes no
+            # marketplace document; the user config snippet is emitted, never
+            # installed by setup (it must exist to keep the profile honest).
+            kimi_snippet_path()
         managed_project_path(project, pathlib.Path(".agents/skills"), "directory")
-        document = codex_document(path, catalog, selected)
-        skill_links = codex_skills(project, catalog, selected)
+        skill_links = repo_skill_links(project, catalog, selected)
         skills_actual = managed_skill_links(next(iter(skill_links)).parent)
         # Validate the complete reconciliation plan before any project write.
-        preflight_codex_skills(skill_links, skills_actual)
-    expected = serialized(document)
+        preflight_repo_skill_links(skill_links, skills_actual)
+    expected = serialized(document) if document is not None else ""
 
     if args.check:
-        skills_ok = args.harness != "codex" or sync_codex_skills(
+        skills_ok = args.harness == "claude" or sync_repo_skill_links(
             skill_links, skills_actual, True, False
         )
-        if not path.is_file() or path.read_text() != expected or not skills_ok:
-            print(f"{path} does not match the {label} {args.harness} profile", file=sys.stderr)
+        document_ok = document is None or (
+            path.is_file() and path.read_text() == expected
+        )
+        if not document_ok or not skills_ok:
+            target = path if document is not None else project / ".agents" / "skills"
+            print(f"{target} does not match the {label} {args.harness} profile", file=sys.stderr)
             return 1
-        suffix = f", {len(skill_links)} repo-native skills" if args.harness == "codex" else ""
+        suffix = f", {len(skill_links)} repo-native skills" if args.harness != "claude" else ""
         print(f"{args.harness} project profile is {label} ({len(selected)} plugins{suffix})")
         return 0
     if args.dry_run:
-        suffix = f" and {len(skill_links)} repo-native skill links" if args.harness == "codex" else ""
-        print(f"would write {path}{suffix} for {label} ({len(selected)} plugins)")
+        if args.harness == "kimi":
+            print(
+                f"would sync {len(skill_links)} repo-native skill links for {label} "
+                f"({len(selected)} plugins) and print {kimi_snippet_path()}"
+            )
+        else:
+            suffix = f" and {len(skill_links)} repo-native skill links" if args.harness == "codex" else ""
+            print(f"would write {path}{suffix} for {label} ({len(selected)} plugins)")
         return 0
 
-    if args.harness == "codex":
-        sync_codex_skills(skill_links, skills_actual, False, False)
+    if args.harness != "claude":
+        sync_repo_skill_links(skill_links, skills_actual, False, False)
+    if args.harness == "kimi":
+        print(f"synced {len(skill_links)} repo-native skill links for {label} ({len(selected)} plugins)")
+        print(f"merge the snippet from {kimi_snippet_path()} into ~/.kimi-code/config.toml:")
+        sys.stdout.write(kimi_snippet_path().read_text())
+        return 0
     atomic_write(path, expected)
     suffix = f" and {len(skill_links)} repo-native skills" if args.harness == "codex" else ""
     print(f"wrote {path}{suffix} for {label} ({len(selected)} plugins)")

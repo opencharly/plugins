@@ -310,25 +310,28 @@ Images with Chrome include a `browser-open` script and set `BROWSER=browser-open
 
 Complete flow for deploying openclaw with Codex OAuth. **All browser interactions must be VNC-visible** — deliver pointer clicks on the OAuth pages through the `vnc:` verb.
 
-**Critical:** The `openclaw models auth login` TUI requires a real terminal. Do NOT pipe through `tee` or redirect stdout. Use **`charly tmux`** (see `/charly-automation:tmux`).
+**Critical:** The `openclaw models auth login` TUI requires a real terminal. Do not pipe or redirect it. Use the typed persistent terminal provider (see `/charly-automation:tmux`).
 
 The cdp/vnc interactions are authored as ordered plan steps and run with
 `charly check live <image> --filter cdp --filter vnc`; the surrounding host
-orchestration (`charly tmux`, `charly service`, `charly shell`) is a separate surface,
+orchestration (`charly agent terminal`, `charly service`, `charly shell`) is a separate surface,
 unaffected by the verb externalization:
 
 ```bash
 IMG=sway-browser-vnc   # any image composing chrome-cdp + a Wayland desktop + VNC
+RUN=0198f140-6b7a-7b90-8a10-aabbccddee02
+TARGET='{"deployment":"sway-browser-vnc"}'
+PROFILE='{"name":"openclaw-oauth","entrypoint":["openclaw","models","auth","login","--provider","openai-codex","--set-default"],"cols":120,"rows":40,"persistence":"required","transcript":"both"}'
 
 # 1. Prerequisites: Chrome signed into Google with sync enabled
 #    See /charly-automation:openclaw-deploy for full Chrome sign-in procedure
 
-# 2. Start OAuth in a tmux session (real terminal)
-charly tmux run $IMG -s oauth "openclaw models auth login --provider openai-codex --set-default"
+# 2. Start OAuth in a typed persistent terminal (real PTY)
+charly agent terminal launch "$PROFILE" --target "$TARGET" --run-id "$RUN"
 
-# 3. Read OAuth URL from tmux output, then drive the browser via the cdp:/vnc: steps below
-sleep 5
-charly tmux capture $IMG -s oauth | grep -o 'https://auth.openai.com/[^ ]*'
+# 3. Read the structured screen/transcript, then drive the browser via the cdp:/vnc: steps below
+charly agent terminal snapshot "$PROFILE" --target "$TARGET" --run-id "$RUN"
+charly agent terminal transcript "$RUN"
 ```
 
 ```yaml
@@ -354,9 +357,8 @@ plan:
 ```
 
 ```bash
-# 6. Verify token exchange completed
-sleep 10
-charly tmux capture $IMG -s oauth
+# 6. Verify token exchange completed from typed evidence
+charly agent terminal snapshot "$PROFILE" --target "$TARGET" --run-id "$RUN"
 # Expected: "OpenAI OAuth complete", "Default model set to openai-codex/gpt-5.4"
 
 # 7. Restart gateway
@@ -370,13 +372,13 @@ charly shell $IMG -c "openclaw models status"
 - These are CSS class selectors specific to OpenAI's auth UI — may change over time
 
 Key enablers:
-- `charly tmux run` provides a real terminal for the TUI to complete the token exchange (see `/charly-automation:tmux`)
+- `charly agent terminal launch` provides a real persistent terminal for the TUI (see `/charly-automation:tmux`)
 - the `cdp:` verb finds elements by CSS selector; the `vnc:` verb delivers the pointer click (visible to user)
 - `cdp-proxy` makes Chrome DevTools accessible from host through podman bridge networking (with Host header rewriting)
 - `shm_size: 1g` prevents Chrome from crashing due to /dev/shm exhaustion
 - Callback at `localhost:1455` is container-internal (no port mapping needed)
 
-**Stale port 1455:** If a previous OAuth attempt left port 1455 occupied: `charly shell $IMG -c 'kill -9 $(ss -tlnp sport = :1455 | grep -oP "pid=\K\d+")'`
+**Stale port 1455:** If a previous OAuth attempt left port 1455 occupied, kill the stale holder: `charly shell $IMG -c 'kill -9 $(ss -tlnp sport = :1455 | grep -oP "pid=\K\d+")'`. If the surviving owner is a live agent run, treat it as an incident instead (per R1): preserve its evidence, complete RCA, and apply an explicit recovery decision.
 
 Source: `candy/plugin-cdp`.
 

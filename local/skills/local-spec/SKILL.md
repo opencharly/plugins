@@ -94,7 +94,7 @@ never pay the image-fetch cost. See `/charly-check:check` "Image
 preflight" and `charly/check_image_preflight.go`.
 
 This invariant — "deploy fetches NOTHING speculative" — is codified
-as a CLAUDE.md Key Rule and enforced at the type level: the
+as a project-rulebook Key Rule (`AGENTS.md` / `CLAUDE.md`) and enforced at the type level: the
 `LocalSpec` Go struct has no `Images` field, so the surface is
 unreachable from any new code. Migration: `charly migrate`
 (idempotent; rewrites legacy `image:` blocks under `local.<name>`
@@ -139,7 +139,7 @@ charly-cachyos-app:
 
 ## Globally-unique names within one document
 
-Every entity flattens to a top-level `<name>:` key, so within one document (the project-root `charly.yml`) top-level names must be **globally unique** — a deploy and the `kind: local` template it deploys cannot share a name (they would collide on one YAML key). The convention: keep the user-facing deploy name and **suffix the template it deploys**. The canonical example is `charly-cachyos` — the `charly-cachyos` deploy (`local: { from: charly-cachyos-app, host: local }`) deploys the `charly-cachyos-app` `kind: local` template; `charly update charly-cachyos` resolves to the deploy, which references the template via its `from: charly-cachyos-app` field. Cross-kind reuse of the SAME name across SEPARATE discovered files (a `candy/redis` + a `box/redis`) remains permitted. See CLAUDE.md "a single document's top-level node names are GLOBALLY UNIQUE".
+Every entity flattens to a top-level `<name>:` key, so within one document (the project-root `charly.yml`) top-level names must be **globally unique** — a deploy and the `kind: local` template it deploys cannot share a name (they would collide on one YAML key). The convention: keep the user-facing deploy name and **suffix the template it deploys**. The canonical example is `charly-cachyos` — the `charly-cachyos` deploy (`local: { from: charly-cachyos-app, host: local }`) deploys the `charly-cachyos-app` `kind: local` template; `charly update charly-cachyos` resolves to the deploy, which references the template via its `from: charly-cachyos-app` field. Cross-kind reuse of the SAME name across SEPARATE discovered files (a `candy/redis` + a `box/redis`) remains permitted. See the project rulebook "a single document's top-level node names are GLOBALLY UNIQUE".
 
 ## When to Use This Skill
 

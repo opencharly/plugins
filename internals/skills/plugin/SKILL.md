@@ -243,7 +243,7 @@ See "Authoring an external COMMAND plugin" below.
 ## The per-plugin CUE schema — the single source, two consumers
 
 **Every plugin WITH authored input ships its OWN `.cue` schema, and it is the SINGLE SOURCE for that
-plugin's params.** This is CLAUDE.md's "Schema Driven Design (SDD)" pillar applied per-plugin: the schema
+plugin's params.** This is the project rulebook "Schema Driven Design (SDD)" pillar (`AGENTS.md` / `CLAUDE.md`) applied per-plugin: the schema
 comes BEFORE the plugin's code, and both consumers below are derived from that one source (the
 cross-generator pipeline map + the generation-coverage current state live in `/charly-internals:go`
 "Schema Driven Design (SDD)"). An INPUT-LESS plugin (no `input_def` on any capability) ships NO schema —
@@ -409,7 +409,7 @@ their `cmd/serve` shim. Shape:
   `LocalTransport` when the candy is NOT in `compiled_plugins`; `invokeVerbProvider` (provider_checkenv.go)
   serves BOTH reverse services on one broker id. The verdict round-trips as the same `{status,message}`
   every out-of-process verb returns.
-- `kit` imports only the stdlib + `sdk/spec`; the candy imports `kit` + `sdk` + `spec` + its `params`.
+- `kit` imports the stdlib + `sdk/spec` + `sdk/vmshared` + the pinned external helpers (`gopkg.in/yaml.v3`, `golang.org/x/sys/unix`) — never the `sdk` root module; the candy imports `kit` + `sdk` + `spec` + its `params`.
 
 A kit candy keeps the verb's logic (RunVerb on `kit.CheckContext`) OUTSIDE charly's module while preserving
 the typed fast path — runnable in-proc (compiled-in, the real `*Runner`, no envelope) OR out-of-process (the
@@ -466,7 +466,7 @@ compile.)
 
 ## The kernel/plugin boundary law — what belongs in the kernel vs a plugin
 
-This is the authoritative detail for CLAUDE.md's **"The kernel/plugin boundary law"** pillar. It decides,
+This is the authoritative detail for the project rulebook **"The kernel/plugin boundary law"** pillar. It decides,
 uniformly and with NO per-kind exception, whether any schema / typed shape / validation / behaviour is
 KERNEL (`charly/` core + `sdk/`) or PLUGIN. Read it before adding or placing any capability.
 
@@ -507,7 +507,7 @@ four kind-AGNOSTIC things —
 **The decision procedure.** For any construct ask: generic Envelope (E)? a kind-blind Mechanism that is
 plugin loading / dispatch / the kind-decode materialize / the wire broker (M — nothing else in core)?
 the Bootstrap root (B)? kind-recognition Data (D)? If none → it is a plugin (R). Placement
-is decided ONLY by this test; **difficulty NEVER enters it** (CLAUDE.md forbidden-excuse catalog) — a
+is decided ONLY by this test; **difficulty NEVER enters it** (the project rulebook forbidden-excuse catalog) — a
 thing stays kernel only because it is E/M/B/D, never because moving it is hard.
 
 **The un-gameable self-test — the "incomplete seam".** The four kernel escapes are each kind-AGNOSTIC and
@@ -585,7 +585,7 @@ existing seams a de-typing rides — no new seam is usually needed, only the con
 
 **Every K-wave move is a generalization, not a mechanical relocation.** Moving a capability's call site
 into its owning plugin is R3 ("no duplication; generic, reusable solutions over ad-hoc patches") and
-Prioritize Clean Architecture applied to the migration itself (see CLAUDE.md — not restated here). In
+Prioritize Clean Architecture applied to the migration itself (see the project rulebook — not restated here). In
 practice: reach for an EXISTING generic seam first (`HostBuild`, `InvokeProvider`, `OpResolve`/`OpEmit`,
 the `substrateLifecycle` legs) or build ONE generic, F11-reviewed, class-generic action noun — never a
 per-word or per-case one; COLLAPSE per-case branches into a single word-keyed data-driven mechanism as
@@ -615,7 +615,7 @@ is an incomplete seam fixed as its own cutover with a named exit, never an indef
 ## Target architecture (v2) — the direction the boundary law drives toward
 
 The boundary law above is the RULE; this is the END-STATE it converges on (operator-directed,
-2026-07-13). CLAUDE.md carries the mandate ("Core is a PLUGIN HOST"); this is its operationalization +
+2026-07-13). The project rulebook carries the mandate ("Core is a PLUGIN HOST"); this is its operationalization +
 trajectory.
 
 **The architecture, one sentence.** `charly/` core is a plugin HOST and nothing else — it loads plugins,

@@ -33,8 +33,8 @@ state** that:
 Mixing those concerns into the shared `tailscale` candy would either
 break bootc consumers (with build-time errors from missing daemon
 socket) or require a target-aware conditional inside the shared candy
-— exactly the kind of `<name>-host` polymorphism that CLAUDE.md's
-"Init-system polymorphism" rule forbids.
+— exactly the kind of `<name>-host` polymorphism that the project rulebook
+"Init-system polymorphism" rule (`AGENTS.md` / `CLAUDE.md`) forbids.
 
 `tailscale-up` is the runtime-config sibling: it depends on `tailscale`,
 self-gates on `systemctl is-active tailscaled`, and only fires when
@@ -169,7 +169,7 @@ because:
   typical examples).
 - It triggers a brief disconnect + re-auth attempt, which can fail on
   ephemeral auth keys or expire-on-rotate setups.
-- It violates CLAUDE.md's "no ad-hoc workarounds" rule: a `--reset` to
+- It violates the project rulebook "no ad-hoc workarounds" rule: a `--reset` to
   fix a name divergence is a sledgehammer for a problem better solved
   by an admin-console click or a deliberate operator-driven `up`.
 

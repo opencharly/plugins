@@ -182,11 +182,11 @@ There is no in-proc android deploy target.
 - `sdk/spec/deploy_wire.go` — `DeployVenue.Substrate` + `AndroidDeployVenue`.
 - `candy/plugin-adb/deploy.go` — the `deploy:android` provider (boot gate + install
   loop with retry + uninstall reverse ops); `install.go` — the shared installer.
-- `charly/install_plan.go` — `ApkInstallStep`; `charly/install_build.go` —
+- `charly/install_plan.go` — `ApkInstallStep`; `sdk/deploykit/install_build.go` —
   `compileApkStep` (the preresolver reads this step host-side; no DeployTarget executes it).
 - `charly/unified.go` — loader wiring (mirrors every `k8s` site).
 - `charly/deploy.go` `BundleNode.Android`; `charly/bundle_add_cmd.go` dispatch +
-  `--node-only`; `charly/deploy_chain.go` / `charly/deploy_tree.go` passthrough.
+  `--node-only`; `sdk/deploykit/deploy_chain.go` / `charly/deploy_tree.go` passthrough.
 
 ## Related skills
 

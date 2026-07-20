@@ -40,6 +40,10 @@ assert_profile() {
     local harness=$1 profile=$2 expected=$3 family=${4:-}
     args=("$harness" "$profile")
     [[ -n $family ]] && args+=("$family")
+    local marketplace_before=""
+    if [[ $harness == kimi ]]; then
+        marketplace_before=$(sha256sum "$CONSUMER/.agents/plugins/marketplace.json")
+    fi
     (cd "$CONSUMER" && HOME="$HOME_SENTINEL" "$ROOT/setup" "${args[@]}")
     (cd "$CONSUMER" && HOME="$HOME_SENTINEL" "$ROOT/setup" "$harness" --check "$profile" ${family:+"$family"})
     count=$(python3 - "$CONSUMER" "$harness" <<'PY'
@@ -48,13 +52,16 @@ root, harness = pathlib.Path(sys.argv[1]), sys.argv[2]
 if harness == "claude":
     data = json.loads((root / ".claude/settings.json").read_text())
     print(sum(name.startswith("charly-") and value for name, value in data["enabledPlugins"].items()))
-else:
+elif harness == "codex":
     data = json.loads((root / ".agents/plugins/marketplace.json").read_text())
     print(sum(
         p["name"].startswith("charly-")
         and p["policy"]["installation"] == "INSTALLED_BY_DEFAULT"
         for p in data["plugins"]
     ))
+else:
+    inventory = json.loads((root / ".agents/skills/.charly-profile.json").read_text())
+    print(len(inventory["links"]))
 PY
 )
     [[ $count -eq $expected ]] || { echo "$harness $profile count: $count" >&2; exit 1; }
@@ -66,36 +73,70 @@ assert data["consumerSetting"] == {"owner": "fixture"}
 assert data["enabledPlugins"]["consumer@example"] is True
 PY
     else
-        python3 - "$CONSUMER" <<'PY'
+        python3 - "$CONSUMER" "$harness" <<'PY'
 import json, pathlib, sys
-root = pathlib.Path(sys.argv[1])
+root, harness = pathlib.Path(sys.argv[1]), sys.argv[2]
 links = list((root / ".agents/skills").glob("charly-*"))
-assert links, "Codex profile created no repo-native skills"
-assert all(path.is_symlink() for path in links), "Codex profile copied skill content"
+assert links, f"{harness} profile created no repo-native skills"
+assert all(path.is_symlink() for path in links), f"{harness} profile copied skill content"
 assert all((path.resolve() / "SKILL.md").is_file() for path in links), "broken skill link"
-data = json.loads((root / ".agents/plugins/marketplace.json").read_text())
-assert data["name"] == "consumer-marketplace"
-assert data["interface"] == {"displayName": "Consumer", "theme": "dark"}
-assert data["consumerMetadata"] == {"owner": "fixture"}
-unmanaged = [p for p in data["plugins"] if p["name"].startswith("consumer-")]
-assert unmanaged == [
-    {"name": "consumer-before", "source": {"source": "local", "path": "./before"}},
-    {"name": "consumer-after", "source": {"source": "local", "path": "./after"}},
-]
-names = [p["name"] for p in data["plugins"]]
-assert len(names) == len(set(names)), "duplicate marketplace entries"
+if harness == "codex":
+    data = json.loads((root / ".agents/plugins/marketplace.json").read_text())
+    assert data["name"] == "consumer-marketplace"
+    assert data["interface"] == {"displayName": "Consumer", "theme": "dark"}
+    assert data["consumerMetadata"] == {"owner": "fixture"}
+    unmanaged = [p for p in data["plugins"] if p["name"].startswith("consumer-")]
+    assert unmanaged == [
+        {"name": "consumer-before", "source": {"source": "local", "path": "./before"}},
+        {"name": "consumer-after", "source": {"source": "local", "path": "./after"}},
+    ]
+    names = [p["name"] for p in data["plugins"]]
+    assert len(names) == len(set(names)), "duplicate marketplace entries"
 PY
         [[ $(readlink "$CONSUMER/.agents/skills/charly-user-owned") == "$consumer_skill_target" ]] || {
-            echo "Codex setup changed a consumer-owned skill link" >&2
+            echo "$harness setup changed a consumer-owned skill link" >&2
             exit 1
         }
+        if [[ $harness == kimi ]]; then
+            [[ $marketplace_before == "$(sha256sum "$CONSUMER/.agents/plugins/marketplace.json")" ]] || {
+                echo "kimi setup rewrote the marketplace document" >&2
+                exit 1
+            }
+            [[ ! -e "$CONSUMER/.kimi-code" ]] || {
+                echo "kimi setup wrote project configuration" >&2
+                exit 1
+            }
+        fi
     fi
 }
 
-for harness in claude codex; do
-    assert_profile "$harness" developer 25
-    assert_profile "$harness" user 13
-    assert_profile "$harness" container 2 coder
+expected_skill_count() {
+    python3 - "$CONSUMER" "$1" "${2:-}" <<'PY'
+import json, pathlib, sys
+root, profile, family = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+profiles = json.loads((root / "plugins/profiles.json").read_text())
+if profile == "container":
+    selected = ["charly-core", f"charly-{family}"]
+else:
+    selected = profiles[profile]
+total = 0
+for name in selected:
+    plugin_dir = name.removeprefix("charly-")
+    total += len(list((root / "plugins" / plugin_dir / "skills").glob("*/SKILL.md")))
+print(total)
+PY
+}
+
+for harness in claude codex kimi; do
+    if [[ $harness == kimi ]]; then
+        assert_profile kimi developer "$(expected_skill_count developer)"
+        assert_profile kimi user "$(expected_skill_count user)"
+        assert_profile kimi container "$(expected_skill_count container coder)" coder
+    else
+        assert_profile "$harness" developer 25
+        assert_profile "$harness" user 13
+        assert_profile "$harness" container 2 coder
+    fi
     if (cd "$ROOT/.." && "$ROOT/setup" "$harness" user) >/dev/null 2>&1; then
         echo "$harness reduced profile unexpectedly accepted in OpenCharly" >&2
         exit 1
@@ -285,6 +326,15 @@ if python3 "$CONSUMER/plugins/scripts/validate_skills.py" >/dev/null 2>&1; then
 fi
 rmdir "$CONSUMER/plugins/core/skills/retired-empty-skill"
 python3 "$CONSUMER/plugins/scripts/validate_skills.py" >/dev/null
+
+# The kimi profile syncs the shared repo-native links and emits (never
+# installs) the user-config snippet.
+kimi_out=$(cd "$CONSUMER" && HOME="$HOME_SENTINEL" "$ROOT/setup" kimi developer)
+grep -q 'merge the snippet from' <<<"$kimi_out" || { echo "kimi setup did not emit the snippet" >&2; exit 1; }
+grep -q '\[\[permission.rules\]\]' <<<"$kimi_out" || { echo "kimi snippet lost its permission rules" >&2; exit 1; }
+grep -q '\[\[hooks\]\]' <<<"$kimi_out" || { echo "kimi snippet lost its hooks" >&2; exit 1; }
+(cd "$CONSUMER" && HOME="$HOME_SENTINEL" "$ROOT/setup" kimi --check developer) >/dev/null
+[[ ! -e "$HOME_SENTINEL/.kimi-code" ]] || { echo "kimi setup wrote user configuration" >&2; exit 1; }
 
 after=$(sha256sum "$HOME_SENTINEL/.claude/settings.json" "$HOME_SENTINEL/.codex/config.toml")
 [[ $before == "$after" ]] || { echo "user configuration changed" >&2; exit 1; }

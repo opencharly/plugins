@@ -1,0 +1,64 @@
+# OpenCharly Kimi profile — merge into ~/.kimi-code/config.toml.
+#
+# Kimi has no project-level config.toml, so these rules live in the user-level
+# file. The hooks are repo-guarded: each fires only when the session's project
+# directory is an OpenCharly checkout (marker: plugins/.claude-plugin/
+# marketplace.json) and then delegates to the shared gate scripts in
+# .claude/hooks (payload-compatible: stdin JSON tool_input.command, exit 2 =
+# block, stdout appended to context). In every other project they exit 0.
+
+# Permission parity with the superproject's .claude/settings.json allow list:
+# narrow prefixes for the charly R10/check verbs and the pr-validator's
+# GitHub actions.
+
+[[permission.rules]]
+decision = "allow"
+pattern = "Bash(charly check run*)"
+reason = "OpenCharly R10 disposable check beds"
+
+[[permission.rules]]
+decision = "allow"
+pattern = "Bash(charly check live*)"
+reason = "OpenCharly live probes"
+
+[[permission.rules]]
+decision = "allow"
+pattern = "Bash(charly check box*)"
+reason = "OpenCharly box checks"
+
+[[permission.rules]]
+decision = "allow"
+pattern = "Bash(charly status*)"
+reason = "OpenCharly status"
+
+[[permission.rules]]
+decision = "allow"
+pattern = "Bash(gh pr merge*)"
+reason = "OpenCharly pr-validator merge"
+
+[[permission.rules]]
+decision = "allow"
+pattern = "Bash(gh api --method POST repos/opencharly*)"
+reason = "OpenCharly pr-validator status posts"
+
+[[hooks]]
+event = "PreToolUse"
+matcher = "Bash"
+command = "bash -c '[ -f \"$PWD/plugins/.claude-plugin/marketplace.json\" ] && [ -f \"$PWD/.claude/hooks/pre-commit-gate.sh\" ] && exec bash \"$PWD/.claude/hooks/pre-commit-gate.sh\" || exit 0'"
+timeout = 30
+
+[[hooks]]
+event = "PreToolUse"
+matcher = "Bash"
+command = "bash -c '[ -f \"$PWD/plugins/.claude-plugin/marketplace.json\" ] && [ -f \"$PWD/.claude/hooks/pre-push-gate.sh\" ] && exec bash \"$PWD/.claude/hooks/pre-push-gate.sh\" || exit 0'"
+timeout = 30
+
+[[hooks]]
+event = "UserPromptSubmit"
+command = "bash -c '[ -f \"$PWD/plugins/.claude-plugin/marketplace.json\" ] && exec bash \"$PWD/.claude/hooks/runtime-verification-reminder.sh\" || exit 0'"
+timeout = 5
+
+[[hooks]]
+event = "Stop"
+command = "bash -c '[ -f \"$PWD/plugins/.claude-plugin/marketplace.json\" ] && exec bash \"$PWD/.claude/hooks/end-of-turn-challenge.sh\" || exit 0'"
+timeout = 5

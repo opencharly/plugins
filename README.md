@@ -1,6 +1,6 @@
 # OpenCharly Plugins
 
-Claude Code and Codex plugins for OpenCharly — the candy factory for you and your agents.
+Claude Code, Codex, and Kimi plugins for OpenCharly — the candy factory for you and your agents.
 
 ## How this marketplace is organized
 
@@ -27,16 +27,16 @@ manager UI.
 
 | Plugin | Skill count | MCP server | Purpose |
 |---|--:|---|---|
-| **charly-core** | 15 | — | Lifecycle: start, stop, restart, charly-status, logs, shell, ssh, deploy, charly-update, remove, charly-config, cmd, charly-version, charly-doctor, clean. |
+| **charly-core** | 15 | — | Lifecycle: start, stop, service, charly-status, logs, shell, ssh, deploy, charly-update, remove, charly-config, cmd, charly-version, charly-doctor, clean. |
 | **charly-build** | 13 | — | Build/authoring: build, generate, list, inspect, merge, new, pull, validate, secrets, settings, migrate, reconcile, charly-mcp-cmd. |
 | **charly-check** | 13 | — | Live-container evaluation: `check` orchestrator + cdp, wl, wl-overlay, dbus, vnc, spice, libvirt, record, adb, appium probes + `android` (the `kind: android` device + `apk:` package format + Android-device deploy) + the `check-sway-browser-vnc-pod` R10 bed. |
-| **charly-automation** | 6 | — | tmux verb, host-side wrappers (alias, udev), topic flags (enc, sidecar, openclaw-deploy). |
+| **charly-automation** | 7 + 1 agent | — | tmux verb, agent control plane (agent skill + agent-control-operator agent), host-side wrappers (alias, udev), topic flags (enc, sidecar, openclaw-deploy). |
 
 ### kind — schema-kind authoring
 
 | Plugin | Skill count | MCP server | Purpose |
 |---|--:|---|---|
-| **charly-image** | 2 | — | Schema for `kind: box` and `kind: candy` (charly.yml authoring). |
+| **charly-image** | 2 | — | Schema for `kind: candy` (charly.yml authoring — `base:`/`from:` makes an image; neither makes a layer). |
 | **charly-vm** | 6 | — | Schema for `kind: vm` + bootc VM catalog (cloud_image vs bootc, libvirt/QEMU). Includes `cachyos` (bootstrap VM, in the `opencharly/distro-cachyos` submodule) and `debian` / `ubuntu` (debootstrap bootstrap VMs, in the `opencharly/distro-debian` / `opencharly/distro-ubuntu` submodules). |
 | **charly-kubernetes** | 2 | — | Schema for `kind: k8s` + cluster probes via the declarative `kube:` check verb (out-of-process `candy/plugin-kube`). |
 | **charly-local** | 3 | — | Schema for `kind: local` + ssh-host deploys + managed ssh-config fragment. Includes `charly-cachyos` (operator CachyOS workstation profile, in the `opencharly/distro-cachyos` submodule). |
@@ -46,7 +46,7 @@ manager UI.
 
 | Plugin | Skill count | MCP server | Purpose |
 |---|--:|---|---|
-| **charly-internals** | 17 + 5 agents | github (stdio) | Go source map, install-plan IR, capabilities/OCI labels, vm-spec, libvirt/cloud-init renderers, egress (validating the config files charly WRITES), cutover-policy, strict-policy, disposable, ovmf, generate-source, git-workflow, skills, agents (the agents/workflows/teams guide). Ships 5 agents — enforcers root-cause-analyzer, layer-validator, testing-validator; executors check-bed-runner, deploy-verifier (drive the `charly check` beds). The `/verify-beds` + `/audit-deploy-configs` dynamic workflows live in the superproject's `.claude/workflows/`. |
+| **charly-internals** | 20 | github (stdio) | Go source map, go-quality, install-plan IR, capabilities/OCI labels, vm-spec, vm-deploy-target, libvirt/cloud-init renderers, egress (validating the config files charly WRITES), cutover-policy, strict-policy, disposable, ovmf, generate-source, git-workflow, local-infra, plugin, skills, root-cause-analyzer, agents (the agents/workflows/teams guide). Ships 5 agents — enforcers root-cause-analyzer, layer-validator, testing-validator; executors check-bed-runner, deploy-verifier (drive the `charly check` beds). The `/verify-beds` + `/audit-deploy-configs` dynamic workflows live in the superproject's `.claude/workflows/`. |
 
 ### images — deployable image catalog
 
@@ -64,10 +64,10 @@ manager UI.
 | Plugin | Skill count | MCP server | Purpose |
 |---|--:|---|---|
 | **charly-jupyter** | 15 | jupyter @ 8888 | Jupyter image family (jupyter, jupyter-ml, jupyter-ml-notebook, unsloth-studio) + notebook templates + jupyter-mcp server. |
-| **charly-coder** | 31 | charly @ 18765 | charly coder/dev images (fedora-coder in the `opencharly/distro-fedora` submodule; arch-coder/charly-arch in `opencharly/distro-arch`; debian-coder in `opencharly/distro-debian`; ubuntu-coder in `opencharly/distro-ubuntu`) + language runtimes (golang/rust/nodejs/docker-ce). |
+| **charly-coder** | 32 | charly @ 18765 | charly coder/dev images (fedora-coder in the `opencharly/distro-fedora` submodule; arch-coder/charly-arch in `opencharly/distro-arch`; debian-coder in `opencharly/distro-debian`; ubuntu-coder in `opencharly/distro-ubuntu`) + language runtimes (golang/rust/nodejs/docker-ce). |
 | **charly-selkies** | 43 | chrome-devtools @ 9224 | Selkies-desktop family — labwc and full-KDE-Plasma flavors of the browser-streamed Wayland desktop, always a headless pod, per-GPU encode (VAAPI / NVENC / x264 auto-selected at runtime). |
 | **charly-openclaw** | 7 | — | OpenClaw AI gateway family (CachyOS base): the `openclaw` layer + headless `openclaw` / `openclaw-full` images + the all-in-one `openclaw-desktop` (streaming desktop + gateway + CPU ollama + nested charly toolchain) + composition layers (`openclaw-full`, `openclaw-full-ml`). |
-| **charly-versa** | 9 | marimo @ 22718, airflow @ 29999 | Versa image — marimo notebook + Airflow + OSM/GTFS analytics + martin vector tiles. |
+| **charly-versa** | 16 | marimo @ 22718, airflow @ 29999 | Versa image — marimo notebook + Airflow + OSM/GTFS analytics + martin vector tiles, versatiles, versatiles-fonts, versatiles-frontend, versatiles-style, maplibre-versatiles-styler, maputnik-layer, pmtiles-viewer, shortbread, osm-tools-layer, notebook-osm, debug-tools-layer, sway-browser-ecovoyage, marimo-mcp. |
 | **charly-ollama** | 2 | — | Ollama LLM-server image. Pair with `charly-jupyter` to expose to notebooks. |
 | **charly-openwebui** | 2 | — | OpenWebUI chat frontend. Consumes the jupyter MCP. |
 | **charly-comfyui** | 2 | — | ComfyUI image-generation/diffusion. |
@@ -111,14 +111,16 @@ only the current structure.
 
 ## Installation
 
-Use the same marketplace and skill tree in either harness:
+Use the same marketplace and skill tree in any of the three harnesses:
 
 ```bash
 ./setup claude                         # full developer mode (default)
 ./setup codex developer
+./setup kimi developer
 ./setup claude user                    # use/author Charly, do not develop it
 ./setup codex container jupyter        # operate one generated container family
 ./setup codex --check developer        # non-mutating drift check
+./setup kimi --check developer
 ```
 
 `developer` installs all 25 plugins. `user` installs the runtime, authoring,
@@ -129,7 +131,13 @@ self-contained family plugin. The Charly repository always uses `developer`.
 The setup command writes only target-repository files: Claude writes
 `.claude/settings.json`; Codex writes `.agents/plugins/marketplace.json` and
 repo-native `.agents/skills/` symlinks to the selected canonical
-`plugins/<plugin>/skills/` directories. It never copies skill bodies, invokes a
+`plugins/<plugin>/skills/` directories. Kimi reads that same
+`.agents/skills/` tree natively as project-scope skills (on-demand `Skill`
+invocation), so setup syncs the identical links and additionally prints the
+`kimi-user-config.toml` snippet — permission rules and repo-guarded hooks for
+the user-level `~/.kimi-code/config.toml` (Kimi has no project-level config
+file) — which the operator merges by hand; setup never installs it. It never
+copies skill bodies, invokes a
 plugin CLI, or changes user configuration. Existing unrelated project settings,
 marketplace metadata, plugin entries, and skill paths are preserved; setup owns
 only the Charly entries it generates. Managed project roots must not be symlinks;

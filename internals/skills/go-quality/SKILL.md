@@ -10,10 +10,10 @@ description: |
   audit, golangci-lint run, dupl/duplication check, or CLAUDE.md-compliance sweep of charly/.
 ---
 
-# go-quality — checking & fixing charly Go source for CLAUDE.md compliance
+# go-quality — checking & fixing charly Go source for project-rulebook compliance (`AGENTS.md` / `CLAUDE.md`)
 
 The `charly/` CLI is one large `package main` (~570 files, ~169K LOC). This skill is the
-operational HOW for auditing it against the checkable subset of CLAUDE.md and driving the
+operational HOW for auditing it against the checkable subset of the project rulebook and driving the
 fixes. It owns the *tooling + method*; the rule definitions live in `/charly-internals:strict-policy`
 (R1–R5), the source map in `/charly-internals:go`, and landing in `/charly-internals:cutover-policy`
 + `/charly-internals:git-workflow`.
@@ -254,4 +254,4 @@ smoke is green at commit time. Doctrine: `/charly-internals:agents` "Hooks doctr
 ## When to Use This Skill
 
 Invoke before running golangci-lint / dupl / a duplication check, auditing charly Go source
-for CLAUDE.md compliance or code quality, or planning/landing a compliance fix sweep.
+for project-rulebook compliance or code quality, or planning/landing a compliance fix sweep.

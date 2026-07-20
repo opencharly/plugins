@@ -402,7 +402,7 @@ Auto-intermediates are marked with `Auto: true` and appear in `charly box list t
 3. The trie is walked to detect branch points (where sibling layer sequences diverge). At each branch, an auto-intermediate image is created.
 4. Original images are rebased to the nearest intermediate, so shared layers are built once.
 
-Source: `charly/intermediates.go` (`ComputeIntermediates`, `GlobalCandyOrder`, `walkTrieScoped`).
+Source: `sdk/deploykit/intermediates.go` (moved from `charly/intermediates.go`; `charly/intermediates_shim.go` delegates to it) (`ComputeIntermediates`, `GlobalCandyOrder`, `walkTrieScoped`).
 
 ## Versioning
 
@@ -584,7 +584,7 @@ experimental:
 
 ## Cross-kind name reuse
 
-Every entity is a top-level **name-first** node, so within a single document the top-level node names are **globally unique**: a `candy` (image or layer), a `pod`, a `vm`, a `k8s`, and a `local` in ONE `charly.yml` MUST NOT share a name (they would collide on the same YAML key — `charly box validate` flags it; rename one, e.g. the convention of suffixing the template a deploy inherits). Cross-FILE name reuse across SEPARATE discovered files (a layer `candy/redis` + an image `box/redis` — both `candy:` nodes, routed to distinct internal maps `uf.Candy` vs `uf.Box` by `base:`/`from:` presence) IS still permitted, and verbs disambiguate by command context. Authoring verbs (`charly box set`, `charly box new box`, `charly box add-candy`, `charly box rm-candy`, `charly box new project`) write exclusively to `charly.yml` — a per-kind sibling file is reachable only via the `import:` statement from `charly.yml`, never as a default authoring target. Missing `charly.yml` → hard error pointing at `charly box new project .` or `charly migrate`. See CLAUDE.md "cross-FILE cross-kind reuse is fine, but a single document's top-level node names are GLOBALLY UNIQUE".
+Every entity is a top-level **name-first** node, so within a single document the top-level node names are **globally unique**: a `candy` (image or layer), a `pod`, a `vm`, a `k8s`, and a `local` in ONE `charly.yml` MUST NOT share a name (they would collide on the same YAML key — `charly box validate` flags it; rename one, e.g. the convention of suffixing the template a deploy inherits). Cross-FILE name reuse across SEPARATE discovered files (a layer `candy/redis` + an image `box/redis` — both `candy:` nodes, routed to distinct internal maps `uf.Candy` vs `uf.Box` by `base:`/`from:` presence) IS still permitted, and verbs disambiguate by command context. Authoring verbs (`charly box set`, `charly box new box`, `charly box add-candy`, `charly box rm-candy`, `charly box new project`) write exclusively to `charly.yml` — a per-kind sibling file is reachable only via the `import:` statement from `charly.yml`, never as a default authoring target. Missing `charly.yml` → hard error pointing at `charly box new project .` or `charly migrate`. See the project rulebook "cross-FILE cross-kind reuse is fine, but a single document's top-level node names are GLOBALLY UNIQUE" (`AGENTS.md` / `CLAUDE.md`).
 
 ### Files are generic kind-containers (per-kind filenames are a convenience)
 
@@ -658,4 +658,4 @@ Changes that touch this verb's output must reach a healthy deployment on a targe
 
 **After committing the source-level fix, `charly update` the disposable target ONCE MORE from clean and re-run the full verification.** A fix that passes only on a hand-patched target is not a real fix — it's a regression waiting for the next unrelated rebuild. Paste BOTH the exploratory-pass output and the fresh-rebuild-pass output into the conversation.
 
-Unit tests + a clean compile are necessary but not sufficient. See CLAUDE.md R1–R10.
+Unit tests + a clean compile are necessary but not sufficient. See the project rulebook R1–R10.

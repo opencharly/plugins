@@ -811,7 +811,7 @@ Do **NOT** split a polymorphic service into two candies like `myservice` (superv
 
 If you find yourself reaching for a `-host` suffix on a candy name, reach for a second `service:` entry instead. The same rule applies to `-pod` suffixes for the inverse case (a candy that needs container-only behavior under systemd targets).
 
-`charly box validate` does NOT (yet) statically reject `*-host` / `*-pod` candy names, because some legitimate uses might exist (a candy whose package literally only exists on host distros). The rule lives in CLAUDE.md "Init-system polymorphism via mixed `service:` entries" + this skill + `/charly-infrastructure:supervisord` — agents that load any of those before authoring will see the guidance. Canonical worked examples: `/charly-coder:sshd` (mixed), `/charly-infrastructure:virtualization` (mixed; CANONICAL example), `/charly-infrastructure:postgresql` (use_packaged-only).
+`charly box validate` does NOT (yet) statically reject `*-host` / `*-pod` candy names, because some legitimate uses might exist (a candy whose package literally only exists on host distros). The rule lives in the project rulebook "Init-system polymorphism via mixed `service:` entries" (`AGENTS.md` / `CLAUDE.md`) + this skill + `/charly-infrastructure:supervisord` — agents that load any of those before authoring will see the guidance. Canonical worked examples: `/charly-coder:sshd` (mixed), `/charly-infrastructure:virtualization` (mixed; CANONICAL example), `/charly-infrastructure:postgresql` (use_packaged-only).
 
 ## Volume Declaration
 
@@ -1241,7 +1241,7 @@ by the single idempotent `charly migrate` — see `/charly-build:migrate`.
 
 ## Cross-kind name reuse
 
-A candy is a top-level **name-first** node, so within a single document the top-level node names are **globally unique**. Cross-FILE name reuse across SEPARATE discovered files IS still permitted: the same identifier (e.g. `charly-cachyos`) MAY exist as a layer at `candy/charly-cachyos/charly.yml` AND an image at `box/charly-cachyos/charly.yml` simultaneously — both are `candy:` nodes (the image carries `base:`/`from:`; there is no `box:` KIND), routed to distinct internal maps (`uf.Candy` vs `uf.Box`). Verbs disambiguate by command context. When `charly bundle add <name>` resolves a ref where both an image AND a layer with that name exist, the image wins (image-first precedence); use `--add-candy <name>` to explicitly select the layer for an overlay. See CLAUDE.md "cross-FILE cross-kind reuse is fine, but a single document's top-level node names are GLOBALLY UNIQUE" and `/charly-core:deploy`.
+A candy is a top-level **name-first** node, so within a single document the top-level node names are **globally unique**. Cross-FILE name reuse across SEPARATE discovered files IS still permitted: the same identifier (e.g. `charly-cachyos`) MAY exist as a layer at `candy/charly-cachyos/charly.yml` AND an image at `box/charly-cachyos/charly.yml` simultaneously — both are `candy:` nodes (the image carries `base:`/`from:`; there is no `box:` KIND), routed to distinct internal maps (`uf.Candy` vs `uf.Box`). Verbs disambiguate by command context. When `charly bundle add <name>` resolves a ref where both an image AND a layer with that name exist, the image wins (image-first precedence); use `--add-candy <name>` to explicitly select the layer for an overlay. See the project rulebook "cross-FILE cross-kind reuse is fine, but a single document's top-level node names are GLOBALLY UNIQUE" and `/charly-core:deploy`.
 
 ---
 

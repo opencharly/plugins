@@ -20,7 +20,7 @@ Before declaring "working", verify ALL of these:
 4. `charly shell <image>` runs successfully (if applicable)
 5. Services start and respond correctly (if applicable)
 6. No unexpected errors or warnings in output
-7. Behavior matches what the owning skill documents (skills own usage/behavior; CLAUDE.md owns the rules)
+7. Behavior matches what the owning skill documents (skills own usage/behavior; the project rulebook (`AGENTS.md` / `CLAUDE.md`) owns the rules)
 8. No workarounds or hacks needed
 9. **Risk Driven Development (RDD) was applied** — every HIGH-RISK assumption was
    proven on a live bed, not accepted from docs or code. Low-risk orientation
@@ -74,7 +74,7 @@ charly stop <image>                      # Clean shutdown
 
 ### For the Documentation-only change class (no bed run)
 
-The gate is the non-runtime standards (CLAUDE.md R10 "Documentation-only change
+The gate is the non-runtime standards (the project rulebook R10 "Documentation-only change
 class"): adversarial consistency review, R5 grep self-test, cross-reference
 validation, markdown integrity, and command-safety gates. Evidence = the
 grep/cross-ref outputs + the review verdict. A bed run is NOT required and adds
@@ -103,7 +103,7 @@ checks failed. For those classes, a `--dry-run`, a green `go test`, or
 `charly box validate` alone is NOT R10 — only a real `charly check run <bed>` /
 `charly check live` against a fresh rebuild counts.
 
-## Confidence Levels (must match CLAUDE.md "AI Attribution" exactly)
+## Confidence Levels (must match the project rulebook "AI Attribution" exactly)
 
 | Level | Requirements |
 |-------|-------------|
@@ -114,7 +114,7 @@ checks failed. For those classes, a `--dry-run`, a green `go test`, or
 | `theoretical suggestion` | No validation — FORBIDDEN as a shipped-code tier |
 
 **`documentation reviewed` is the Documentation-only change class's honest
-tier** (per CLAUDE.md "AI Attribution"): a cutover touching ONLY documentation
+tier** (per the project rulebook "AI Attribution"): a cutover touching ONLY documentation
 (`*.md` files, comment-only code edits, or a submodule pointer bump to an
 all-documentation submodule commit, with ZERO behavior change — no behavioral
 Go / YAML-schema / box/candy-config edit, no other runtime surface)
@@ -128,7 +128,7 @@ runtime tier, and the docs ride along in the same commit. The fresh validator,
 not the local hook, enforces that classification from the actual PR diff.
 
 A known rule violation FORBIDS commit at ANY tier — there is no "downgrade
-and ship" path. Fix in the same tree or escalate. See CLAUDE.md.
+and ship" path. Fix in the same tree or escalate. See the project rulebook.
 
 ## Output Format
 

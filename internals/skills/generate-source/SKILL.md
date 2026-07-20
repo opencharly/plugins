@@ -234,7 +234,7 @@ COPY candy/mylib/ /
 ## Auto-Intermediate Images — grouping by `(Base, UID)`
 
 Sibling images that share the same base are grouped by
-`ComputeIntermediates` in `charly/intermediates.go` so repeated layer
+`ComputeIntermediates` in `sdk/deploykit/intermediates.go` (moved from `charly/intermediates.go`; `charly/intermediates_shim.go` delegates to it) so repeated layer
 prefixes become shared intermediate images (the `fedora-nonfree-ssh-client-dbus`
 pattern). The grouping key is `siblingKey{base, uid}`, not a bare base
 string: grouping on base alone would collapse images with **different
@@ -537,7 +537,7 @@ charly box inspect my-image --format layers      # Shows layer list for an image
 - `/charly-build:validate` — User-facing validation rules (what `validateCandyTasks` enforces).
 - `/charly-build:build` — Building from generated Containerfiles.
 - `/charly-internals:egress` — the emitted Containerfile is egress-validated (`writeContainerfile` → `#RenderedText`, rejecting the `<no value>` template-failure marker) before it is written; the traefik-routes scratch-stage input is likewise validated (`#TraefikRoutes`).
-- Source: `sdk/deploykit` (render DRIVE, relocated in #67), `charly/tasks.go` (`emitTasks` shim), `charly/generate.go` (staying helpers), `charly/intermediates.go`, `sdk/deploykit/graph.go` (thin `charly/graph_shim.go` wrappers delegate to it).
+- Source: `sdk/deploykit` (render DRIVE, relocated in #67), `charly/tasks.go` (`emitTasks` shim), `charly/generate.go` (staying helpers), `sdk/deploykit/intermediates.go` (moved from `charly/intermediates.go`; `charly/intermediates_shim.go` delegates to it), `sdk/deploykit/graph.go` (thin `charly/graph_shim.go` wrappers delegate to it).
 
 ## When to Use This Skill
 

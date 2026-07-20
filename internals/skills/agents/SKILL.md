@@ -1,19 +1,44 @@
 ---
 name: agents
 description: |
-  Claude Code multi-agent support in OpenCharly — sub-agents, dynamic workflows, and agent teams, and how each drives the existing `charly check` disposable beds to test and verify. MUST be invoked before authoring or invoking an charly sub-agent / dynamic workflow / agent team, wiring agent-lifecycle hooks, or asking "which primitive should drive the R10 beds?".
+  Multi-agent support in OpenCharly across agent harnesses (Claude Code, Codex, Kimi) — sub-agents, dynamic workflows, agent teams, fresh validator sessions, and how each drives the existing `charly check` disposable beds to test and verify. MUST be invoked before authoring or invoking an charly sub-agent / dynamic workflow / agent team / fresh validator session, wiring agent-lifecycle hooks, or asking "which primitive should drive the R10 beds?".
 ---
 
 # Agents, Workflows & Teams
 
-OpenCharly is built to be driven from Claude Code's multi-agent primitives.
-This skill is the authoritative reference for the three primitives, the charly
-agent roster, the shipped workflows, the bed-scoped parallel-testing model for
-teams, and the one rule that binds them all: **a bed run is R10-class — the
-commit is gated on a full final-code bed test (pasted), but beds run freely
-throughout to verify** (CLAUDE.md "Hard Cutover by Default").
+OpenCharly is built to be driven from multiple agent harnesses' multi-agent
+primitives. This skill is the authoritative reference for the primitives per
+harness, the charly agent roster, the shipped workflows, the bed-scoped
+parallel-testing model for teams, and the one rule that binds them all: **a bed
+run is R10-class — the commit is gated on a full final-code bed test (pasted),
+but beds run freely throughout to verify** (the project rulebook "Hard Cutover
+by Default" — the project rulebook is `AGENTS.md` / `CLAUDE.md`, which carry
+identical R0–R10 rules).
 
-## The three primitives — when to use which
+## The harnesses — where each primitive lives
+
+| | Claude Code | Codex | Kimi |
+|---|---|---|---|
+| Rulebook | `CLAUDE.md` | `AGENTS.md` | `AGENTS.md` (read natively) |
+| Skills | plugin manager (`charly-*@charly-plugins`) | `.agents/skills/` repo-native links (also Kimi's source) | `.agents/skills/` project scope, on-demand `Skill` tool / `/skill:<name>`; when not in the session listing, `Read` the `plugins/<plugin>/skills/<name>/SKILL.md` path |
+| Sub-agents | custom agents (`plugins/internals/agents/*.md`, `.claude/agents/`) | fresh native agent threads (`.codex/agents/*.toml` roles, e.g. `pr-validator`) | built-in `coder` / `explore` / `plan` only — NO custom subagent registry |
+| Fresh validator / teammate | sub-agent or team teammate with the agent brief | fresh agent thread with the role toml | a FRESH separate `kimi` session (interactive or `kimi -p`) briefed with the agent `.md` by path — context isolation is what makes it independent |
+| Dynamic workflows | `.claude/workflows/*.js` (run `/<name>`) | re-derived per thread | re-derived per session (no workflow runtime) |
+| Teams | `~/.claude/teams/` (experimental) | concurrent fresh threads | concurrent fresh sessions |
+| Gates | hooks in `.claude/settings.json` + `permissions.allow` + the auto-mode classifier | sandbox + on-request approvals (`.codex/config.toml`) | hooks + `[[permission.rules]]` in user-level `~/.kimi-code/config.toml` (no project-level config; repo-guarded delegation to `.claude/hooks/`) — no auto-mode classifier |
+| Hook events | UserPromptSubmit / PreToolUse / Stop / TaskCreated / TaskCompleted / TeammateIdle | — (approvals instead) | UserPromptSubmit / PreToolUse / Stop / SubagentStart / SubagentStop |
+
+**Harness-agnostic invariants** (these never change across harnesses): the agent
+briefs in `plugins/internals/agents/*.md` are written for ANY harness's fresh
+evaluator; the pr-validator is ALWAYS a fresh, independent context rooted at the
+superproject, loading the protected-main rulebook + triggered skills BY PATH
+(`plugins/<plugin>/skills/<name>/SKILL.md`) before candidate actions; and the
+two-step landing (author opens, fresh evaluator validates/merges/tags) is the
+sole landing path in every harness.
+
+## The three Claude Code primitives — when to use which
+
+The Claude Code mechanics (the Codex and Kimi rows above name the equivalents):
 
 | | Sub-agent | Dynamic workflow | Agent team |
 |---|---|---|---|
@@ -22,7 +47,7 @@ throughout to verify** (CLAUDE.md "Hard Cutover by Default").
 | Intermediate results | Claude's context | Script variables | Each teammate's own context |
 | Scale | a few per turn | dozens–hundreds of agents/run | 3–5 teammates |
 | Lives in | `plugins/internals/agents/*.md` (or `.claude/agents/`) | `.claude/workflows/*.js` (run `/<name>`) | runtime only — `~/.claude/teams/`, NOT pre-authored |
-| Reads CLAUDE.md | yes (full hierarchy, except Explore/Plan) | each `agent()` does | yes (each teammate) |
+| Reads the rulebook | yes (full hierarchy, except Explore/Plan) | each `agent()` does | yes (each teammate) |
 
 - **Sub-agent** — isolate a verbose side task (run a bed, probe a deploy) and
   get back a verdict; the noisy output stays out of the main context.
@@ -52,7 +77,7 @@ under the binding rule). "Prefer agents" governs BOUNDED work.
 
 ## Delegation IS fresh context — the primitives' primary purpose
 
-A sub-agent, teammate, or workflow agent runs with its OWN full, fresh context budget, independent of the orchestrating session's. That makes delegation the ANSWER to context pressure, not a reason to stop. When a cutover — or a whole multi-cutover program — is bigger than the context you have left, you do NOT halt and tell the user to "start a fresh session on task #N". You SPAWN a fresh teammate / sub-agent (`Agent`, an agent team, or a workflow), hand it the unit of work, and it executes end-to-end with fresh context while you keep orchestrating and land the result. **That teammate IS "a fresh session," delivered on demand, inside the same autonomous run.** A large program is executed by driving a teammate per cutover (or a team per stage) to merged PRs — one clean atomic cutover per teammate, orchestrated by the persistent session, never deferred to a future human-started session. Reach for delegation BEFORE you feel context pressure. "I need a fresh session / a fresh context / I've exhausted context / continuing would break the tree" are FORBIDDEN excuses (CLAUDE.md "Hard Cutover by Default" + `/charly-internals:cutover-policy`) — the autonomous loop never stops for context: it compacts-and-continues, decomposes, or delegates. The disposable-only + paste-proof + no-scope-shrinking-flags binding rules below apply to a delegated cutover exactly as to a directly-run one.
+A sub-agent, teammate, or workflow agent runs with its OWN full, fresh context budget, independent of the orchestrating session's. That makes delegation the ANSWER to context pressure, not a reason to stop. When a cutover — or a whole multi-cutover program — is bigger than the context you have left, you do NOT halt and tell the user to "start a fresh session on task #N". You SPAWN a fresh teammate / sub-agent (`Agent`, an agent team, or a workflow), hand it the unit of work, and it executes end-to-end with fresh context while you keep orchestrating and land the result. **That teammate IS "a fresh session," delivered on demand, inside the same autonomous run.** A large program is executed by driving a teammate per cutover (or a team per stage) to merged PRs — one clean atomic cutover per teammate, orchestrated by the persistent session, never deferred to a future human-started session. Reach for delegation BEFORE you feel context pressure. "I need a fresh session / a fresh context / I've exhausted context / continuing would break the tree" are FORBIDDEN excuses (the project rulebook "Hard Cutover by Default" + `/charly-internals:cutover-policy`) — the autonomous loop never stops for context: it compacts-and-continues, decomposes, or delegates. The disposable-only + paste-proof + no-scope-shrinking-flags binding rules below apply to a delegated cutover exactly as to a directly-run one.
 
 **A handoff PRESERVES in-flight WIP via the WORKTREE + a handoff package — NEVER a
 "checkpoint commit."** When half-done work crosses a boundary (a teammate hands off, or a
@@ -242,7 +267,7 @@ instrument is a false pass, exactly the class RDD exists to catch.
 ### The orchestrator OWNS architectural integrity
 
 **The orchestrator OWNS architectural integrity.** Every placement decision is
-judged against the END-STATE architecture (the CLAUDE.md kernel definition —
+judged against the END-STATE architecture (the project rulebook kernel definition —
 "Core is a PLUGIN HOST"), never against current constraints alone; an ad-hoc
 decision in breach is corrected AT ONCE — never ratified as local pragmatism. A
 "stays in core" ruling is valid ONLY with a named K-wave exit and a tracked task;
@@ -258,7 +283,7 @@ judgment (this duty).**
 
 ### Enforcement — "host-coupled" is never a permanence reason
 
-CLAUDE.md's kernel/plugin boundary law names the trap explicitly: calling a
+The project rulebook's kernel/plugin boundary law names the trap explicitly: calling a
 construct a "host-boundary object" — it "can't cross the process boundary,"
 or "drives podman/ssh/flock/systemd itself" — is NEVER a permanence reason;
 a plugin drives that same host object itself, or reaches a live venue over
@@ -287,7 +312,7 @@ this so the trap never survives a landing unchallenged:
   reach a live venue over the reverse-channel broker the seam already
   provides for every other externalized substrate.
 
-See CLAUDE.md "The kernel/plugin boundary law" (the canonical definition +
+See the project rulebook "The kernel/plugin boundary law" (the canonical definition +
 the named host-boundary-object trap) and `/charly-internals:plugin` (the
 placement table + the incomplete-seam catalog).
 
@@ -406,7 +431,7 @@ to rulings).
 Two more orchestrator disciplines, both proven live in the same session as the
 rulings above:
 
-**1. Verify a brief's criterion against CLAUDE.md + the owning skill BEFORE
+**1. Verify a brief's criterion against the project rulebook + the owning skill BEFORE
 dispatch.** A wrong brief misdirects EVERY teammate it reaches at once —
 fan-out multiplies a bad premise instead of catching it. Motivating incident:
 an audit brief that encoded a boundary-law violation ("host-boundary objects
@@ -527,7 +552,7 @@ lane-local decision.
 - **`root-cause-analyzer`** — R1 mandatory invocation on any failure/anomaly;
   8-step RCA before any fix.
 - **`testing-validator`** — blocks "it works" claims lacking the R10 proof;
-  owns the 4-tier confidence table (must match CLAUDE.md).
+  owns the 4-tier confidence table (must match the project rulebook).
 - **`layer-validator`** — pre-edit `charly.yml` sanity gate; defers the full
   schema to `/charly-image:layer` + `charly box validate`.
 - **`pr-validator`** — the FRESH PR evaluator (the disposing half of the two-step
@@ -542,7 +567,7 @@ lane-local decision.
 **Every roster agent runs UNRESTRICTED — its spec OMITS the `tools:` field**, so it
 inherits ALL tools (the full set the main session has: Read / Bash / Edit / Write /
 Skill / SendMessage / Agent / Task* / … + MCP tools + full plugin-skill-by-name
-access), exactly as CLAUDE.md "Candyboxing" mandates: *never secure by whitelisting
+access), exactly as the project rulebook "Candyboxing" mandates: *never secure by whitelisting
 commands; trust the walls, not the tools.* The wall is the disposable target +
 branch protection + the validator's fresh-context independence — NEVER a narrowed
 tool set. An agent's ROLE (enforcer vs executor) is defined by its PROMPT + spec,
@@ -625,7 +650,7 @@ discipline as an agent team — it is the workflow expression of the B3 model
   bed's real `charly check run <bed>` as the fresh-rebuild R10.
 - **Read-only review is an ADDITIONAL layer, NEVER a substitute.** A workflow
   that replaces real-deployment bed runs with a read-only diff-review phase is a
-  protocol violation — the opposite of this skill and of CLAUDE.md "Agents,
+  protocol violation — the opposite of this skill and of the project rulebook "Agents,
   Workflows & Teams". Adversarial diff review is welcome ON TOP of the beds.
 - **Compile-coherence is solved structurally, not by serializing.** A single Go
   package can't have N agents edit-and-build at once, but that is handled by
@@ -678,14 +703,14 @@ same rule text, rooted in the superproject, posted `success` with **zero denials
 USER/MANAGED-level grant covers the action — user-level settings (`~/.claude/settings.json`,
 e.g. an operator `autoMode.allow` rule) resolve INDEPENDENTLY of project root, and a
 submodule-rooted validator under such a rule posted `success` AND merged with zero denials.
-Superproject rooting REMAINS the rule (project-level `permissions.allow`, the CLAUDE.md
+Superproject rooting REMAINS the rule (project-level `permissions.allow`, the rulebook
 hierarchy, and transcript determinism are all root-dependent) — but diagnose a denial by
 checking BOTH settings layers, never root alone.
 Rooting fixes the STATUS POST (cleared by `permissions.allow`). **The MERGE is a
 SEPARATE, stricter classifier gate — Merge-Without-Review — that `permissions.allow`
 does NOT clear** (proven: `gh pr merge` denied for BOTH a superproject-rooted sub-agent
 AND the main session despite the rule); it lands only under the operator's `autoMode.allow`
-rule (user/managed settings) or fresh in-context user consent, never CLAUDE.md prose. See
+rule (user/managed settings) or fresh in-context user consent, never rulebook prose. See
 `/charly-internals:git-workflow` B5.
 
 **2. A permission denial ENDS the sub-agent's turn — record the verdict durably
@@ -711,7 +736,7 @@ matches the happy path cannot distinguish "still working" from "died at a denial
 them:
 - **Tools:** roster agents run UNRESTRICTED — specs OMIT the `tools:` field → inherit ALL tools
   (documented behavior, equivalent to the built-in `general-purpose` agent, `Tools: *`), per
-  CLAUDE.md "Candyboxing" (*trust the walls, not the tools*). A whitelisted `tools:` is the
+  the project rulebook "Candyboxing" (*trust the walls, not the tools*). A whitelisted `tools:` is the
   anti-pattern; do NOT re-add one to "grant" `Skill`/`SendMessage`/`Write` — omission grants all.
 - **Skill access:** invoking `Skill(charly-internals:go)` BY NAME depends on the charly-* skills
   being REGISTERED in that sub-agent's SESSION, which is INDEPENDENT of the `tools:` field and
@@ -760,7 +785,7 @@ real validation-round finding, not a hypothetical.**
   CHANGELOG lives in (or guessing a plausible-sounding repo name) is how a
   real citation gets misdiagnosed as fabricated.
 - **A validator (or any agent) verifying a claim against a LOCAL checkout
-  (e.g. `/home/atrawog/Atrapub/o/charly`) must treat that checkout as
+  (e.g. `/home/user/project/charly`) must treat that checkout as
   POTENTIALLY STALE and check `origin/main` directly** — three independent
   validators this session hit exactly this trap, verifying a claim against a
   local tree that had already fallen behind the remote.
@@ -1010,13 +1035,13 @@ Hooks in this project do TWO things and nothing more. The full inventory
 | `pre-commit-gate.sh` | `PreToolUse(Bash)` | deterministic gate (exit 2 blocks) |
 | `pre-push-gate.sh` | `PreToolUse(Bash)` | deterministic gate (exit 2 blocks) |
 
-1. **Pointer reminders** that POINT to CLAUDE.md / skill section names. The
+1. **Pointer reminders** that POINT to the project rulebook / skill section names. The
    `UserPromptSubmit` reminder names the FULL R0–R10 + RDD + ADE roster as terse
    second-pass *triggers* (rule label + a few-word essence + an anchor) so every
    rule gets a "verify THIS turn against it" nudge; the `Stop` reminder prompts a
    re-audit of the turn's changes + the per-repo CHANGELOG entry. They are
    reminders, NOT copies: a trigger never restates the rule BODY. Claude hooks
-   point to `CLAUDE.md`; Codex follows its complete `AGENTS.md` rulebook.
+   point to `CLAUDE.md`; Codex and Kimi follow the complete `AGENTS.md` rulebook.
 2. **Deterministic `PreToolUse` gates** that cover immediate command mechanics
    only: hook bypass (`--no-verify` / `-n` / `core.hooksPath`), untokenizable
    commit commands, configured Go lint for staged Go modules, force-push, and a
@@ -1026,7 +1051,7 @@ Hooks in this project do TWO things and nothing more. The full inventory
 
 The honest division of labor: **hooks guard command mechanics; agents judge
 policy and proof.** Never re-bloat a hook or reminder into a second copy of
-CLAUDE.md or validator logic — name + point, never restate.
+the project rulebook or validator logic — name + point, never restate.
 
 ## Agent teams (experimental — enabled in committed settings)
 
@@ -1040,7 +1065,7 @@ at process start.
 
 Teammates reuse the same agent definitions as roles — their `tools` + `model`
 apply; the `skills`/`mcpServers` frontmatter does NOT on the team path (each
-teammate loads `CLAUDE.md` + project/user skills on spawn, like any session).
+teammate loads the project rulebook + project/user skills on spawn, like any session).
 Set the **Default teammate model** in `/config` (pick "Default (leader's
 model)" to inherit). The `TaskCreated` / `TaskCompleted` / `TeammateIdle` hooks
 can enforce gates (exit 2 = block + feedback); the shipped
@@ -1119,7 +1144,7 @@ never collide) and references the assigned port via `${HOST_PORT}` /
 `${HOST:<member>:<port>}` in its checks — NEVER a literal host port. A bed pins
 an image → layers → files, so owning a bed owns those source files.
 
-Each bed is a **candybox** (CLAUDE.md "Candyboxing"): a disposable, secured
+Each bed is a **candybox** (the project rulebook "Candyboxing"): a disposable, secured
 deployment stocked with the FULL `charly` + MCP + `charly check` toolset, so the bed's
 owner can build / deploy / prove the real thing inside its boundary and rebuild
 it fearlessly — never a tool-restricted sandbox.
@@ -1387,7 +1412,7 @@ how `charly check run` actually behaves:
 "go faster" mandate tempts the forbidden shortcut. LEGITIMATE: `--podman-jobs`,
 `--jobs`, `context_ignore`, pre-warming, agent-layer parallelism, longest-pole
 scheduling. R10-SCOPE-SHRINKING (need explicit per-turn operator authorization,
-CLAUDE.md R10 flag-override clause): `--no-rebuild` (skips the R10 fresh-update
+the project rulebook R10 flag-override clause): `--no-rebuild` (skips the R10 fresh-update
 gate), `--keep`, `--skip-rebuild`. "To go faster / to fit the session" is the
 confession, not the defense. The full flag catalog + rule:
 `/charly-check:check` "Flag discipline".
@@ -1400,7 +1425,7 @@ confession, not the defense. The full flag catalog + rule:
   authorization.
 - `/charly-internals:git-workflow` — the R10-gated landing the executors feed.
 - `/charly-internals:skills` — agent/skill discovery + the signpost convention.
-- CLAUDE.md "Agents, Workflows & Teams" + R10 / "Hard Cutover by Default" + AI Attribution.
+- The project rulebook "Agents, Workflows & Teams" + R10 / "Hard Cutover by Default" + AI Attribution.
 
 ## When to Use This Skill
 

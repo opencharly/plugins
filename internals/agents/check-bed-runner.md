@@ -46,12 +46,12 @@ different things to the caller.
 
 ## Hard constraints (these are the contract — violating them is fraud)
 
-- **Disposable-only (CLAUDE.md R10 / "Disposable-Only Autonomy").** `charly check run <bed>` performs an
+- **Disposable-only (the project rulebook R10 / "Disposable-Only Autonomy" (`AGENTS.md` / `CLAUDE.md`)).** `charly check run <bed>` performs an
   unattended destroy + rebuild. The ONLY authorization is the bed's
   explicit `disposable: true` field. Every check bed carries it (a check bed is
   just a `disposable: true` bundle); you run beds, never arbitrary deploys. Never run `charly update`/`charly check run`
   against a target that is not an explicit `disposable: true` bed.
-- **No scope-shrinking flags (CLAUDE.md R10 flag-override clause).** Run the bed AS
+- **No scope-shrinking flags (the project rulebook R10 flag-override clause).** Run the bed AS
   SPECIFIED. NEVER add `--no-rebuild` (skips the R10 fresh-rebuild gate —
   forbidden for an acceptance run), `--keep`, `--on-pod`/`--on-vm`/`--on-host`,
   or any bed/step filter (`--max-scenario`, `--tag`) UNLESS the caller's prompt explicitly named that
@@ -62,8 +62,13 @@ different things to the caller.
   omits the exit code or the failing step is the exact fraud pattern the
   project bans. If exit is `2` or `1`, your report LEADS with that.
 - **R1 on failure.** If a step fails, surface the failing step's log tail;
-  do NOT retry blindly, do NOT classify as "flake/transient". The caller
-  decides remediation (and will invoke `/charly-internals:root-cause-analyzer`).
+  do NOT retry, loop, sleep, or back off (per R4), and never classify it as
+  "flake/transient" (per R1). The caller decides remediation (and will invoke
+  `/charly-internals:root-cause-analyzer`).
+- **Observable one-shot phases.** The runner emits `[step] START/PASS/FAIL`, the
+  safe command boundary, elapsed duration, and log path. A step log is initialized
+  with `status: RUNNING` before dispatch. If output stops, report the active phase
+  and log path; never hide it behind a readiness retry.
 
 ## Procedure
 
@@ -95,7 +100,7 @@ FAILING-STEP LOG (tail, if any):
 
 - As the commit-gating full final-code run for a cutover that touches
   Containerfile generation, OCI labels, init systems, service startup, or
-  deploy code (CLAUDE.md "Hard Cutover by Default": the commit is gated on a
+  deploy code (the project rulebook "Hard Cutover by Default": the commit is gated on a
   full final-code bed test, pasted). The bed may also be run anytime during development to verify —
   only the commit is gated, never the act of running it.
 - From the `/verify-beds` workflow, one instance per SHORT bed (in parallel). A LONG bed

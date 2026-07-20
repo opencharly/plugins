@@ -35,7 +35,7 @@ my-box:
 
 ## Related Skills
 
-- `/charly-automation:tmux` — Persistent shell sessions, send commands, capture output
+- `/charly-automation:tmux` — Typed persistent terminals, safe input, snapshots, transcripts, and agent runtimes
 - `/charly-hermes:hermes-full-layer`, `/charly-selkies:sway-desktop`, `/charly-selkies:selkies-desktop-layer` — metalayers that include this
 - `/charly-hermes:hermes`, `/charly-selkies:selkies-labwc`, `/charly-selkies:sway-browser-vnc` — primary consumers
 - `/charly-core:shell` — interactive container shell (often wrapped in tmux)
