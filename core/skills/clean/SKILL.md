@@ -50,7 +50,7 @@ charly clean --check       # only check-run retention
 charly clean --deep        # store-wide untagged/dangling-image purge (see below); runs ONLY
                            # this category unless combined with --images/--check
 charly clean --deep --dry-run   # the safe default probe: report the would-remove count +
-                                # total reclaimable bytes for --deep; touch nothing
+                                # an UPPER-BOUND reclaimable-bytes figure for --deep; touch nothing
 charly clean --keep N     # override the retention count for this run (0 = use defaults:)
 charly clean --invalidate '<glob>'   # remove charly-labeled image tags matching the glob
                                      # (full ref or last segment; in-use skipped; runs ONLY this)
@@ -74,9 +74,19 @@ live-build guard the default dangling sweep uses) and never fires implicitly on 
 clean` — it is strictly opt-in. Removing a dangling image also frees any layer blobs it alone
 held (the engine's overlay storage GCs an unreferenced layer once its last referencing image is
 gone), so `--deep` is effectively a dangling-image-plus-unused-layer prune in one pass.
-`--deep --dry-run` reports the would-remove image count plus the total reclaimable bytes
-(summed from each candidate's reported storage size) without touching anything — the safe
+`--deep --dry-run` reports the would-remove image count plus an UPPER-BOUND reclaimable-bytes
+figure (summed from each candidate's reported storage size) without touching anything — the safe
 default probe before running it for real.
+
+**The reclaimable-bytes figure is "up to", never a firm prediction.** Each image's reported
+storage size counts EVERY layer it references, and dangling images routinely SHARE layers with
+images that stay (retained tags, other dangling images) — removing an image frees only the
+layers it held UNIQUELY, so actual disk freed is usually much less than the naive per-image sum.
+RDD-verified live: a `--deep` purge removing 68 untagged images (3,552 → 3,484 images) reported
+~92.6 GiB via this sum but freed only ~4.6 GiB of real disk (132.6 GB → 128 GB) — most of those
+bytes stayed shared with the ~3,400 remaining (largely stale-tagged) images. Pair `--deep` with
+`--invalidate` (which removes stale image TAGS, freeing whatever layers only they still held) to
+get closer to the reported figure and reclaim more of the store.
 
 ## What gets pruned (and what never does)
 
