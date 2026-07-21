@@ -16,7 +16,7 @@ description: |
 the on-demand counterpart to the auto-pruning that runs after `charly box build`
 and `charly check run`.
 
-`charly clean` is a **compiled-in COMMAND-class plugin** (`candy/plugin-clean`, `command:clean`) that OWNS the command. The plugin owns the flag grammar (`--dry-run` / `--images` / `--check` / `--keep` / `--invalidate`), the category orchestration, the report output, and the local `pkg/arch` makepkg sweep (`cleanMakepkgArtifacts`, a single-caller file op moved into the plugin). The **shared retention engine** — `pruneImagesByRetention`, `pruneCheckRuns`, `pruneBuildCandyDirs`, `invalidateImageTags`, and the charly-labeled image-tag CalVer/label inventory — STAYS in core (`charly/retention.go`) because it is multi-caller: `charly box build`, `charly check run`, and `charly box list tags` all use it. The plugin reaches it through the generic **"retention" `HostBuild` seam** (`charly/host_build_retention.go`, `spec.RetentionRequest` → `spec.RetentionReply`), which resolves the project's `keep_images` / `keep_check_runs` defaults (`ResolveRuntime` + `LoadConfig`) host-side. clean is **compiled-in** (`charly/charly.yml` `compiled_plugins:`) because its `Invoke(OpRun)` needs the in-proc reverse channel — threaded by `dispatchInProcCommand` ("Seam A") — to call `HostBuild`; the out-of-process `CliMain` path has no reverse channel and errors. This is the same "plugin owns the logic + generic seams for the core-coupled bits" doctrine the vm + pod deploy plugins established — no hidden core-command forward, and no plugin-specific command logic left in core.
+`charly clean` is a **compiled-in COMMAND-class plugin** (`candy/plugin-clean`, `command:clean`) that OWNS the command. The plugin owns the flag grammar (`--dry-run` / `--images` / `--check` / `--deep` / `--keep` / `--invalidate`), the category orchestration, the report output, and the local `pkg/arch` makepkg sweep (`cleanMakepkgArtifacts`, a single-caller file op moved into the plugin). The **shared retention engine** — `pruneImagesByRetention`, `pruneCheckRuns`, `pruneBuildCandyDirs`, `invalidateImageTags`, `pruneDeepDanglingImages`, and the charly-labeled image-tag CalVer/label inventory — STAYS in core (`charly/retention.go`) because it is multi-caller: `charly box build`, `charly check run`, and `charly box list tags` all use it. The plugin reaches it through the generic **"retention" `HostBuild` seam** (`charly/host_build_retention.go`, `spec.RetentionRequest` → `spec.RetentionReply`), which resolves the project's `keep_images` / `keep_check_runs` defaults (`ResolveRuntime` + `LoadConfig`) host-side. clean is **compiled-in** (`charly/charly.yml` `compiled_plugins:`) because its `Invoke(OpRun)` needs the in-proc reverse channel — threaded by `dispatchInProcCommand` ("Seam A") — to call `HostBuild`; the out-of-process `CliMain` path has no reverse channel and errors. This is the same "plugin owns the logic + generic seams for the core-coupled bits" doctrine the vm + pod deploy plugins established — no hidden core-command forward, and no plugin-specific command logic left in core.
 
 Two artifact classes, two policies (operator principle):
 
@@ -47,13 +47,36 @@ charly clean              # apply retention now: prune images + check runs + mak
 charly clean --dry-run    # print everything that WOULD be removed; touch nothing
 charly clean --images     # only image-tag retention
 charly clean --check       # only check-run retention
+charly clean --deep        # store-wide untagged/dangling-image purge (see below); runs ONLY
+                           # this category unless combined with --images/--check
+charly clean --deep --dry-run   # the safe default probe: report the would-remove count +
+                                # total reclaimable bytes for --deep; touch nothing
 charly clean --keep N     # override the retention count for this run (0 = use defaults:)
 charly clean --invalidate '<glob>'   # remove charly-labeled image tags matching the glob
                                      # (full ref or last segment; in-use skipped; runs ONLY this)
 ```
 
-With neither `--images` nor `--check`, all three categories run (images + check +
-makepkg). `--keep N` overrides both counts for the invocation.
+With neither `--images` nor `--check` nor `--deep`, the three DEFAULT categories run (images +
+check + makepkg) — unchanged, `--deep` NEVER fires implicitly. `--keep N` overrides both the
+image and check-run retention counts for the invocation (it does not affect `--deep`, which has
+no keep-N — it purges every untagged image).
+
+**`--deep` — the store-wide untagged/dangling-image purge.** The default image-tag sweep above
+only ever touches images carrying the `ai.opencharly.box` label. A multi-stage build's
+INTERMEDIATE stage images (`FROM ... AS stagename`) are never labeled — `WriteLabels` stamps the
+`ai.opencharly.*` labels only on the FINAL stage — so they accumulate as unlabeled dangling
+images completely invisible to the default sweep, wasting disk and confounding build-corruption
+diagnosis on a host with many builds behind it. `charly clean --deep` closes this gap: it lists
+EVERY untagged (dangling) image in local storage, charly-labeled or not, and removes each one
+(`rmi` without `-f`, so any image still referenced by a container or a kept tag is safely
+skipped — the same backstop the default sweep relies on). It never runs mid-build (the same
+live-build guard the default dangling sweep uses) and never fires implicitly on a plain `charly
+clean` — it is strictly opt-in. Removing a dangling image also frees any layer blobs it alone
+held (the engine's overlay storage GCs an unreferenced layer once its last referencing image is
+gone), so `--deep` is effectively a dangling-image-plus-unused-layer prune in one pass.
+`--deep --dry-run` reports the would-remove image count plus the total reclaimable bytes
+(summed from each candidate's reported storage size) without touching anything — the safe
+default probe before running it for real.
 
 ## What gets pruned (and what never does)
 
@@ -99,13 +122,18 @@ the qcow2 build.
 ## Implementation
 
 `candy/plugin-clean/` — the command plugin that OWNS `charly clean`: `command.go`
-(flag grammar + category orchestration + `cleanMakepkgArtifacts` + `hostRetention`, which
-calls the seam), `provider.go` (`Invoke(OpRun)`, the compiled-in dispatch surface),
-`plugin.go` (`NewProvider` / `NewMeta` / `CliMain`). The **shared retention engine** stays
-in core: `charly/retention.go` holds `pruneImagesByRetention`, `pruneCheckRuns`,
+(flag grammar + category orchestration via `cleanCategories` + `cleanMakepkgArtifacts` +
+`hostRetention`, which calls the seam), `provider.go` (`Invoke(OpRun)`, the compiled-in dispatch
+surface), `plugin.go` (`NewProvider` / `NewMeta` / `CliMain`). The **shared retention engine**
+stays in core: `charly/retention.go` holds `pruneImagesByRetention`, `pruneCheckRuns`,
 `pruneBuildCandyDirs`, and the `charlyImageTags` inventory (`invalidateImageTags` lives with
-`charly box list tags` in `charly/volume_cp_tags_cmd.go`). The plugin reaches it via the
-generic "retention" `HostBuild` seam — `charly/host_build_retention.go` (`hostBuildRetention`,
+`charly box list tags` in `charly/volume_cp_tags_cmd.go`). `--deep` shares its engine with the
+default charly-labeled dangling sweep via `pruneDanglingImages`/`selectDanglingImages`
+(`charly/retention.go`) parameterized by an `onlyCharly` bool: `pruneDanglingCharlyImages`
+(onlyCharly=true, the default sweep) and `pruneDeepDanglingImages` (onlyCharly=false, `--deep`)
+are both thin wrappers over the ONE shared selection + removal engine (R3 — no duplicated
+listing/removal logic between the two categories). The plugin reaches it via the generic
+"retention" `HostBuild` seam — `charly/host_build_retention.go` (`hostBuildRetention`,
 registered as `retentionBuilderKind = "retention"`, resolving defaults with `ResolveRuntime`
 + `LoadConfig`); the compiled-in in-proc reverse channel is threaded by `dispatchInProcCommand`
 (`charly/provider_command_external.go`).
