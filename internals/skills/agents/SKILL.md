@@ -411,6 +411,21 @@ modes govern it (all observed live in one program):
   deferral, which is the micro-PR fragmentation pattern operators reject. Scope
   exclusions exist only as per-file boundary-law justifications (E/M/B/D) the
   orchestrator personally reviews.
+- **"Zero direct kit callers" ≠ "unlanded consumer-switch" when a Provider/interface
+  seam sits between them — trace the WIRING, not just the direct-call grep.** A
+  residue audit that concludes a kit-consumer switch is unlanded because
+  `git grep <kit>.<Func>` finds no direct `charly/` callers can be WRONG the moment an
+  interface/Provider seam intermediates: one program's `loaderkit.Scan` switch read as
+  unlanded this way, while it was actually landed via `spec.CandyScanner` →
+  `activeCandyScanner` (`plugin_inproc.go:120`) → the compiled-in `candy/plugin-loader`
+  → `loaderkit` — zero DIRECT imports was the CORRECT import-purity end state, not
+  evidence of an unlanded move. Before declaring kit-consumer residue (or asserting a
+  move is unlanded), trace the Provider/interface wiring itself — grep the interface
+  name plus any `active*`/registered-instance variable, not only the concrete
+  function/package name — the same both-directions-of-the-call-graph discipline the
+  rows above require, applied specifically to the "is this switch actually landed?"
+  question. Caught pre-cut only because the implementing teammate read the FULL file
+  rather than trusting the grep's zero result.
 
 ### Crossed-ruling reconciliation — one unambiguous instruction beats several partial ones
 
@@ -941,6 +956,19 @@ rather than restate it.
   lands, then `task build:binary` + re-run. The failure is SELF-INFLICTED, not a
   product defect: RCA it as "I edited mid-run" (a stale-source hit citing a file you
   just touched), rebuild, and re-run fresh — never chase the guard as a bug.
+  **"YOUR OWN" is worktree-scoped, not agent-scoped — a SPAWNED sub-agent running a
+  bed in the SAME worktree its spawner is editing is the IDENTICAL self-freeze
+  violation viewed across two agents sharing one tree, not a different, exempt
+  case.** One binary-build owner per worktree AT A TIME: before dispatching a
+  sub-agent to run a bed in a worktree you (or any other agent) are still editing,
+  either finish/pause the edits first, or dispatch the bed to a DIFFERENT worktree
+  entirely (the "no barrier across distinct worktrees" case, (a) above) — never both
+  at once in the same tree. Proven incident (2026-07-20): a bed-runner sub-agent
+  foreground-ran a VM bed with a `timeout` in a worktree its spawner kept editing,
+  producing both an orphaned libvirt domain (foreground-with-timeout on a long bed)
+  AND a stale-binary guard trip (the concurrent edit) — see "Handling a long-running
+  bed" below (under "The binding rule: running a bed is R10-class") for the
+  launch-mechanism half of the same incident.
 - **Side-effects (documented elsewhere — pointers, not copies).** `task
   build:binary` keeps the dual path `bin/charly` ↔ `candy/charly/bin/charly` in
   sync (a manual `go build -o` does not) — see `/charly-internals:go` "Quick
@@ -994,7 +1022,21 @@ Therefore, for ANY agent or workflow that runs them:
     foreground — the Bash tool's `timeout` (120s default, 600s maximum, its
     `max` setting — NOT any charly constant) kills the call mid-`vm-create`,
     orphaning the domain. NEVER a sleep/poll loop to "keep it alive" — that
-    busy-poll is the exact R4 bandaid this replaces.
+    busy-poll is the exact R4 bandaid this replaces. **A SPAWNED sub-agent is
+    not exempt from this just because it is a different agent from its
+    spawner:** a `check-bed-runner`-style sub-agent that foreground-runs a
+    long VM bed WITH a `timeout` — inside the SAME worktree its spawner is
+    simultaneously editing — combines two violations at once (foreground-with-
+    timeout on a long bed, per this bullet; and editing a worktree during its
+    own bed's mid-flight run, per "Within-worktree self-freeze" above, under
+    "The charly binary in a multi-teammate / multi-worktree setup") and
+    produces exactly the double failure both rules predict: the timeout kills
+    the bed mid-run and orphans its libvirt domain, AND the freshness guard
+    trips on the concurrent edit. Being "a different agent" does not create a
+    second, exempt worktree — the worktree is still the one shared resource;
+    launch the long bed as a `run_in_background` task owned by a persistent
+    session (never a foreground sub-agent call) and freeze that worktree's
+    edits for the run's duration regardless of which agent is driving it.
   - **The completion notification is the signal, not polling.** The harness
     re-invokes the LAUNCHING session with a `<task-notification>` when the run
     exits, so the launcher must SURVIVE to completion to receive it. The
@@ -1143,6 +1185,27 @@ uses the `port: [auto]` sentinel
 never collide) and references the assigned port via `${HOST_PORT}` /
 `${HOST:<member>:<port>}` in its checks — NEVER a literal host port. A bed pins
 an image → layers → files, so owning a bed owns those source files.
+
+**The per-bed-name mutex is WORKTREE-INDEPENDENT — it extends across EVERY agent and
+EVERY worktree, not just within one team.** Bed→deploy names are DETERMINISTIC
+(`charly-<bed>`), so the SAME bed name run concurrently from two DIFFERENT worktrees
+collides on that one deterministic domain/container name exactly as two teammates in
+the same tree would — the worktree boundary does not create a second namespace. This
+bites in a place the "one team owns a partition" framing above doesn't cover: a
+`pr-validator` (or any other agent) exercising ITS OWN R10 authority — e.g. re-running
+a bed to disprove a PR's false narrative, per its "NO benefit of the doubt … RE-RUN
+when suspicious" duty — is a legitimate, DIFFERENT reason to run a bed, on a
+DIFFERENT worktree, that can still collide by NAME with an unrelated in-flight run
+(incident 2026-07-20: an isolation run's `check-k8s-deploy` in one worktree collided
+with a validator's own `check-k8s-deploy` run in another). So the orchestrator's bed
+SERIALIZATION duty (see "Handling a long-running bed" — declare-and-wait-for-a-slot)
+covers ALL bed launches by NAME across the whole session, not merely the beds it
+tracks as its own team's roster: before ANY agent (teammate, validator, or the
+orchestrator itself) launches `charly check run <bed>`, cross-check the bed NAME
+against every other worktree's in-flight run, not just this worktree's partition.
+Recover a NAME collision by stopping the LOWER-PRIORITY run (never tearing down the
+shared domain out from under the run that should continue) and re-launching it once
+the name is free.
 
 Each bed is a **candybox** (the project rulebook "Candyboxing"): a disposable, secured
 deployment stocked with the FULL `charly` + MCP + `charly check` toolset, so the bed's
