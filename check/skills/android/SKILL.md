@@ -135,13 +135,19 @@ the goadb dependency + the single apk install path (`install.go`:
 `installByPackage` apkeep+adb / `installFromHostApk` goadb push / `uninstall`)
 live in ONE plugin, never duplicated across verb and deploy.
 
-The deploy is **split host ⇄ plugin** (the F1 substrate-kind-plugin seam):
+**F6/FINAL-K5-unit-6a moved the preresolve leg wholesale INTO the plugin** —
+the deploy is no longer split host ⇄ plugin for its preresolve DATA (only the
+two genuinely LoadUnified/credential-store-coupled touches still reach the
+host, over the generic seam below):
 
-- **Host** (`charly/android_deploy_preresolve.go`, the registered android deploy
-  preresolver) resolves the device endpoint (engine inspect / `${HOST_PORT:N}` /
-  google-play creds from the credential store) and collects the apk install specs
-  from the deploy's compiled plans (committed-APK paths → absolute host paths),
-  shipping them in `DeployVenue.Substrate` (a `spec.AndroidDeployVenue`).
+- **Plugin** (`candy/plugin-adb/preresolve.go`, the `deploy:android`
+  preresolve leg) resolves the device endpoint (engine inspect /
+  `${HOST_PORT:N}` / google-play creds from the credential store) and collects
+  the apk install specs from the deploy's compiled plans (committed-APK paths
+  → absolute host paths) itself, reaching the host ONLY via the generic
+  `"deploy-entity-resolve"` HostBuild seam for the deploy-tree node + the
+  `kind:android` entity/credentials, and ships the result as
+  `DeployVenue.Substrate` (a `spec.AndroidDeployVenue`).
 - **Plugin** (`candy/plugin-adb/deploy.go`, the `deploy:android` provider) gates
   on `sys.boot_completed`, installs each app with retry (reusing the SAME
   `install`/`install-app` method handlers the `adb:` verb dispatches), and returns
@@ -161,20 +167,30 @@ results (`apk-fdroid-present`/`-launch`, `apk-net-apidemos-present`).
 ## Implementation map
 
 `target: android` is an EXTERNAL deploy substrate (F1): it resolves to
-`externalDeployTarget` over the E3b reverse channel, served by candy/plugin-adb.
-There is no in-proc android deploy target.
+`pluginDeployTarget` (`charly/unified_targets.go`, S3b), dispatched via
+`candy/plugin-bundle`'s `Invoke(OpDeployDispatch)` to the substrate's own
+`InvokeProvider`, served by candy/plugin-adb. There is no in-proc android
+deploy target.
 
-- `charly/android_spec.go` — `AndroidSpec` / `AndroidAdbEndpoint` /
-  `AndroidGoogleAccount` / `ApkPackageSpec`.
-- `charly/android_deploy_cmd.go` — host-side device-endpoint resolution
-  (`findAndroidSpec`, `resolveAndroidDevice`, `adbAddrForContainer`, the
-  `${HOST_PORT:N}` helper) + the `AndroidDevice` handle. Shared by the deploy
-  preresolver AND the `charly status` AndroidCollector (no goadb in core).
-- `charly/android_deploy_preresolve.go` — the registered `deploy:android`
-  preresolver: resolves the device + collects the apk install specs
-  (`collectAndroidInstalls`, `resolveApkPath`) into a `spec.AndroidDeployVenue`.
-- `charly/deploy_preresolve.go` — the GENERAL per-substrate preresolver hook
-  registry (any external substrate registers one; only the body is substrate-specific).
+**F6/FINAL-K5-unit-6a moved the ENTIRE preresolve leg plugin-side** — every
+host-core file that used to own it (`charly/android_spec.go`,
+`charly/android_deploy_cmd.go`, `charly/android_deploy_preresolve.go`, and the
+general per-substrate preresolver hook registry `charly/deploy_preresolve.go`)
+is DELETED. `candy/plugin-adb/preresolve.go` now owns it end-to-end (mirroring
+`candy/plugin-kube/preresolve.go`'s `deploy:k8s` move): it resolves the device
+endpoint (engine inspect / `${HOST_PORT:N}` / google-play creds) and collects
+the apk install specs itself, reaching the host ONLY for the two genuinely
+LoadUnified/credential-store-coupled touches (resolving the deploy-tree node,
+and the `kind:android` entity + its google-play credentials) via the GENERIC
+`"deploy-entity-resolve"` HostBuild seam — everything else (engine-inspect,
+port resolution, the committed-APK path walk) is pure/portable and runs
+plugin-side directly, returning a `spec.AndroidDeployVenue`.
+
+- `candy/plugin-adb/preresolve.go` — the `deploy:android` PRERESOLVE leg:
+  `AndroidSpec`/`AndroidAdbEndpoint`/`AndroidGoogleAccount`/`ApkPackageSpec`,
+  device-endpoint resolution, and the apk install-spec collection all live
+  here now (relocated wholesale from the DELETED `charly/android_spec.go` +
+  `android_deploy_cmd.go` + `android_deploy_preresolve.go`).
 - `charly/provider_deploy.go` — `externalizedDeploySubstrates` (the F1 source of
   truth) + the relaxed `checkDeployProviderBijection` (in-proc XOR externalized).
 - `charly/plugin_prescan.go` — `isExternalDeploySubstrate` (a substrate kind is
@@ -182,8 +198,8 @@ There is no in-proc android deploy target.
 - `sdk/spec/deploy_wire.go` — `DeployVenue.Substrate` + `AndroidDeployVenue`.
 - `candy/plugin-adb/deploy.go` — the `deploy:android` provider (boot gate + install
   loop with retry + uninstall reverse ops); `install.go` — the shared installer.
-- `charly/install_plan.go` — `ApkInstallStep`; `sdk/deploykit/install_build.go` —
-  `compileApkStep` (the preresolver reads this step host-side; no DeployTarget executes it).
+- `deploykit.ApkInstallStep` (`sdk/deploykit/steps.go`); `sdk/deploykit/install_build.go` —
+  `compileApkStep` (the plugin-side preresolver reads this step; no DeployTarget executes it).
 - `charly/unified.go` — loader wiring (mirrors every `k8s` site).
 - `charly/deploy.go` `BundleNode.Android`; `charly/bundle_add_cmd.go` dispatch +
   `--node-only`; `sdk/deploykit/deploy_chain.go` / `charly/deploy_tree.go` passthrough.

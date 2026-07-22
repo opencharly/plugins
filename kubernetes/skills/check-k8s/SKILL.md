@@ -69,9 +69,11 @@ resolves the `cluster:` profile to a concrete kubeconfig context via the generic
 
 `charly bundle add vm:k3s-srv` (or any deploy whose layers include
 `k3s-server`) provisions a cluster whose kubeconfig is merged into the
-default kubeconfig under a context named after the deploy (the
-`merge-kubeconfig` plugin seam invoked by `K3sPostProvision`), so a plan
-step can then address it with `cluster: k3s-srv`:
+default kubeconfig under a context named after the deploy (the plugin-side
+`k3s-post-provision` finalization dispatched by `K3sPostProvision` via
+`invokeKubePluginWithBroker`, which retrieves the kubeconfig, rewrites its
+guest-forwarded server, and merges it via `mergeKubeconfig` — all inside
+`candy/plugin-kube`), so a plan step can then address it with `cluster: k3s-srv`:
 
 ```yaml
 - check: every node reports Ready
@@ -178,21 +180,34 @@ charly's core binary.
     no typed clientset) and `kindToPluralResource()` for apply/delete.
   - `methods.go` — the `dispatch()` method router + the 13 method
     implementations (`runNodes`, `runWaitNodes`, `runApply`, …).
-  - `merge.go` — the `merge-kubeconfig` method: the clientcmd merge that
-    folds a retrieved k3s kubeconfig into the default kubeconfig under a
-    named context (so the `k8s.io/client-go/tools/clientcmd` dependency
-    lives here too, not in core).
+  - `merge.go` — `mergeKubeconfig`: the clientcmd merge that folds a retrieved
+    k3s kubeconfig into the operator's `~/.kube/config` under a named context
+    (so the `k8s.io/client-go/tools/clientcmd` dependency lives here too, not
+    in core). Called DIRECTLY by this same plugin's `k3s_post.go`
+    (`k3sPostProvision`) — no separate host-orchestrated merge round-trip.
+  - `k3s_post.go` — the WHOLE k3s post-provision finalization (S3, FINAL/K5
+    unit 6, relocated wholesale from the now-thin `charly/k3s_post.go`):
+    `k3sPostProvision` checks the retrieved-kubeconfig path, rewrites its
+    GUEST-local server URL to the HOST-forwarded port (via the generic
+    "deploy-entity-resolve" HostBuild seam, for the LoadUnified-coupled VM
+    port-forward lookup), then calls `mergeKubeconfig` directly.
   - `schema/kube.cue` — the plugin's served CUE schema: the `#KubeInput` def
     carries the method enum + every kube modifier, served over the Describe
     channel and spliced onto the base for validation. Authoring is unchanged
     (`kube: nodes`, not `plugin: kube`); the internal plugin/plugin_input wire
     envelope the sugar desugars to is never authored.
-- `charly/k8s_plugin.go` — `invokeKubePlugin`: the core seam that builds a
-  synthetic `kube:` `#Op` and dispatches it to the plugin through the
-  registry. Used by the k3s deploy path to invoke `merge-kubeconfig`.
-- `charly/k3s_post.go` — `K3sPostProvision` retrieves the cluster kubeconfig
-  and calls `invokeKubePlugin(&Op{Kube: "merge-kubeconfig", …})` to merge it.
-  No client-go import remains in core.
+- `charly/k8s_plugin.go` — `invokeKubePluginWithBroker`: the core seam that
+  builds a synthetic `kube:` `#Op` and dispatches it to the plugin WITH the
+  reverse-channel broker (`InvokeWithExecutor`) through the registry — the
+  broker access is needed for the plugin's own "deploy-entity-resolve"
+  HostBuild leg. Used by the k3s deploy path to invoke the
+  `k3s-post-provision` method.
+- `charly/k3s_post.go` — now a ONE-CALL dispatch shim: `K3sPostProvision`
+  marshals `{method: "k3s-post-provision", artifact_key, deploy_name}` and
+  calls `invokeKubePluginWithBroker`, printing the plugin's returned status
+  line. The retrieve-check, port-forward rewrite, and merge all run INSIDE
+  `candy/plugin-kube` now (see `k3s_post.go` above). No client-go import
+  remains in core.
 - `charly/k8s_config.go` — `findK8sSpec` looks up a `K8sSpec` (`kind: k8s`
   cluster template) by name from the project `charly.yml` / `k8s.yml`, and
   `resolveClusterContext` (the host side of the `cc.ResolveClusterContext`

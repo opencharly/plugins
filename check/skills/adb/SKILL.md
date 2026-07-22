@@ -211,10 +211,12 @@ dispatches it through the provider registry —
 `providerRegistry.ResolveVerb("adb")` → the out-of-process `grpcProvider` →
 `invokeVerbProvider`, which hands the plugin the full `#Op` as params.
 
-The deploy/status seams (`target: android` install + `charly status`) drive the
-SAME plugin out-of-process via `charly/android_deploy_cmd.go` (`invokeAdbPlugin` +
-`AdbDeviceEnv`), so the device probe, the committed-APK install, and the status
-read never drift on adb behaviour.
+The deploy seam (`target: android` install) drives the SAME plugin
+out-of-process — F6/FINAL-K5-unit-6a relocated the device-endpoint resolution
++ apk install-spec collection wholesale into `candy/plugin-adb/preresolve.go`
+(the DELETED `charly/android_deploy_cmd.go`'s `invokeAdbPlugin`/`AdbDeviceEnv`
+no longer exist host-side) — so the device probe, the committed-APK install,
+and the `adb:` verb never drift on adb behaviour.
 
 The plugin reads the host port from podman's `NetworkSettings.Ports` via
 `InspectContainer` — same source-of-truth used by the check test runner's
@@ -227,8 +229,10 @@ port AS the host port.
   same emulator (W3C WebDriver).
 - `/charly-check:android` — the `kind: android` device + `apk:` package format +
   `target: android` deploy. The `adb: install` / `adb: install-app` verbs are thin
-  wrappers over the SAME shared installer (`charly/android_deploy_preresolve.go`) the apk
-  format drives — so the verb, the format, and the deploy target never drift.
+  wrappers over the SAME shared installer (`candy/plugin-adb/install.go`; the
+  apk format's install-spec collection lives in the same plugin's
+  `preresolve.go`, relocated from the now-DELETED `charly/android_deploy_preresolve.go`)
+  — so the verb, the format, and the deploy target never drift.
 - `/charly-check:check` — the unified check system and the Op (a plan step) that
   holds every verb discriminator + modifier.
 - `candy/android-emulator` — the image these verbs target.
