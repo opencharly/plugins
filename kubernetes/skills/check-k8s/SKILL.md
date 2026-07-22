@@ -188,9 +188,17 @@ charly's core binary.
   - `k3s_post.go` — the WHOLE k3s post-provision finalization (S3, FINAL/K5
     unit 6, relocated wholesale from the now-thin `charly/k3s_post.go`):
     `k3sPostProvision` checks the retrieved-kubeconfig path, rewrites its
-    GUEST-local server URL to the HOST-forwarded port (via the generic
-    "deploy-entity-resolve" HostBuild seam, for the LoadUnified-coupled VM
-    port-forward lookup), then calls `mergeKubeconfig` directly.
+    GUEST-local server URL to the HOST-forwarded port (`deployVMForwards`
+    resolves the deploy tree node + the `kind:vm` entity's declared
+    `port_forwards` via the generic `"deploy-entity-resolve"` HostBuild seam,
+    then reads the PERSISTED port-forward allocation ledger via the SIBLING
+    `"config-resolve"` HostBuild seam — `hostConfigResolveVmState`, the SAME
+    seam `candy/plugin-vm`'s own `hostConfigResolve` uses for its OWN VmState
+    reuse, R3 — a FIX-ROUND regression fix: a direct
+    `deploykit.LoadDeployConfigForRead` call from this out-of-process plugin
+    silently found nothing every time, since `deploykit.DeployStateHost` is
+    wired only by charly-core's own `init()`), then calls `mergeKubeconfig`
+    directly.
   - `schema/kube.cue` — the plugin's served CUE schema: the `#KubeInput` def
     carries the method enum + every kube modifier, served over the Describe
     channel and spliced onto the base for validation. Authoring is unchanged

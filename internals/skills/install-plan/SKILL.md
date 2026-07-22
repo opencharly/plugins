@@ -54,6 +54,7 @@ This skill is the single source of truth for the IR shape. Add a new step kind b
 | `charly/k8s_generate.go` | `GenerateK8sKustomize` — now a thin in-core SHIM (M13): lifts the 3 caps scalars + `spec.Deploy`/`spec.K8s` into `spec.K8sGenInput`, Invokes the compiled-in `candy/plugin-k8sgen` (`verb:k8sgen`/`OpEmit`) for the manifest docs, validates each HOST-SIDE via the M16 egress shim, writes the `base/`+`overlays/` tree. Called by the k8s deploy preresolver + `from-box --target k8s` (unchanged signature), NOT a `DeployTarget`. The generator itself lives in `candy/plugin-k8sgen/k8sgen.go` |
 | `candy/plugin-kube/preresolve.go` | F6/FINAL-K5-unit-6a: the PLUGIN-side `deploy:k8s` preresolver (relocated from the now-DELETED `charly/k8s_deploy_preresolve.go`) — serves `Invoke(OpPreresolve)`, resolves the image Capabilities + the kind:k8s cluster template (the LoadUnified-coupled lookup reaches the host via the "deploy-entity-resolve" seam), generates the egress-validated Kustomize tree via the host's `host_build_k8s_generate.go` "k8s-generate-kustomize" HostBuild seam (wrapping `charly/k8s_generate.go`'s `GenerateK8sKustomize`, which STAYS core-only glue), and returns a `spec.K8sDeployVenue` carrying the overlay path |
 | `sdk/kit/deploy_executor*.go` | `DeployExecutor` interface + `ShellExecutor` + `SSHExecutor` — shell + file-copy abstraction (the core `SSHExecutor.WaitFor*` are thin delegates to `sdk/kit`'s `WaitForSSH` / `WaitForCloudInit` / `WaitForPackageLock`). The external `vm` deploy's `OpPrepareVenue` builds the guest `SSHExecutor` the reverse channel serves; a `local: {host: user@machine}` remote also uses `SSHExecutor` |
+| `sdk/kit/venue_descriptor.go` | FIX ROUND (S3b follow-up, R10 bed-found): `VenueFromDescriptor(spec.VenueDescriptor) (spec.DeployExecutor, error)` re-materializes a wire descriptor into a live `ShellExecutor`/`*SSHExecutor` (moved here from the deleted `charly/substrate_lifecycle_grpc.go`'s `venueFromDescriptor` — zero core-only dependency, pure `sdk/kit`+`sdk/spec`); its pure INVERSE `DescriptorFromExecutor(spec.DeployExecutor) spec.VenueDescriptor` flattens a live executor back into the wire shape (`""`/`"shell"`/`"ssh"` only — any other concrete type, e.g. a composed `*NestedExecutor`, returns the zero descriptor). Promoted here because it now has TWO callers needing the byte-identical conversion: the host (`charly/unified_targets.go`'s `pluginDeployTarget.applyParentExecOverride`, converting a nested child's live `ParentExec` into `venue_json` before it crosses the wire) and the plugin (`candy/plugin-bundle/deploy_target.go`'s `venueDescriptorFromExecutor`, now a thin forward to this SAME function — R3, one function for both directions) |
 | `charly/install_plan_test.go` | IR unit tests (scope/venue/gate/reverse derivations) |
 | `charly/install_build_test.go` | Compiler integration tests (ripgrep, dev-tools, pixi layer) |
 
@@ -353,6 +354,38 @@ DATA-ONLY proxy:
 - **Del** replays the RECORDED `ReverseOps` from the ledger (no plugin call) via the shared
   `teardownHostDeploy` — the record-and-replay invariant: only recorded ops are reversed, never
   recomputed.
+
+**Nested-child venue threading — `applyParentExecOverride` (FIX ROUND, S3b follow-up, R10
+bed-found regression).** A nested external deploy child with NO lifecycle hook of its own (a
+`local:`/`android:`/`k8s:` node placed by TREE POSITION under a `vm:`/`pod:` parent) must apply
+INSIDE the parent's already-prepared venue, never the operator host — mirroring the pre-move
+`externalDeployTarget.apply`'s `else if opts.ParentExec != nil { t.exec = opts.ParentExec }` swap
+exactly (the DELETED `charly/deploy_target_external.go:262`). The bug this fix closes: for a
+nested child, `resolveRootExecutor` (`candy/plugin-bundle/deploy_target.go`) would silently fall
+back to `deploykit.RootExecutorForDeployNode(req.Node)` — which, for a child carrying no `host:`
+field of its own, defaults to the operator's host `ShellExecutor` — so every plain-vm nested
+child's plan/step walk ran on the OPERATOR'S HOST instead of the guest venue. The fix:
+
+- `pluginDeployTarget.applyParentExecOverride(opts)` (`charly/unified_targets.go`) is a NO-OP when
+  `t.hasLifecycle` (a lifecycle substrate composes its OWN nested venue INSIDE its own
+  `PrepareVenue`) or `opts.ParentExec == nil`. Otherwise it mutates `t.exec` to the live
+  `opts.ParentExec` (so every subsequent reverse leg this dispatch call drives —
+  `RunSystem`/`RunUser`/`RunHostStep`/… — runs against the PARENT's venue) AND flattens that same
+  live executor into a `spec.VenueDescriptor` via `kit.DescriptorFromExecutor` — because a live Go
+  interface value cannot itself cross the `[]byte` wire into the plugin's decoded
+  `spec.DeployTargetDispatchRequest`. `pluginDeployTarget.Add` threads the result as the dispatch
+  request's `VenueJSON`.
+- `resolveRootExecutor` (`candy/plugin-bundle/deploy_target.go`) now checks `req.VenueJSON` FIRST:
+  non-empty → decode + `kit.VenueFromDescriptor` re-materializes the IDENTICAL parent venue;
+  empty → the original `deploykit.RootExecutorForDeployNode(req.Node)` fallback (correct for a
+  TOP-LEVEL hookless deploy, which has no ancestor venue to inherit).
+- The ordering invariant — `t.exec` is ALWAYS mutated together with the returned `venue_json`,
+  never one without the other — is enforced by keeping `applyParentExecOverride` as its own
+  directly-unit-tested method (`unified_targets_test.go`), not inlined at the one call site.
+
+This closes exactly the gap the R10 bed roster (7/7 beds) exercises for a nested-child deploy;
+see `sdk/kit/venue_descriptor.go` above for the promoted `DescriptorFromExecutor`/
+`VenueFromDescriptor` pair both directions now share.
 
 **What stays core-resident BY DESIGN, wrapping the dispatch rather than living inside it** (Unit-6
 design Q1–Q4, verified against the actual call graph, not assumed):
