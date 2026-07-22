@@ -453,11 +453,15 @@ you skipped without deciding it inapplicable is an incomplete review (re-open it
      hand-written wire type, an alias, or any other surface CLAUDE.md marks
      non-compliant (SDD's CUE-source mandate, ZERO-ALIASES, …) is expected to
      bring THAT surface into compliance in the SAME PR — not leave it
-     non-compliant while building more on top of it. Motivating incidents:
-     sdk#85's `clean_wire` cutover (the touched hand-written wire type was
-     CUE-sourced in the same PR instead of extended as-is) and the
-     `arbiter_wire` application that followed the identical discipline. A PR
-     that extends a non-compliant surface without curing it FAILS.
+     non-compliant while building more on top of it. Landed precedent:
+     `sdk#85`'s `clean_wire` cutover (the touched hand-written wire type was
+     CUE-sourced in the same PR instead of extended as-is). Generalized by
+     standing operator directive 2026-07-22 (any PR modifying a hand-written
+     wire surface must convert it) — first applied to `sdk/spec/arbiter_wire.go`
+     in the still-in-flight `sdk#90` (a conversion ORDERED for that file, not
+     yet landed as of this writing; re-verify its current state before citing
+     it as landed). A PR that extends a non-compliant surface without curing
+     it FAILS.
    - **(d) Every sweep/dead-code claim requires its ACTUALLY-EXECUTED command
      output, pasted — never a described-but-unrun claim.** "I grepped for
      callers and found none" / "ran the lint sweep, it's clean" is not evidence
