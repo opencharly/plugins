@@ -694,8 +694,11 @@ P16 lands LAST, with all three gates green. GPU host-detection legs are the oper
   `TestExternalPluginEndToEnd` proves the schema travels over RPC, `TestPluginSchemaSpliceValidation`,
   `TestBuiltinPluginSchemasSplice` is the CI gate that every builtin schema splices).
 - `task cue:gen` — regenerates spec + every plugin's params; reproducible (a second run is a no-op).
-- `charly box validate` — the candy + `plugin:` block (`validatePluginCandy` checks each capability is
-  well-formed and, for `source: builtin`, that the provider is actually compiled in).
+- `charly box validate` — the candy + `plugin:` block (`candy/plugin-box/validate_rules.go`'s
+  `IsPlugin` check — an explicit, documented 1:1 port of the former core `validatePluginCandy`, deleted
+  as dead code in the 2026-07-22 dead-code-radical-removal batch once its call site moved here —
+  verifies each capability is well-formed and, for `source: builtin`, that the provider is actually
+  compiled in).
 - R10: a disposable bed composing a builtin AND an external plugin, driven to a fresh `charly update` — the
   builtin's baked check + the external's out-of-process check both pass.
 

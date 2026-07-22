@@ -17,9 +17,13 @@ description: |
 > **M16 — egress is a PLUGIN.** The validation logic + the CUE schemas now live in the
 > COMPILED-IN `candy/plugin-egress` (serving `verb:egress` / `OpValidate`); the egress CUE files
 > moved to `candy/plugin-egress/egress-schemas/` (+ `vendor/cloud_config.cue`). `charly/egress.go`
-> is now a THIN SHIM: `ValidateEgress`/`ValidateEgressValue`/`validateTextEgress`/`ValidateXMLEgress`
-> keep their signatures but resolve `verb:egress` + `Invoke(OpValidate, {kind,label,mode,data})`
-> (plain host→plugin dispatch). Every caller + the `vmshared.ValidateEgress` hook are unchanged. The
+> is now a THIN SHIM: `ValidateEgress`/`ValidateEgressValue`/`validateTextEgress`
+> keep their signatures and resolve `verb:egress` + `Invoke(OpValidate, {kind,label,mode,data})`
+> (plain host→plugin dispatch). The core-side `ValidateXMLEgress` wrapper was itself deleted as
+> unreached residue in the 2026-07-22 dead-code-radical-removal batch — the sole surviving
+> `ValidateXMLEgress` is `candy/plugin-vm`'s own copy (`vm_egress_shim.go`), which Invokes
+> `verb:egress` directly (mode `xml`) over its own reverse channel for the rendered
+> libvirt-domain-XML path; every OTHER caller + the `vmshared.ValidateEgress` hook are unchanged. The
 > plugin holds its schemas INTERNALLY (compiled in its own cue context — the package-less defs
 > concatenated, the vendored `cloud_config` as its own instance) and serves only a trivial Describe
 > schema, so the vendored package+import file never joins the single-blob Describe concat. The
@@ -61,7 +65,7 @@ Dockerfile / systemd-INI / ssh_config. So egress validation is layered:
 
 ## The validator API — the `charly/egress.go` SHIM (M16)
 
-These four public functions keep their signatures; each resolves `verb:egress` + `Invoke(OpValidate,
+These three public functions keep their signatures; each resolves `verb:egress` + `Invoke(OpValidate,
 {kind,label,mode,data})` and turns the plugin's `{error}` verdict into a Go error. The plugin's
 `provider.validate` runs the actual unify (the SAME CUE code that used to live here), keyed on `mode`:
 
@@ -70,7 +74,15 @@ These four public functions keep their signatures; each resolves `verb:egress` +
 | `ValidateEgress(kind, label, data []byte) error` | `bytes` | Ingest serialized YAML/JSON bytes, unify with the egress kind's schema, `Validate(cue.Concrete(true))`. JSON is a YAML subset, so one ingest path covers both. |
 | `ValidateEgressValue(kind, label, v any) error` | `bytes` | Marshal the in-memory Go value (a manifest `map[string]any`, a record struct) to JSON, validate as bytes — faithful for the data values egress gates (k8s manifests, ledger records). |
 | `validateTextEgress(label, text string) error` | `text` | Validate a rendered NON-DATA text artifact (Containerfile, service unit) by unifying it as a CUE string with `#RenderedText` (rejects the Go text/template `<no value>` nil-field marker). No concreteness. |
-| `ValidateXMLEgress(kind, label, xml string) error` | `xml` | Validate a rendered XML artifact (libvirt domain) via the EXPERIMENTAL `cuelang.org/go/encoding/xml/koala` decode unified with a koala-shaped def, `Validate(cue.Concrete(true))`. **Best-effort**: a koala *decode* error → pass (defers to the authoritative downstream gate); only a schema violation on a decoded document hard-fails. |
+
+The `xml` mode (validate a rendered XML artifact — a libvirt domain — via the EXPERIMENTAL
+`cuelang.org/go/encoding/xml/koala` decode unified with a koala-shaped def, `Validate(cue.Concrete(true))`,
+**best-effort**: a koala *decode* error → pass, deferring to the authoritative downstream gate; only a
+schema violation on a decoded document hard-fails) is still fully served by `verb:egress`'s
+`OpValidate` — there is simply no core-side `ValidateXMLEgress` convenience wrapper anymore (deleted as
+unreached residue, 2026-07-22). Its one real caller, `candy/plugin-vm`, Invokes `verb:egress` with
+`mode: "xml"` directly through its own `ValidateXMLEgress` wrapper (`vm_egress_shim.go`) rather than
+through a core shim.
 
 Inside the plugin, the package-less defs are concatenated + `LookupPath`'d via `kindDefPaths`, and the
 vendored `cloud_config` is `CompileBytes`-compiled as its own instance — there is no longer a
@@ -160,9 +172,10 @@ The schemas + validation now live in `candy/plugin-egress` (M16):
    `candy/plugin-egress/egress-schemas/vendor/` (compiled as its own instance in `newProvider`).
 2. Register the kind→def-path in the plugin's `kindDefPaths` map (package-less) or add a
    `defs[kind] = …` CompileBytes branch (vendored), in `candy/plugin-egress/main.go`.
-3. Call the matching in-core shim (`ValidateEgress` / `ValidateEgressValue` / `validateTextEgress` /
-   `ValidateXMLEgress`) at the writer's seam, BEFORE the `os.WriteFile` / `PutFile`, returning its
-   error — the shim resolves `verb:egress` + `Invoke(OpValidate)`.
+3. Call the matching in-core shim (`ValidateEgress` / `ValidateEgressValue` / `validateTextEgress`) —
+   or, for `xml` mode, Invoke `verb:egress` directly (there is no core-side `ValidateXMLEgress`
+   wrapper; `candy/plugin-vm` is the reference caller, `vm_egress_shim.go`) — at the writer's seam,
+   BEFORE the `os.WriteFile` / `PutFile`, returning its error.
 4. Add corpus + teeth tests in `candy/plugin-egress/egress_test.go` (a good artifact passes, a
    malformed one is rejected) — mirror `TestEgressValidate`.
 
