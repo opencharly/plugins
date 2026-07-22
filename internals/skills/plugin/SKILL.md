@@ -203,24 +203,31 @@ See "Authoring an external COMMAND plugin" below.
   hold across the process boundary (`OpExecute`), and the host records the returned teardown ops to the ledger.
   A bed/deploy that uses an external deploy SUBSTRATE word is recognized at config-PARSE time (before the
   provider connects) and routed host-side by the shared check classifier. **A substrate may ALSO bring its OWN
-  host-side venue LIFECYCLE + PRERESOLVE (F6):** a `class:deploy` capability declaring `Lifecycle=true` gets a
-  wire-backed `substrateLifecycle` registered at plugin-load — the host calls its `OpPrepareVenue`/`OpStart`/
-  `OpStop`/`OpStatus`/`OpRebuild`/… (host→plugin on `Provider.Invoke`), and `OpPrepareVenue` returns a
-  `spec.VenueDescriptor` the host re-materializes into a real executor (the live executor never crosses the
-  wire). One declaring `Preresolve=true` gets a wire-backed `deployPreresolver` (`OpPreresolve` → the opaque
-  `DeployVenue.Substrate` payload), generalizing the in-core k8s/android preresolvers. Reference
+  host-side venue LIFECYCLE + PRERESOLVE (F6):** a `class:deploy` capability declaring `Lifecycle=true` /
+  `Preresolve=true` is read at plugin-connect into plain `hasLifecycle`/`hasPreresolve` booleans threaded
+  through `pluginDeployTarget` (`charly/unified_targets.go`, S3b) and `candy/plugin-bundle`'s generic
+  `Invoke(OpDeployDispatch)` — there is no longer a SEPARATE wire-backed `substrateLifecycle`/
+  `deployPreresolver` object registered at plugin-load (both interfaces, and the core files that implemented
+  them, `charly/substrate_lifecycle_grpc.go` + `charly/deploy_preresolve.go`, are DELETED). Instead
+  `candy/plugin-bundle`'s `lifecycleInvoke`/`preresolveSubstrate` (`deploy_target.go`) reach the substrate's
+  `OpPrepareVenue`/`OpStart`/`OpStop`/`OpStatus`/`OpRebuild`/`OpPreresolve` via its OWN
+  `sdk.Executor.InvokeProvider(class:"deploy", word, op, …)` (S1) — the SAME PLUGIN↔PLUGIN dispatch every
+  other peer-invoke uses. `OpPrepareVenue` still returns a `spec.VenueDescriptor` the host re-materializes
+  into a real executor (the live executor never crosses the wire), and `OpPreresolve` still returns the
+  opaque `DeployVenue.Substrate` payload, generalizing the in-core k8s/android preresolvers. Reference
   (out-of-process-only): `candy/plugin-example-lifecycle`; mechanism: `/charly-internals:install-plan`
-  (`substrate_lifecycle_grpc.go`). This is the channel M4 reuses to externalize the pod/vm lifecycles. An external **`run:` plugin verb /
+  (`candy/plugin-bundle/deploy_target.go`). This is the channel M4 reuses to externalize the pod/vm lifecycles. An external **`run:` plugin verb /
   step** composed INSIDE a deploy (a `local:`/`vm:` target, where the install runs ON the target, not baked
   into an image) likewise EXECUTES at deploy: it lowers to an `ExternalPluginStep` IR node which the external
-  `local:`/`vm:` deploy walk reaches as a host-engine step over `RunHostStep`, where `executeExternalPluginStep`
-  `Invoke(OpExecute)`s WITH the live `DeployExecutor` on the SAME reverse channel, so the plugin runs
+  `local:`/`vm:` deploy walk reaches as a host-engine step over `RunHostStep`, where the shared `invokeExternalStep`
+  dispatch (`charly/plugin_executor_reverse.go`, S4/R3) `Invoke(OpExecute)`s over the PLUGIN↔PLUGIN
+  `InvokeProvider` leg (a nested reverse channel delegating to the SAME venue executor), so the plugin runs
   its deploy-context effect on the target and RETURNS its teardown `ReverseOp`s, which the host records to
-  the ledger and replays at `charly bundle del` (record-and-replay, the SAME `spec.DeployReply` wire as the
-  deploy target — R3). Only an EXTERNAL provider is routed there (the `executorInvoker` discriminator,
+  the ledger and replays at `charly bundle del` (record-and-replay, the SAME `spec.DeployReply` wire the
+  deploy-substrate dispatch uses — R3). Only an EXTERNAL provider is routed there (the `executorInvoker` discriminator,
   satisfied SOLELY by the out-of-process `grpcProvider`); a builtin `ProvisionActor` verb keeps its in-proc
   shell path. So the verb/step class is external-capable at BOTH build (`OpEmit`, next bullet) AND deploy
-  (`OpExecute`), placement-agnostic. Detail → `/charly-internals:install-plan` (the `externalDeployTarget`
+  (`OpExecute`), placement-agnostic. Detail → `/charly-internals:install-plan` (the `pluginDeployTarget`
   lifecycle + the `ExternalPluginStep` IR kind + the `OpExecute` reverse channel).
 - **Build time.** `charly box build` / `charly box generate` connect the project's external plugin candies during
   image generation, so a plugin EXECUTES at build to emit its Containerfile contribution, placement-agnostically
@@ -579,15 +586,18 @@ engine splices the generic fragment and never imports a builder struct. Every co
 kernel the same way — a distro resolves to install/phase/localpkg fragments, a substrate to a
 `VenueDescriptor` + `InstallPlan`, a sidecar to a peer-`Deploy` fragment, a resource to a device fragment.
 The kernel consumes the generic envelope; the plugin owns the schema, the validation (`OpValidate`), and
-the resolution. The build-time `OpEmit` (step/verb fragment), the F6 `grpcSubstrateLifecycle`
-(`VenueDescriptor`), and the `HostArbiter`/`HostBuild`/`InvokeProvider`/`RunHostStep` reverse legs are the
+the resolution. The build-time `OpEmit` (step/verb fragment), the F6 lifecycle/preresolve legs a substrate
+provider serves over its own `InvokeProvider(class:"deploy", word, OpPrepareVenue/OpPreresolve/…)`
+(`VenueDescriptor`; S3b generalized this off the former dedicated `grpcSubstrateLifecycle` proxy into the ONE
+generic `candy/plugin-bundle` `OpDeployDispatch` dispatch every substrate now shares), and the
+`HostArbiter`/`HostBuild`/`InvokeProvider`/`RunHostStep` reverse legs are the
 existing seams a de-typing rides — no new seam is usually needed, only the consumer stops re-typing.
 
 **Every K-wave move is a generalization, not a mechanical relocation.** Moving a capability's call site
 into its owning plugin is R3 ("no duplication; generic, reusable solutions over ad-hoc patches") and
 Prioritize Clean Architecture applied to the migration itself (see the project rulebook — not restated here). In
 practice: reach for an EXISTING generic seam first (`HostBuild`, `InvokeProvider`, `OpResolve`/`OpEmit`,
-the `substrateLifecycle` legs) or build ONE generic, F11-reviewed, class-generic action noun — never a
+the substrate lifecycle/preresolve `InvokeProvider` legs, `OpDeployDispatch`) or build ONE generic, F11-reviewed, class-generic action noun — never a
 per-word or per-case one; COLLAPSE per-case branches into a single word-keyed data-driven mechanism as
 part of the move (per-substrate status collectors + a `switch node.Target` incomplete-seam become ONE
 generic `OpStatusCollect`; per-kind `cue_kind` branches become one family); and DELETE every duplicate and
@@ -597,7 +607,9 @@ or delete the duplicate — rarely invent a new one; most seams the boundary law
 **Realized architecture (present state).** The SDK boundary (`github.com/opencharly/sdk`) is extracted;
 every verb / kind / step / builder / command, all five deploy substrates (local/pod/vm/k8s/android) with
 their pod + vm venue lifecycles, and egress / k8sgen / gpu / arbiter / secrets / enc / tunnel are plugin
-candies over the generic seams (`HostBuild("overlay"/"cli"/"step-emit")`, `grpcSubstrateLifecycle`, the
+candies over the generic seams (`HostBuild("overlay"/"cli"/"step-emit")`, the `candy/plugin-bundle`
+`OpDeployDispatch` orchestration + each substrate's own `InvokeProvider` lifecycle/preresolve legs (S3b,
+replacing the former dedicated `grpcSubstrateLifecycle` proxy), the
 `ExecutorService` reverse legs, the opaque `Substrate`/`DeployVenue.Substrate` payloads). Where a concrete
 kind's TYPED shape is still consumed in core — a `spec.<Kind>` field-read, a `kindValueDef`-style per-kind
 map, a substrate-word `switch` — that is a known **incomplete seam** being closed one cutover at a time
@@ -693,7 +705,7 @@ P16 lands LAST, with all three gates green. GPU host-detection legs are the oper
 - `/charly-image:layer` — the candy authoring surface the `plugin:` block extends.
 - `/charly-check:check` — the plugin-verb check steps (`<word>: <input>` sugar) + ADE (a plugin's own acceptance plan).
 - `/charly-build:validate` — `charly box validate` rules.
-- `/charly-internals:install-plan` — the `externalDeployTarget` deploy lifecycle (`OpExecute` reverse channel, ledger record) + the `OpEmit` build-time fragment; the deploy wire types in `sdk/spec/deploy_wire.go`.
+- `/charly-internals:install-plan` — the `pluginDeployTarget` deploy lifecycle (`OpExecute` reverse channel, ledger record) + the `OpEmit` build-time fragment; the deploy wire types in `sdk/spec/deploy_wire.go`.
 - `/charly-build:generate` + `/charly-internals:generate-source` — the build-time plugin connect seam + the `emitTasks` placement-agnostic plugin-verb dispatch (`OpEmit` → fragment).
 
 ## When to Use This Skill

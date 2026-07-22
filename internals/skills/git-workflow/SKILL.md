@@ -706,6 +706,28 @@ serves skills from the MAIN worktree — a stale main worktree silently serves S
 to sessions, so refreshing it is mandatory. (A ` M <sub>` in a worktree used only for
 the ff-merge is this drift, not lost work.)
 
+**A disposable `localpkg` bed builds from the submodule's ON-DISK WORKING-TREE
+checkout, NOT from the committed gitlink alone.** After a CLEAN gitlink
+auto-merge (no conflict), `git ls-tree HEAD <sub>` can already show the correct
+new pin while the submodule's on-disk `HEAD` is still the OLD commit — a
+gitlink merge does not itself check out the new submodule content; that needs
+its own `git -C <wt> submodule update --checkout <path>` (or `--recursive`
+over the initialized set), same as any other post-merge refresh in this step.
+Skipping it means the bed silently builds STALE source even though the
+committed pointer is correct. Signature: the localpkg build derives its repo
+root as `/tmp` (a symptom of resolving the wrong tree) and bakes a stale
+`pkgver` into the package it builds. (RCA'd 2026-07-20: `pkg/arch`
+`96ce37c`-stale on disk vs `5734a83` actually committed.)
+
+**A derived `pkgver` left dirty in `pkg/arch/PKGBUILD` persists ACROSS the
+session, per worktree.** `pkg/arch/calver.sh` stamps `PKGBUILD` with a
+derived `pkgver` at `makepkg` time, and that edit is a real working-tree
+change — it does not self-revert between bed runs. Discard it (`git -C <wt>
+checkout -- pkg/arch/PKGBUILD`, or the tree's standard clean step) before
+EVERY bed re-gate, in EVERY worktree that ran a `localpkg`/package build — not
+only the main checkout — or the next run's `git status` reads dirty for a
+reason unrelated to your actual edits.
+
 **Landing gotchas (each cost real time):** `git merge-base --is-ancestor A B` ERRORS if B's object isn't
 fetched (common for a sibling-worktree submodule) → `git fetch` first; cross-check
 `git ls-tree origin/main <sub>` before concluding "DIVERGED". A `git grep --

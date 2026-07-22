@@ -254,7 +254,15 @@ you skipped without deciding it inapplicable is an incomplete review (re-open it
    the pasted proof, never inflated
    — YOU set the ceiling independently, do not inherit the author's wording.
    Verify the harness, provider, and full model name against the authoring
-   runtime evidence. Hooks make no attribution judgment: YOU verify whether a
+   runtime evidence — the AUTHORITATIVE source is YOUR OWN session transcript
+   (`~/.claude/projects/<project>/$CLAUDE_CODE_SESSION_ID.jsonl`, the
+   assistant-turn `message.model` field on your own most recent turn), never a
+   config file. **`~/.claude/settings.json` is NOT that source** — it holds the
+   MAIN session's configured DEFAULT model, which is frequently NOT the model
+   actually serving this validation run (a teammate/validator can be spawned
+   with an explicit `model:` override, or the default can drift after the
+   settings were last read); reading it produced a proven-wrong attribution.
+   Hooks make no attribution judgment: YOU verify whether a
    trailer applies and, when it does, its identity, model, and confidence. A
    100% human commit with no AI trailer remains valid.
    `fully tested and validated` requires the cutover's NEW/CHANGED code paths to
@@ -425,6 +433,49 @@ you skipped without deciding it inapplicable is an incomplete review (re-open it
      a serial-green gate does not prove concurrency-safety and is not accepted as
      the R10 evidence for that class. Each failure it surfaces must appear with
      its root mechanism + fix, not a classification.
+   - **(a) Proven-DEAD code in a PR's OWN touched modules is a BLOCKING finding,
+     never a "not this PR's problem" pass.** Zero callers/senders, an unreachable
+     arm, or a zero-site alias sitting inside a file/module this PR is already
+     editing is not shielded by "it was already dead before my change" — the PR
+     is touching that surface, so leaving live-looking dead code there fails R3
+     (unify/delete) and R5 (stale-reference sweep) exactly as if the PR had
+     introduced it. Name it and FAIL.
+   - **(b) A parking phrase is ITSELF a finding, unless it names an exit THIS
+     PR advances.** "pre-existing", "out of scope", "tracked debt",
+     "conversion-in-progress", "stays for now", "registered for follow-up" (and
+     equivalents) do NOT excuse a surfaced issue UNLESS the PR names the
+     concrete IOU/enabler/thematic-batch it joins AND the diff itself visibly
+     moves toward that exit (a registered task, a landed enabler, a shrunk
+     residue set — not merely the words "will fix later"). A parking phrase with
+     no such advancement is the forbidden R2 split wearing a disguise — FAIL it.
+   - **(c) Touching a non-compliant surface obligates curing it, not merely
+     using it.** A PR that extends, wraps, or adds a new call site to a
+     hand-written wire type, an alias, or any other surface CLAUDE.md marks
+     non-compliant (SDD's CUE-source mandate, ZERO-ALIASES, …) is expected to
+     bring THAT surface into compliance in the SAME PR — not leave it
+     non-compliant while building more on top of it. Landed precedent:
+     `sdk#85`'s `clean_wire` cutover (the touched hand-written wire type was
+     CUE-sourced in the same PR instead of extended as-is). Generalized by
+     standing operator directive 2026-07-22 (any PR modifying a hand-written
+     wire surface must convert it) — first applied to `sdk/spec/arbiter_wire.go`
+     in the still-in-flight `sdk#90` (a conversion ORDERED for that file, not
+     yet landed as of this writing; re-verify its current state before citing
+     it as landed). A PR that extends a non-compliant surface without curing
+     it FAILS.
+   - **(d) Every sweep/dead-code claim requires its ACTUALLY-EXECUTED command
+     output, pasted — never a described-but-unrun claim.** "I grepped for
+     callers and found none" / "ran the lint sweep, it's clean" is not evidence
+     unless the real command and its real output appear in the PR body or a
+     comment; a plausible-sounding claim that was never actually re-run at the
+     final head is a FRAUD-class finding, exactly like the R10 fraud clauses.
+     Motivating incident: `opencharly/charly#175` round 1 — the PR body's
+     pasted `git grep` output claimed only `CHANGELOG/`-context hits for a set
+     of removed identifiers, but a fresh re-run against the PR's OWN head found
+     60+ LIVE source hits (comments still naming the retired identifiers); the
+     paste had been authored without ever being executed against the actual
+     diff. Demand the pasted grep/lint output AND re-run it yourself at the
+     PR's real head; an unexecuted or stale-at-authoring claim FAILS regardless
+     of how confident it reads.
 14. **Hard Cutover by Default — one atomic phase.** The change is ONE atomic
     commit per repo (multiple change commits per repo FORBIDDEN; only your
     Phase-3 version-stamp commit is added). NO "Phase 2 / TODO / will-do-next-time
@@ -591,7 +642,20 @@ SPECIFIC blocking findings (file:line) and exactly what the author must fix.>
 **Attribute the comment.** Every comment you post is AI-authored content, so it
 MUST end with `*Assisted-by: <Harness> <Full Model Name> (<confidence>)*`
 (Fedora AI policy — every AI-involved
-PR/issue comment attributes). The `<confidence>` is the attribution confidence YOUR OWN
+PR/issue comment attributes). **`<Harness>` and `<Full Model Name>` in that line
+are FORMAT PLACEHOLDERS, never literal text to copy verbatim.** Fill them with
+the RUNTIME-EXPOSED identity — the exact harness name and full model name YOUR
+OWN running session reports at run time (the same verification item 3 /
+"Verify the harness, provider, and full model name against the authoring
+runtime evidence" already requires for the commit trailer) — NEVER a typed,
+recalled, or guessed name, and NEVER read from `~/.claude/settings.json` (the
+main session's configured default, proven to diverge from the model actually
+running THIS validation). The authoritative source is your OWN session
+transcript's most recent assistant turn (`message.model` in
+`~/.claude/projects/<project>/$CLAUDE_CODE_SESSION_ID.jsonl`); a guessed or
+config-read name is how a PR-comment footer ends up self-labeled with the
+wrong model even when the commit trailer is correct. The
+`<confidence>` is the attribution confidence YOUR OWN
 validation supports for this PR's change class (the project rulebook "AI Attribution"), never
 inflated: for a runtime-class PR whose checks you re-ran live → `analysed on a live
 system`; for a docs-only PR you validated via the non-runtime standards →
@@ -710,7 +774,9 @@ Checklist (every rule — mark [N/A] + a one-line reason where the class exclude
   [PASS/FAIL] 12. RDD / ADE (description+plan+≥1 check per candy) / SDD CUE-mandate @100%
                  (cue:gen no-op + reproducible; no hand-edited *_gen.go; wire types CUE-sourced;
                  no unjustified @go(-)/hand-written schema type; per-plugin .cue single-source)
-  [PASS/FAIL] 13. concurrency mandate + anti-cheat (no idle/serial passes; concurrent-roster gate; root-cause RCA)
+  [PASS/FAIL] 13. concurrency mandate + anti-cheat (no idle/serial passes; concurrent-roster gate; root-cause RCA;
+                 no dead-code-in-touched-module pass; no unadvanced parking phrase; touched non-compliant
+                 surface cured, not extended; every sweep/dead-code claim carries executed evidence)
   [PASS/FAIL] 14. hard cutover — one atomic commit; no Phase-2/TODO; plan = contract
   [PASS/FAIL] 15. ARCHITECTURE GATE — placement review (goal-fit / right-layer / counterfactual-outward / mechanical sub-checks: no new-or-grown alias, no new kit import; per-item trace in the POSTED comment; a hook ZERO-ALIASES block = hard FAIL, a hook ALLOW does not discharge judgment)
                  placement: <CORRECT | SHOULD-BE-<core|sdk|candy> (<what moves where>)>

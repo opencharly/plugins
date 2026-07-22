@@ -156,7 +156,7 @@ arch:                                          # the deploy name; addressable as
 
 ### Marking a deploy VM-targeted: the `vm:` substrate node
 
-A deploy is VM-targeted when its first child key is the `vm:` substrate node carrying `from: <entity>` — there is no `target:` field. CLI dispatch additionally accepts a `vm:<vm-name>` prefix on the deploy-name argument (`charly bundle add vm:arch`), which `ResolveTarget` reads to route through `externalDeployTarget` (the adapter for the external `vm` substrate). The prefix is an addressing convenience; the `vm:` substrate node is the source of truth. Naming a `vm:` deploy whose `vm` entity isn't declared in `charly.yml` errors at `charly bundle add` time; a declared-but-unbooted VM is auto-booted by the vm deploy plugin's `OpPrepareVenue`.
+A deploy is VM-targeted when its first child key is the `vm:` substrate node carrying `from: <entity>` — there is no `target:` field. CLI dispatch additionally accepts a `vm:<vm-name>` prefix on the deploy-name argument (`charly bundle add vm:arch`), which `ResolveTarget` reads to route through `pluginDeployTarget` (S3b — the adapter for the external `vm` substrate, dispatched through `candy/plugin-bundle`'s `Invoke(OpDeployDispatch)`). The prefix is an addressing convenience; the `vm:` substrate node is the source of truth. Naming a `vm:` deploy whose `vm` entity isn't declared in `charly.yml` errors at `charly bundle add` time; a declared-but-unbooted VM is auto-booted by the vm deploy plugin's `OpPrepareVenue`.
 
 ### `add_candy:` overlay semantics for VM targets
 

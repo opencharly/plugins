@@ -18,7 +18,7 @@ Lives **host-side**, in the `charly` binary. The **guest-side** `/charly-distros
 
 | File | Contents |
 |---|---|
-| `sdk/vmshared/cloud_init_render.go` | `RenderCloudInit`, `ResolveKeyInjectionChannels`, `composeUsers`, `composePackages`, `composeRunCmd` |
+| `sdk/vmshared/cloud_init_render.go` | `RenderCloudInit`, `ResolveKeyInjectionChannels`, `composeUsers`, `composePackages`, `composeBootCmd`, `composeRunCmd` |
 | `sdk/vmshared/cloud_init_iso.go` | `WriteSeedISO` via xorriso; `genisoimage` + `mkisofs` fallbacks |
 | `sdk/kit/charly_install.go` | `kit.EnsureCharlyInGuest` state machine (auto/scp/url/skip strategies) |
 | `sdk/spec/cue_types_gen.go` (generated) | `VmCloudInit`, `VmCloudInitUser`, `VmCloudInitFile`, `VmCloudInitNetwork`, `VmCloudInitMirrors`, `VmCharlyInstall` |
@@ -95,14 +95,50 @@ func ResolveKeyInjectionChannels(spec *VmSpec) (smbios bool, cloudInit bool) {
 
 **Both channels are additive** — when both are on, systemd-ssh-generator (SMBIOS path) and cloud-init (user-data path) both inject the key. Dedup happens in the guest's `authorized_keys`. There's no correctness issue with duplicate keys; the dual-injection pattern is the safe default.
 
-## composePackages + composeRunCmd renderer defaults
+## composePackages + composeBootCmd + composeRunCmd renderer defaults
 
 The renderer prepends defaults to user-declared lists:
 
-- `composePackages`: prepends `{openssh, curl, tar}` (deduplicated against user's `Packages`). Guarantees the guest has SSH server + download tools + tar for later layer application.
-- `composeRunCmd`: prepends `{systemctl enable --now sshd}`. Distro-specific user `runcmd:` entries can assume sshd is running.
+- `composePackages`: prepends `{openssh (or `openssh-server` on debian/ubuntu), curl, tar}` (deduplicated against user's `Packages`). Guarantees the guest has SSH server + download tools + tar for later layer application.
+- `composeBootCmd`: prepends `systemctl mask ssh.socket || true` — the EARLIEST cloud-init phase (`bootcmd` runs before `write_files`/packages/`runcmd`), so a socket-activated sshd (enabled by default on some cloud images, notably Debian/Ubuntu) can never accept a connection before cloud-init has finished configuring the guest. `|| true` makes this a harmless no-op on a distro that ships no `ssh.socket` unit at all (Arch/Fedora typically don't).
+- `composeRunCmd`: prepends THREE steps, in order: (1) a self-testing shell snippet that writes a `PerSourcePenalties no` sshd_config.d drop-in and validates the FULL resulting config with `sshd -t`, deleting the drop-in again on failure; (2) `systemctl unmask ssh.socket || true` (the matching unmask for `composeBootCmd`'s mask); (3) `systemctl enable --now sshd` (or `ssh` on debian/ubuntu). Distro-specific user `runcmd:` entries can assume sshd is running and hardened.
 
 User-supplied fields **extend** defaults; they don't replace them. Prevents the common footgun where an author puts `packages: [nginx]` and accidentally breaks SSH because they overrode the default list.
+
+### Guest SSH hardening (D18) — the RCA'd kex-reset wedge class
+
+The bootcmd-mask + runcmd-unmask/hardening-drop-in/enable sequence above closes a
+confirmed wedge: OpenSSH ≥ 9.8 defaults `PerSourcePenalties` ON, penalizing
+repeated connection attempts from ONE source. Every VM guest is reached through
+the SAME single passt gateway source IP, so `kit.WaitForSSH`'s own readiness
+poll (`/charly-internals:vm-deploy-target`) can trip its own guest's rate limit
+and appear to "reset forever" against an otherwise-healthy guest.
+
+**Why a shell `runcmd` snippet, not a static `write_files` entry, for the sshd
+drop-in.** `PerSourcePenalties` does not exist before OpenSSH 9.8. Writing it
+as a static cloud-config `write_files` entry would hand an OLDER guest's sshd
+a config with an unrecognized directive, which `sshd` refuses to start
+against. The shell snippet writes the drop-in, then runs `sshd -t` (validating
+the FULL resulting config) and deletes the drop-in again on failure — fail-safe
+to the pre-fix behavior (the original penalty risk stands on an old guest),
+never a bricked sshd.
+
+**Design trade-off — deliberate, not overlooked.** Masking `ssh.socket` until
+`runcmd` makes the guest **deterministically unreachable via SSH for the
+entire package-install phase**, trading the old "sometimes-flaky-but-reachable"
+window (sshd up early, racing a possible host-key rewrite) for
+"safe-but-fully-blocked-if-package-install-stalls." This is verified live
+against real Arch cloud_image VM beds (`check-charly-vm`, and
+`check-sidecar-pod`'s nested ephemeral VM member) — including a full
+fresh-rebuild pass (destroy+recreate) for each — with zero wedge, now that the
+companion redundant-package-reinstall fix (below) keeps the package-install
+phase itself fast. If field evidence ever shows a package-install stall under
+this ordering, the revisit path is either (a) moving the unmask earlier (e.g.
+a `write_files`-stage cloud-init module instead of `runcmd`), or (b) dropping
+the mask/unmask pair entirely and relying on the `PerSourcePenalties` drop-in
+alone.
+
+**Delivery is distro-branched (D15): `packages:` for most distros, a `runcmd:`-prepended `pacman -S --needed` for pacman-family.** On every distro EXCEPT the pacman family (arch/cachyos/manjaro/endeavouros), the composed package union rides the `packages:` cloud-config key as documented above. On a pacman-family distro, `packages:` is OMITTED entirely and the union is instead PREPENDED to `runcmd:` as `pacman -S --needed --noconfirm <union>` — AHEAD of `composeRunCmd`'s own three hardening/enable steps (D18, above). This is an R10 bed finding: cloud-init's own package-install module invokes `pacman -S` WITHOUT `--needed`, so on an image that already ships the minimum set (e.g. every Arch cloud image) it unconditionally REINSTALLS them — reinstalling openssh re-triggers its post-install host-key-regen hook while the base image's own socket-activated sshd is already listening, racing a live key-file rewrite against new SSH connections (the observed "reset during `kex_exchange_identification`, guest otherwise idle" signature). apt/dnf installs are naturally no-op-idempotent when the package is already present, so only the pacman-family path needs the `--needed` rewrite. The pacman-family check is `formatForDistroID(effectiveDistro(spec)) == "pac"`; `effectiveDistro` resolves `Source.Distro` when set, and additionally infers `"arch"` for a `cloud_image` source with `base_user: "arch"` and no explicit `distro:` (a narrowing of the pre-existing `composePackages` distro-switch fallback, never a behavior change for a caller that already got the Arch/Fedora shape) — every OTHER empty-distro image stays on the safe, unchanged `packages:`-key path. See `sdk/vmshared/cloud_init_render.go`'s `effectiveDistro`/`composePackages` doc comments for the full narrowing proof. **Note (D18):** the pacman-vs-non-pacman split governs ONLY the `packages:` key vs the `pacman -S --needed` runcmd prepend — every distro's `runcmd:` now ALSO carries the D18 hardening/unmask/enable steps, so "byte-identical to before" no longer applies to the full runcmd list, only to the packages-key handling this paragraph describes.
 
 ## WriteSeedISO
 

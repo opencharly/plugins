@@ -169,6 +169,7 @@ A **non-blocking** issue (the current change is correct AND complete without it,
 | `podman cp` | `charly cp <box> <src> <dst>` (`:` prefix marks the container side; `--sidecar` supported) |
 | `podman image ls` | `charly box list tags [<box>]` (newest first; rollback via `charly update --tag`) |
 | `podman rmi '<glob>'` | `charly clean --invalidate '<glob>'` (charly-labeled tags only; in-use skipped) |
+| `podman image prune` / `podman rmi $(podman images -f dangling=true -q)` | `charly clean --deep` (`--dry-run` reports the would-remove count + an upper-bound reclaimable-bytes figure — shared layers can make actual reclaim much smaller, pair with `--invalidate` for the fullest reclaim; store-wide untagged-image purge, in-use/live-build skipped) |
 | `podman secret ls` | `charly status <box>` (the `Secrets:` detail line / JSON `secrets`) |
 | `podman secret rm` + re-setup | `charly config <box> --refresh-secret <name\|all>` |
 | `systemctl --user status/restart charly-<x>` | `charly status <x>` / `charly restart <x>` |

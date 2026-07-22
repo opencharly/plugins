@@ -384,6 +384,8 @@ Set via `charly settings set`:
 
 Per-VM overrides live on the VM entity in `charly.yml`. The user-level defaults exist only for fields that don't have a per-VM equivalent (backend is the main one). For anything else, declare it on the `<name>` VM entity (`<name>.vm.…`).
 
+**`CHARLY_VM_STATE_DIR`** (env-only, no `charly settings` key — `vmshared.VmStateRoot()`) overrides the root directory for per-VM host state (`~/.local/share/charly/vm/<domain>/` by default — ssh keys, known_hosts, seed ISO, the per-domain disk overlay, `snapshots/`, `instance.yml`). Closes the "global, non-worktree-scoped VM state dir" footgun: a libvirt domain name derives purely from the deploy name, with no project/worktree component, so two concurrent `git worktree` checkouts of this repo running the SAME bed/deploy name (the common case — bed names like `check-charly-vm` are fixed identifiers shared across every worktree) collide on the same host state directory AND the same libvirt domain. Set it to a worktree-distinct absolute path (e.g. in a per-worktree wrapper script or `.envrc`) to isolate concurrent worktrees; must be absolute — a relative override is rejected rather than silently resolving against whatever cwd happens to be active. Unset (the default) is byte-identical to the pre-fix behavior.
+
 ## Libvirt XML configuration
 
 Primary surface is the structured `LibvirtDomain` in the VM's `<name>-libvirt` child node (`<name>-libvirt: {libvirt: {features, cpu, clock, devices, sysinfo, launch_security, …}}`). See `/charly-internals:libvirt-renderer` for the full schema.
