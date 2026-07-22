@@ -458,10 +458,13 @@ you skipped without deciding it inapplicable is an incomplete review (re-open it
      CUE-sourced in the same PR instead of extended as-is). Generalized by
      standing operator directive 2026-07-22 (any PR modifying a hand-written
      wire surface must convert it) — first applied to `sdk/spec/arbiter_wire.go`
-     in the still-in-flight `sdk#90` (a conversion ORDERED for that file, not
-     yet landed as of this writing; re-verify its current state before citing
-     it as landed). A PR that extends a non-compliant surface without curing
-     it FAILS.
+     (`sdk#90`, LANDED: FLOOR-SLIM Unit-8B) and then to the entire remaining
+     `sdk/spec/*_wire.go` class in one SDD-conversion batch (deploy, init, gpu,
+     doctor, enc, feature, k8sgen, resource, settings, substrate_template,
+     agent, distro, vm) — the hand-written-wire-file class is now EXTINCT;
+     always re-verify current state (`sdk/spec/*_wire.go` should list nothing)
+     before citing any file in this history as still hand-written. A PR that
+     extends a non-compliant surface without curing it FAILS.
    - **(d) Every sweep/dead-code claim requires its ACTUALLY-EXECUTED command
      output, pasted — never a described-but-unrun claim.** "I grepped for
      callers and found none" / "ran the lint sweep, it's clean" is not evidence
