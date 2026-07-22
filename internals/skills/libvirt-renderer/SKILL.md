@@ -216,11 +216,11 @@ libvirt validator. It rejects:
 - the cross-rules: `cpu.mode:custom ⇒ model`, and (on the `#Vm` parent)
   `firmware:uefi-secure ⇒ libvirt.features.smm:true`.
 
-XML well-formedness of raw `libvirt.snippets` is still checked by
-`sdk/vmshared`'s `ValidateLibvirtSnippet`, invoked by the **candy/image-level**
-`validateLibvirt` rule in `candy/plugin-box/validate_rules.go`;
-`kind: vm` entity-inline `libvirt.snippets` are modeled typed-open (`[...string]`)
-and not XML-parsed at config time.
+Raw `libvirt.snippets` are modeled typed-open (`[...string]`) and not
+XML-parsed at config time — well-formedness of a snippet is caught only
+indirectly, by the egress validation of the RENDERED domain XML below (a
+malformed snippet breaks the render or fails `ValidateXMLEgress`), not by a
+dedicated ingress-time XML check.
 
 **Egress validation of the RENDERED domain XML** (distinct from the `#LibvirtDomain`
 INGRESS validation above): `RenderDomainXML` runs `ValidateXMLEgress` on its output —
