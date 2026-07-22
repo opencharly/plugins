@@ -591,7 +591,15 @@ SPECIFIC blocking findings (file:line) and exactly what the author must fix.>
 **Attribute the comment.** Every comment you post is AI-authored content, so it
 MUST end with `*Assisted-by: <Harness> <Full Model Name> (<confidence>)*`
 (Fedora AI policy — every AI-involved
-PR/issue comment attributes). The `<confidence>` is the attribution confidence YOUR OWN
+PR/issue comment attributes). **`<Harness>` and `<Full Model Name>` in that line
+are FORMAT PLACEHOLDERS, never literal text to copy verbatim.** Fill them with
+the RUNTIME-EXPOSED identity — the exact harness name and full model name YOUR
+OWN running session reports at run time (the same verification item 3 /
+"Verify the harness, provider, and full model name against the authoring
+runtime evidence" already requires for the commit trailer) — NEVER a typed,
+recalled, or guessed name; a guessed name is how a PR-comment footer ends up
+self-labeled with the wrong model even when the commit trailer is correct. The
+`<confidence>` is the attribution confidence YOUR OWN
 validation supports for this PR's change class (the project rulebook "AI Attribution"), never
 inflated: for a runtime-class PR whose checks you re-ran live → `analysed on a live
 system`; for a docs-only PR you validated via the non-runtime standards →

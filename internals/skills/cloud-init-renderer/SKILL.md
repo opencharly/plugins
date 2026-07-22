@@ -99,10 +99,12 @@ func ResolveKeyInjectionChannels(spec *VmSpec) (smbios bool, cloudInit bool) {
 
 The renderer prepends defaults to user-declared lists:
 
-- `composePackages`: prepends `{openssh, curl, tar}` (deduplicated against user's `Packages`). Guarantees the guest has SSH server + download tools + tar for later layer application.
-- `composeRunCmd`: prepends `{systemctl enable --now sshd}`. Distro-specific user `runcmd:` entries can assume sshd is running.
+- `composePackages`: prepends `{openssh (or `openssh-server` on debian/ubuntu), curl, tar}` (deduplicated against user's `Packages`). Guarantees the guest has SSH server + download tools + tar for later layer application.
+- `composeRunCmd`: prepends `{systemctl enable --now sshd (or ssh on debian/ubuntu)}`. Distro-specific user `runcmd:` entries can assume sshd is running.
 
 User-supplied fields **extend** defaults; they don't replace them. Prevents the common footgun where an author puts `packages: [nginx]` and accidentally breaks SSH because they overrode the default list.
+
+**Delivery is distro-branched (D15): `packages:` for most distros, a `runcmd:`-prepended `pacman -S --needed` for pacman-family.** On every distro EXCEPT the pacman family (arch/cachyos/manjaro/endeavouros), the composed package union rides the `packages:` cloud-config key as documented above. On a pacman-family distro, `packages:` is OMITTED entirely and the union is instead PREPENDED to `runcmd:` as `pacman -S --needed --noconfirm <union>` (before `composeRunCmd`'s sshd-enable line). This is an R10 bed finding: cloud-init's own package-install module invokes `pacman -S` WITHOUT `--needed`, so on an image that already ships the minimum set (e.g. every Arch cloud image) it unconditionally REINSTALLS them — reinstalling openssh re-triggers its post-install host-key-regen hook while the base image's own socket-activated sshd is already listening, racing a live key-file rewrite against new SSH connections (the observed "reset during `kex_exchange_identification`, guest otherwise idle" signature). apt/dnf installs are naturally no-op-idempotent when the package is already present, so only the pacman-family path needs the `--needed` rewrite; every other distro's render is byte-identical to the `packages:`-key form. The pacman-family check is `formatForDistroID(effectiveDistro(spec)) == "pac"`; `effectiveDistro` resolves `Source.Distro` when set, and additionally infers `"arch"` for a `cloud_image` source with `base_user: "arch"` and no explicit `distro:` (a narrowing of the pre-existing `composePackages` distro-switch fallback, never a behavior change for a caller that already got the Arch/Fedora shape) — every OTHER empty-distro image stays on the safe, unchanged `packages:`-key path. See `sdk/vmshared/cloud_init_render.go`'s `effectiveDistro`/`composePackages` doc comments for the full narrowing proof.
 
 ## WriteSeedISO
 
