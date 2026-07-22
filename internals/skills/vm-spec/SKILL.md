@@ -121,7 +121,7 @@ Having both channels on simultaneously is the safe default; there's no duplicati
 The renderer combines structured fields with renderer defaults:
 
 - `Packages`: prepended with `{openssh, curl, tar}`.
-- `RunCmd`: prepended with `{systemctl enable --now sshd}` so distro-specific setup can assume sshd is running.
+- `RunCmd`: prepended with three D18 hardening steps — a self-testing `PerSourcePenalties no` sshd drop-in write+validate, `systemctl unmask ssh.socket`, then `systemctl enable --now sshd` — so distro-specific setup can assume sshd is running and hardened. See `/charly-internals:cloud-init-renderer` "Guest SSH hardening (D18)" for the full mechanism + design trade-off.
 - `Users`: the `VmSSH.User` account is auto-injected unless already present; if present, the renderer appends the ssh pubkey to the user's existing entry.
 
 `Extra` is a raw-YAML escape hatch merged after structured fields. Prefer structured fields; `Extra` exists for long-tail cloud-init options the schema doesn't cover.
