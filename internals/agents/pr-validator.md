@@ -250,7 +250,7 @@ you skipped without deciding it inapplicable is an incomplete review (re-open it
    against; a runtime-class PR that does not list the exact beds + per-bed results
    is incomplete (item 1) and FAILS.
 3. **Attribution tier vs proof (the project rulebook "AI Attribution").** The claimed
-   `Assisted-by: <Harness> <Full Model Name> (<confidence>)` is JUSTIFIED by
+   `Assisted-by: <Harness> <Provider Full Model Name> (<confidence>)` is JUSTIFIED by
    the pasted proof, never inflated
    — YOU set the ceiling independently, do not inherit the author's wording.
    Verify the harness, provider, and full model name against the authoring
@@ -458,10 +458,13 @@ you skipped without deciding it inapplicable is an incomplete review (re-open it
      CUE-sourced in the same PR instead of extended as-is). Generalized by
      standing operator directive 2026-07-22 (any PR modifying a hand-written
      wire surface must convert it) — first applied to `sdk/spec/arbiter_wire.go`
-     in the still-in-flight `sdk#90` (a conversion ORDERED for that file, not
-     yet landed as of this writing; re-verify its current state before citing
-     it as landed). A PR that extends a non-compliant surface without curing
-     it FAILS.
+     (`sdk#90`, LANDED: FLOOR-SLIM Unit-8B) and then to the entire remaining
+     `sdk/spec/*_wire.go` class in one SDD-conversion batch (deploy, init, gpu,
+     doctor, enc, feature, k8sgen, resource, settings, substrate_template,
+     agent, distro, vm) — the hand-written-wire-file class is now EXTINCT;
+     always re-verify current state (`sdk/spec/*_wire.go` should list nothing)
+     before citing any file in this history as still hand-written. A PR that
+     extends a non-compliant surface without curing it FAILS.
    - **(d) Every sweep/dead-code claim requires its ACTUALLY-EXECUTED command
      output, pasted — never a described-but-unrun claim.** "I grepped for
      callers and found none" / "ran the lint sweep, it's clean" is not evidence
@@ -636,14 +639,14 @@ posted, link) | none-found; "none open" if there were no other open PRs>
 **Decision:** <on PASS: what you verified and why it is compliant; on FAIL: the
 SPECIFIC blocking findings (file:line) and exactly what the author must fix.>
 
-*Assisted-by: <Harness> <Full Model Name> (<confidence>)*
+*Assisted-by: <Harness> <Provider Full Model Name> (<confidence>)*
 ```
 
 **Attribute the comment.** Every comment you post is AI-authored content, so it
-MUST end with `*Assisted-by: <Harness> <Full Model Name> (<confidence>)*`
+MUST end with `*Assisted-by: <Harness> <Provider Full Model Name> (<confidence>)*`
 (Fedora AI policy — every AI-involved
-PR/issue comment attributes). **`<Harness>` and `<Full Model Name>` in that line
-are FORMAT PLACEHOLDERS, never literal text to copy verbatim.** Fill them with
+PR/issue comment attributes). **`<Harness>` and `<Provider Full Model Name>` in
+that line are FORMAT PLACEHOLDERS, never literal text to copy verbatim.** Fill them with
 the RUNTIME-EXPOSED identity — the exact harness name and full model name YOUR
 OWN running session reports at run time (the same verification item 3 /
 "Verify the harness, provider, and full model name against the authoring
@@ -714,8 +717,8 @@ stamps collide and mis-order across concurrent PRs). Operate on the feat branch:
 4. **Re-post the status on the NEW head** (step 3 moved it — again via
    `git ls-remote`), state `success`.
 5. **Merge:** stream the full squash-commit body with real newlines on standard
-   input, ending with the author's `Assisted-by: <Harness> <Full Model
-   Name> (<confidence>)` trailer, then run `gh pr merge <N> --repo <owner>/<repo>
+   input, ending with the author's `Assisted-by: <Harness> <Provider Full
+   Model Name> (<confidence>)` trailer, then run `gh pr merge <N> --repo <owner>/<repo>
    --squash --delete-branch --subject "<the cutover's conventional-commit
    subject>" --body-file -`. This creates no validator-local body file. SQUASH,
    so `main` gains exactly
@@ -794,7 +797,7 @@ Cross-PR interactions considered: <one line per interaction found across the
   comment link) | none-found; "none open" if there were no other open PRs>
 
 Status posted: charly/pr-validator = <success|failure> on <sha>
-PR comment posted: yes (ends with *Assisted-by: <Harness> <Full Model Name> (<confidence>)*)
+PR comment posted: yes (ends with *Assisted-by: <Harness> <Provider Full Model Name> (<confidence>)*)
 Verdict: PASS → merged (squash) as <merge-sha>, tagged v<VER>
    OR    FAIL → not merged; blocking: <findings>
 ```

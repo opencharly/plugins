@@ -195,7 +195,7 @@ plugin-side directly, returning a `spec.AndroidDeployVenue`.
   truth) + the relaxed `checkDeployProviderBijection` (in-proc XOR externalized).
 - `charly/plugin_prescan.go` — `isExternalDeploySubstrate` (a substrate kind is
   external iff in `externalizedDeploySubstrates`).
-- `sdk/spec/deploy_wire.go` — `DeployVenue.Substrate` + `AndroidDeployVenue`.
+- `sdk/schema/deploy.cue` (CUE-sourced; generated into `spec/cue_types_gen.go`) — `#DeployVenue` (`.Substrate`) + `#AndroidDeployVenue`.
 - `candy/plugin-adb/deploy.go` — the `deploy:android` provider (boot gate + install
   loop with retry + uninstall reverse ops); `install.go` — the shared installer.
 - `deploykit.ApkInstallStep` (`sdk/deploykit/steps.go`); `sdk/deploykit/install_build.go` —
