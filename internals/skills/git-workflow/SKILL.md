@@ -843,7 +843,7 @@ Fix: Add fuse-overlayfs for container startup
 
 Tested via overlay session on LOCAL system.
 
-Assisted-by: Codex (OpenAI GPT-5.6 Sol; fully tested and validated)
+Assisted-by: <Harness> (<Provider Full Model Name>; fully tested and validated)
 ```
 
 For every harness, the enforced trailer form is exactly

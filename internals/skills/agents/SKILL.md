@@ -1082,8 +1082,9 @@ Hooks in this project do TWO things and nothing more. The full inventory
    second-pass *triggers* (rule label + a few-word essence + an anchor) so every
    rule gets a "verify THIS turn against it" nudge; the `Stop` reminder prompts a
    re-audit of the turn's changes + the per-repo CHANGELOG entry. They are
-   reminders, NOT copies: a trigger never restates the rule BODY. Claude hooks
-   point to `CLAUDE.md`; Codex and Kimi follow the complete `AGENTS.md` rulebook.
+   reminders, NOT copies: a trigger never restates the rule BODY. Harness
+   adapter hooks point to `CLAUDE.md`; compatible readers follow the complete,
+   harness-neutral `AGENTS.md` rulebook.
 2. **Deterministic `PreToolUse` gates** that cover immediate command mechanics
    only: hook bypass (`--no-verify` / `-n` / `core.hooksPath`), untokenizable
    commit commands, configured Go lint for staged Go modules, force-push, and a
