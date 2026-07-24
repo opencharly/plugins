@@ -16,7 +16,7 @@ description: |
 the on-demand counterpart to the auto-pruning that runs after `charly box build`
 and `charly check run`.
 
-`charly clean` is a **compiled-in COMMAND-class plugin** (`candy/plugin-clean`, `command:clean`) that OWNS the command. The plugin owns the flag grammar (`--dry-run` / `--images` / `--check` / `--deep` / `--keep` / `--invalidate`), the category orchestration, the report output, and the local `pkg/arch` makepkg sweep (`cleanMakepkgArtifacts`, a single-caller file op moved into the plugin). The **shared retention engine** — `pruneImagesByRetention`, `pruneCheckRuns`, `pruneBuildCandyDirs`, `invalidateImageTags`, `pruneDeepDanglingImages`, and the charly-labeled image-tag CalVer/label inventory — STAYS in core (`charly/retention.go`) because it is multi-caller: `charly box build`, `charly check run`, and `charly box list tags` all use it. The plugin reaches it through the generic **"retention" `HostBuild` seam** (`charly/host_build_retention.go`, `spec.RetentionRequest` → `spec.RetentionReply`), which resolves the project's `keep_images` / `keep_check_runs` defaults (`ResolveRuntime` + `LoadConfig`) host-side. clean is **compiled-in** (`charly/charly.yml` `compiled_plugins:`) because its `Invoke(OpRun)` needs the in-proc reverse channel — threaded by `dispatchInProcCommand` ("Seam A") — to call `HostBuild`; the out-of-process `CliMain` path has no reverse channel and errors. This is the same "plugin owns the logic + generic seams for the core-coupled bits" doctrine the vm + pod deploy plugins established — no hidden core-command forward, and no plugin-specific command logic left in core.
+`charly clean` is a **compiled-in COMMAND-class plugin** (`candy/plugin-clean`, `command:clean`) that OWNS the command AND (K1-alpha core-minimization) the **shared retention ENGINE** itself — `pruneImagesByRetention`, `pruneCheckRuns`, `pruneBuildCandyDirs`, `invalidateImageTags`, `pruneDeepDanglingImages`, and the charly-labeled image-tag CalVer/label inventory (`candy/plugin-clean/retention.go`), relocated from the former `charly/retention.go` since it has zero core-only dependencies (`kit.CalVer`/`kit.ListLocalImages`/`kit.BuildActivityDir` are all sdk-portable). The plugin owns the flag grammar (`--dry-run` / `--images` / `--check` / `--deep` / `--keep` / `--invalidate`), the category orchestration, the report output, and the local `pkg/arch` makepkg sweep (`cleanMakepkgArtifacts`, a single-caller file op moved into the plugin). `charly clean`'s own CLI calls the engine LOCALLY (no wire hop, same package). The other three callers — `charly box build`'s post-build prune, `charly box list tags`, and `charly check run`'s post-run prune (candy/plugin-check) — reach it via a new `verb:retention` capability (a `spec.RetentionRequest` → `spec.RetentionReply` Invoke), the SAME peer/core-adapter pattern verb:credential/verb:gpu/verb:tunnel already use: core's two callers (already running `LoadConfig` in-process) resolve `defaults.keep_images`/`keep_check_runs` themselves and pass the resolved ints in the request; plugin-check (a peer plugin, not core) reaches verb:retention via `InvokeProvider`. The ONE thing the plugin genuinely cannot compute itself is those SAME defaults, for its OWN CLI — fetched via the small **"retention-defaults" `HostBuild` seam** (`charly/host_build_retention_defaults.go`, resolving `ResolveRuntime` + `LoadConfig` host-side) — the ONE remaining call-back. clean is **compiled-in** (`charly/charly.yml` `compiled_plugins:`) because its `Invoke(OpRun)` needs the in-proc reverse channel — threaded by `dispatchInProcCommand` ("Seam A") — to call `HostBuild("retention-defaults")`; the out-of-process `CliMain` path has no reverse channel, so the categories needing a resolved keep-default (images/check/deep) error there — list/invalidate need no default and run standalone. This is the same "plugin owns the logic + generic seams for the core-coupled bits" doctrine the vm + pod deploy plugins established — no hidden core-command forward, and no plugin-specific command logic left in core.
 
 Two artifact classes, two policies (operator principle):
 
@@ -131,25 +131,33 @@ the qcow2 build.
 
 ## Implementation
 
-`candy/plugin-clean/` — the command plugin that OWNS `charly clean`: `command.go`
-(flag grammar + category orchestration via `cleanCategories` + `cleanMakepkgArtifacts` +
-`hostRetention`, which calls the seam), `provider.go` (`Invoke(OpRun)`, the compiled-in dispatch
-surface), `plugin.go` (`NewProvider` / `NewMeta` / `CliMain`). The **shared retention engine**
-stays in core: `charly/retention.go` holds `pruneImagesByRetention`, `pruneCheckRuns`,
-`pruneBuildCandyDirs`, and the `charlyImageTags` inventory (`invalidateImageTags` lives with
-`charly box list tags` in `charly/volume_cp_tags_cmd.go`). `--deep` shares its engine with the
-default charly-labeled dangling sweep via `pruneDanglingImages`/`selectDanglingImages`
-(`charly/retention.go`) parameterized by an `onlyCharly` bool: `pruneDanglingCharlyImages`
+`candy/plugin-clean/` — the command plugin that OWNS `charly clean` AND the shared retention
+ENGINE: `command.go` (flag grammar + category orchestration via `cleanCategories` +
+`cleanMakepkgArtifacts` + `fetchRetentionDefaults`, which calls the one remaining host seam),
+`provider.go` (`Invoke`, dispatching by word — `"clean"` for the CLI, `"retention"` for the
+engine — the compiled-in dispatch surface for both), `plugin.go` (`NewProvider` / `NewMeta`
+advertising `command:clean` + `verb:retention` / `CliMain`), `retention.go` (the relocated
+engine: `pruneImagesByRetention`, `pruneCheckRuns`, `pruneBuildCandyDirs`, `invalidateImageTags`,
+`pruneDeepDanglingImages`, and the `charlyImageTags` inventory — all now in this package,
+importing only `sdk/kit` + `sdk/spec`). `--deep` shares its engine with the default
+charly-labeled dangling sweep via `pruneDanglingImages`/`selectDanglingImages`
+(`candy/plugin-clean/retention.go`) parameterized by an `onlyCharly` bool: `pruneDanglingCharlyImages`
 (onlyCharly=true, the default sweep) and `pruneDeepDanglingImages` (onlyCharly=false, `--deep`)
 are both thin wrappers over the ONE shared selection + removal engine (R3 — no duplicated
-listing/removal logic between the two categories). The plugin reaches it via the generic
-"retention" `HostBuild` seam — `charly/host_build_retention.go` (`hostBuildRetention`,
-registered as `retentionBuilderKind = "retention"`, resolving defaults with `ResolveRuntime`
-+ `LoadConfig`); the compiled-in in-proc reverse channel is threaded by `dispatchInProcCommand`
+listing/removal logic between the two categories). The engine is reached two ways: `charly
+clean`'s own CLI calls `runRetention` in-package (no wire hop); the three OTHER callers reach
+`verb:retention` — core's `BuildCmd.Run` (`charly/build.go`, via `charly/retention_plugin.go`'s
+`pruneAfterBuild`, resolving `defaults.keep_images` itself and passing it pre-resolved) and
+`charly box list tags` (`charly/volume_cp_tags_cmd.go`, via `retention_plugin.go`'s
+`listCharlyImageTags`) resolve+Invoke the compiled-in provider directly (`providerRegistry.resolve
+(ClassVerb, "retention")`); `charly check run`'s post-run prune (the `command:check` plugin's
+harness, `candy/plugin-check`) reaches it over the PLUGIN↔PLUGIN `InvokeProvider` peer-dispatch
+leg (F10) instead, since it is itself a plugin and cannot resolve the core registry directly.
+Both non-core-adapter callers first fetch the resolved `defaults.keep_images`/`keep_check_runs`
+via the small **"retention-defaults" `HostBuild` seam** (`charly/host_build_retention_defaults.go`,
+resolving `ResolveRuntime` + `LoadConfig`) — the ONE thing the engine genuinely cannot compute
+itself; the compiled-in in-proc reverse channel is threaded by `dispatchInProcCommand`
 (`charly/provider_command_external.go`).
-Auto-prune hooks: `BuildCmd.Run` (`charly/build.go`) fires the `keep_images`
-prune; the `charly check run` prune is driven by the `command:check` plugin's
-harness (`candy/plugin-check`) over the same generic `retention` `HostBuild` seam.
 Retention keys live on `BoxConfig`
 (`charly/config.go`), merged via `mergeBoxConfig` (`charly/unified.go`), validated in
 `validateBuildTunables` (`charly/validate.go`).
