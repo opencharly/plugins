@@ -9,14 +9,19 @@ description: |
 
 ## Overview
 
-Skills are living documents at `plugins/<plugin>/skills/<name>/SKILL.md`. They are the primary knowledge source for Claude Code — always invoked before codebase exploration. This skill covers when and how to update them.
+Skills are living documents at `plugins/<plugin>/skills/<name>/SKILL.md`. They
+are the primary procedural knowledge source for every supported agent harness
+and are always loaded before codebase exploration. This skill covers when and
+how to update them.
 
 ## Skill Dispatchers
 
-Each harness has a complete root dispatcher: Claude Code uses `CLAUDE.md` and
-Codex uses `AGENTS.md`. Keep their trigger → skill mappings equivalent while
-preserving harness-specific tool language. When multiple triggers apply, load
-all matching skills before acting. Full index: `plugins/README.md`.
+The repository has two complete root dispatchers: `CLAUDE.md` is the
+harness-specific adapter and `AGENTS.md` is the harness-neutral rulebook for
+compatible readers. Keep their trigger → skill mappings and overall policy
+equivalent while confining harness-specific mechanics to the adapter and
+skills. When multiple triggers apply, load all matching skills before acting.
+Full index: `plugins/README.md`.
 
 ## When to Update Skills
 
@@ -175,7 +180,7 @@ content — they live in the superproject's `.claude/workflows/*.js`.
 
 ### Per-directory CLAUDE.md signposts (hybrid)
 
-The repo-root `CLAUDE.md` is Claude Code's complete R0–R10 rule-set.
+The repo-root `CLAUDE.md` is the complete R0–R10 harness adapter.
 Per-directory `CLAUDE.md` files (`charly/`, `candy/`, `plugins/`, and each
 `box/<distro>` submodule) are THIN signposts only: they name the skills to
 load for that area and point back to root. They MUST NOT restate any rule body —
@@ -183,8 +188,9 @@ duplication drifts (an earlier layer-validator and the reminder hooks both drift
 exactly this way; the reminder hooks now name rules as pointers/triggers, never
 restating their bodies). Subagents and teammates load the full `CLAUDE.md`
 hierarchy from their working directory, so a signpost reaches a worker scoped
-to that subtree without bloating root. Codex uses the independent root
-`AGENTS.md` dispatcher and does not depend on these Claude signposts.
+to that subtree without bloating root. Compatible harnesses that read
+`AGENTS.md` use its independent, harness-neutral dispatcher and do not depend
+on these signposts.
 
 ## Two-Layer Sync Architecture
 
