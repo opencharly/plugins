@@ -1,7 +1,7 @@
 ---
 name: skills
 description: |
-  Skill maintenance guidelines: when and how to update skills, CLAUDE.md, and README.md.
+  Skill maintenance guidelines: when and how to update skills, root rulebooks, and README.md.
   Use when updating documentation, feeding back operational insights, or auditing skill coverage.
 ---
 
@@ -43,7 +43,7 @@ Full index: `plugins/README.md`.
 ## When NOT to Update Skills
 
 - **Ephemeral issues** — use conversation context or memory
-- **User-specific config** — use Claude Code memory system
+- **User-specific config** — use the active harness's private memory or user configuration
 - **Bug fixes in charly code** — the fix is in git; document behavioral changes in skills only
 - **Anything derivable from code** — skills document *usage*, not implementation details
 - **Historical / version-history content** — dated change notes, "renamed from", "previously / formerly / was", completed cutovers, retired / relocated identifiers → the repo's `CHANGELOG/` (one file per CalVer release version, `<YYYY.DDD.HHMM>.md`), NEVER a skill or the project rulebook. Skills describe current behavior in present tense only. When a cutover lands, write its narrative to the release's `CHANGELOG/<YYYY.DDD.HHMM>.md` (the version shared by the changelog filename and the release tag) and state the new standing rule forward-looking in the skill, with no history.
