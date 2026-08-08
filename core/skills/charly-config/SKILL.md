@@ -63,7 +63,7 @@ This is the **single entry point** for **container** deployment setup. `charly s
 | `--port` | `-p` | | Remap host port (newHost:containerPort) |
 | `--keep-mounted` | | | Keep encrypted volumes mounted after setup |
 | `--password` | | `auto` | `auto`: generate secrets, `manual`: prompt for each |
-| `--volume` | `-v` | | Configure volume backing (name:type[:path]). Type: volume\|bind\|encrypted |
+| `--volume` | `-v` | | Configure volume backing (`name:type[:path]`). Type: volume\|bind\|encrypted |
 | `--bind` | | | Shorthand: configure volume as bind mount (name or name=path) |
 | `--encrypt` | | | Shorthand: configure volume as encrypted (gocryptfs) |
 | `--seed` | | `true` | Seed image volumes (bind mounts AND named volumes) with data from the image's data candies |
